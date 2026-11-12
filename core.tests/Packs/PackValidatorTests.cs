@@ -86,3 +86,21 @@ public class PackValidatorTests
         Assert.Contains(r.Diagnostics, d => d.Code == "E003");
     }
 }
+
+public class ExpressionValidationTests
+{
+    [Fact]
+    public void BadExpressionIsE008()
+    {
+        var r = TestPacks.Load(f => f["events/ev.yaml"] = f["events/ev.yaml"].Replace("t:gdp > 50", "t:gdp >"));
+        var d = Assert.Single(r.Diagnostics, x => x.Code == "E008");
+        Assert.Equal("events/ev.yaml", d.File);
+    }
+
+    [Fact]
+    public void ExpressionWithUnknownValueIsE004()
+    {
+        var r = TestPacks.Load(f => f["events/ev.yaml"] = f["events/ev.yaml"].Replace("t:gdp > 50", "t:ghost > 50"));
+        Assert.Contains(r.Diagnostics, x => x.Code == "E004" && x.Message.Contains("t:ghost"));
+    }
+}

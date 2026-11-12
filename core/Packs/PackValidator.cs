@@ -62,6 +62,11 @@ public static class PackValidator
             if (!(ev.Probability >= 0 && ev.Probability <= 1))
                 Err("E007", "event", ev.Id, $"Event '{ev.Id}' probability {ev.Probability} is outside [0, 1].");
             foreach (var fx in ev.Effects) Ref("event", ev.Id, $"Event '{ev.Id}' effect", fx.ValueId, valueIds, "value");
+            if (!Expressions.ExprParser.TryParse(ev.Condition, out var expr, out var parseError))
+                Err("E008", "event", ev.Id, $"Event '{ev.Id}' condition is invalid: {parseError}");
+            else
+                foreach (var r in expr!.References)
+                    Ref("event", ev.Id, $"Event '{ev.Id}' condition", r, valueIds, "value");
         }
         foreach (var s in set.Scenarios)
         {
