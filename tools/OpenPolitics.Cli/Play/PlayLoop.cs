@@ -335,6 +335,33 @@ public sealed class PlayLoop
         Line(_t.T("ui.politics.government"), $"{_t.T("ui.politics.seats_of", held, total)}  ({verdict})");
         if (pol.Leader != null) Line(_t.T("ui.politics.leader"), _t.Name(pol.Leader));
         ShowFormationStatus(pol);
+        if (pol.Phase == Phase.Governing && pol.Loyalty is { Count: > 0 }) ShowCoalitionPanel(pol, full: false);
+    }
+
+    private string LoyaltyWord(CountryPolitics pol, string party, double loyalty) =>
+        _t.T(pol.Ultimatums?.Any(u => u.PartyId == party) == true ? "ui.loyalty.ultimatum" : loyalty < 60 ? "ui.loyalty.uneasy" : "ui.loyalty.stable");
+
+    private void ShowCoalitionPanel(CountryPolitics pol, bool full)
+    {
+        _out.WriteLine($"\n{_t.T("ui.heading.coalition")}");
+        foreach (var (party, loyalty) in pol.Loyalty!)
+        {
+            _out.WriteLine($"  {_t.Name(party),-24}{_t.T("ui.coalition.loyalty", Fmt.Number(loyalty, "0"))}  {Fmt.Bar((loyalty - 50) / 50.0, 5)}  {LoyaltyWord(pol, party, loyalty)}");
+            if (pol.Ultimatums?.FirstOrDefault(u => u.PartyId == party) is { } u)
+            {
+                var d = u.DemandId == null ? null : DemandOf(party, u.DemandId);
+                _out.WriteLine("      " + _t.T("ui.coalition.ultimatum", u.TurnsLeft, d == null ? "" : DemandText(d)));
+            }
+            if (!full) continue;
+            var mine = pol.Commitments?.Where(c => c.PartyId == party).ToList() ?? new();
+            if (mine.Count == 0) _out.WriteLine("      " + _t.T("ui.coalition.no_commitments"));
+            foreach (var c in mine)
+            {
+                var d = DemandOf(party, c.DemandId);
+                string status = c.Progress >= 0.999 ? "ui.commitment.done" : c.Progress + 0.05 >= c.Expected ? "ui.commitment.on_track" : "ui.commitment.late";
+                _out.WriteLine($"      [{_t.T(status)}] {(d == null ? c.DemandId : DemandText(d))}  ({Fmt.Number(c.Progress * 100, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)");
+            }
+        }
     }
 
     private static string ShareBar(double share, int width = 20) =>
@@ -354,6 +381,16 @@ public sealed class PlayLoop
                 OfferLapsed => _t.T("ui.event.offer_lapsed"),
                 GovernmentFormed g => _t.T("ui.event.government_formed", string.Join(", ", g.Government.Parties.Select(_t.Name)), _t.Name(g.Government.Leader)),
                 EarlyElectionsCalled => _t.T("ui.event.early_elections"),
+                LoyaltyWarning w => w.DemandId is { } wd && DemandOf(w.PartyId, wd) is { } wdef
+                    ? _t.T("ui.event.loyalty_warning_demand", _t.Name(w.PartyId), DemandText(wdef))
+                    : _t.T("ui.event.loyalty_warning", _t.Name(w.PartyId)),
+                Ultimatum u => u.DemandId is { } ud && DemandOf(u.PartyId, ud) is { } udef
+                    ? _t.T("ui.event.ultimatum_demand", _t.Name(u.PartyId), u.TurnsLeft, DemandText(udef))
+                    : _t.T("ui.event.ultimatum", _t.Name(u.PartyId), u.TurnsLeft),
+                PartnerLeft l => _t.T("ui.event.partner_left", _t.Name(l.PartyId)),
+                GovernmentFell => _t.T("ui.event.government_fell"),
+                GovernmentMeasure m when _policyById.TryGetValue(m.PolicyId, out var mp) =>
+                    _t.T("ui.event.government_measure", _t.Name(m.PolicyId), Fmt.Policy(mp, m.From, _t), Fmt.Policy(mp, m.To, _t)),
                 _ => null,
             };
             if (text == null) continue;
@@ -384,6 +421,9 @@ public sealed class PlayLoop
         var seats = Current.Politics?.Seats;
         return _packs.Parties.Where(p => (seats?.GetValueOrDefault(p.Id) ?? 0) > 0).OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
     }
+
+    private DemandDef? DemandOf(string partyId, string demandId) =>
+        _packs.Parties.FirstOrDefault(p => p.Id == partyId)?.Demands.FirstOrDefault(d => d.Id == demandId);
 
     private string DemandText(DemandDef d)
     {
@@ -421,7 +461,11 @@ public sealed class PlayLoop
     {
         var pol = Current.Politics;
         if (pol?.Formation is not { PlayerIsFormateur: true })
-        { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
+        {
+            if (pol is { Phase: Phase.Governing, Loyalty.Count: > 0 }) ShowCoalitionPanel(pol, full: true);
+            else _out.WriteLine(_t.T("ui.err.not_formateur"));
+            return;
+        }
         var rules = _packs.Countries.First(c => c.Politics != null).Politics!;
         int total = pol.Seats.Values.Sum();
         int held = pol.Seats.GetValueOrDefault(pol.PlayerParty) + _draftPartners.Sum(p => pol.Seats.GetValueOrDefault(p));
