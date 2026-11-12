@@ -16,9 +16,18 @@ jobs:
           global-json-file: global.json
       - run: dotnet build -c Release
       - run: dotnet test -c Release --no-build
-      - name: Validate base pack
-        run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- validate data/base
-        continue-on-error: true # removed in Task 15 once validate exists
+      - name: Validate packs
+        shell: bash
+        run: |
+          dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- validate data/base
+          dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- validate data/base data/examples/sample-mod
+      - name: Validator rejects the broken mod
+        shell: bash
+        run: |
+          if dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- validate data/base data/examples/broken-mod; then
+            echo "broken-mod unexpectedly validated"; exit 1
+          fi
       - name: Stability batch
-        run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- batch --games 50 --strategy random --turns 80
-        continue-on-error: true # removed in Task 15 once batch exists
+        run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- batch --packs data/base --games 100 --strategy random --turns 80
+      - name: Passive batch (includes the no-ceiling check)
+        run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- batch --packs data/base --games 50 --strategy passive --turns 80

@@ -1,0 +1,15 @@
+- id: sample:green_subsidy
+  unit: percent_of_gdp
+  min: 0
+  max: 3
+  default: 0
+  cost_per_unit: 1          # spending policy: parameter is percent of GDP
+  delay_turns: 2
+- id: base:police          # redefines a base policy, so 'override: true' is required
+  override: true
+  unit: percent_of_gdp
+  min: 0.5
+  max: 4
+  default: 2.0
+  cost_per_unit: 1
+  delay_turns: 1

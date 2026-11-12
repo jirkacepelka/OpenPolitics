@@ -1,0 +1,5 @@
+- id: sample:green_subsidy_to_environment
+  from: sample:green_subsidy
+  to: base:environment
+  strength: 4.0             # index points per year at the full policy range
+  delay: {type: lag, turns: 4}

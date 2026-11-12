@@ -10,5 +10,11 @@ if (args.Length == 1 && args[0] == "--version")
 if (args.Length >= 1 && args[0] == "validate")
     return ValidateCommand.Execute(args[1..], Console.Out);
 
+if (args.Length >= 1 && args[0] == "run")
+    return RunCommand.Execute(args[1..], Console.Out);
+
+if (args.Length >= 1 && args[0] == "batch")
+    return BatchCommand.Execute(args[1..], Console.Out);
+
 Console.Error.WriteLine("Usage: openpolitics <validate|run|batch> ... | --version");
 return 2;

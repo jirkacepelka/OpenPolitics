@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\core\OpenPolitics.Core.csproj" />
+    <ProjectReference Include="..\tools\OpenPolitics.Cli\OpenPolitics.Cli.csproj" />
   </ItemGroup>
 
 </Project>

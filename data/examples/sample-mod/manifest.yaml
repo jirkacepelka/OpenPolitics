@@ -1,0 +1,6 @@
+# Sample mod: adds one policy with one effect and overrides one base setting. See docs/modding/sample-mod.md.
+id: sample
+version: 0.1.0
+license: CC-BY-SA-4.0
+illustrative: true
+dependencies: [base]
