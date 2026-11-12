@@ -74,6 +74,10 @@ public sealed class Game
                 _scenario.TurnsPerYear);
     }
 
+    /// <summary>The value a policy will have once its queued changes are in (the last queued one, else the current one).</summary>
+    private double LatestPolicy(string id) =>
+        _pending.LastOrDefault(p => p.PolicyId == id)?.Value ?? _policies[id];
+
     private double CurrentYear => _scenario.StartYear + (double)_turn / _scenario.TurnsPerYear;
 
     public GameState State => new(_turn, CurrentYear, new SortedDictionary<string, CountryState>(Ord)
@@ -185,6 +189,11 @@ public sealed class Game
 
         // Politics runs on the committed state: today's poll, loyalty, the election countdown, formation.
         var politicalEvents = _politics?.Step(_turn, _satisfaction) ?? new List<PoliticalEvent>();
+        if (_politics?.GovernorMove(_turn, LatestPolicy) is { } move)
+        {
+            politicalEvents.Add(new GovernmentMeasure(_turn, move.PolicyId, LatestPolicy(move.PolicyId), move.Value));
+            _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
+        }
         var changes = before.Keys.Select(id => new ValueChange(id, before[id], after[id],
             eval.Contributions.TryGetValue(id, out var c) ? c : Array.Empty<Contribution>())).ToList();
         return new TurnReport(_turn, CurrentYear, changes, fired, warnings, politicalEvents);

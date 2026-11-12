@@ -39,3 +39,5 @@ public sealed record LoyaltyWarning(int Turn, string PartyId, string? DemandId) 
 public sealed record Ultimatum(int Turn, string PartyId, string? DemandId, int TurnsLeft) : PoliticalEvent(Turn);
 public sealed record PartnerLeft(int Turn, string PartyId) : PoliticalEvent(Turn);
 public sealed record GovernmentFell(int Turn) : PoliticalEvent(Turn);
+/// <summary>A policy change made by the government's AI governor (not by the player).</summary>
+public sealed record GovernmentMeasure(int Turn, string PolicyId, double From, double To) : PoliticalEvent(Turn);

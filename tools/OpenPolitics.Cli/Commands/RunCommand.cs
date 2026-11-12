@@ -39,7 +39,7 @@ public static class RunCommand
         var loaded = LoadPacks(p, output);
         if (loaded == null) { output.WriteLine(Usage); return 2; }
 
-        string? scenario = p.One("--scenario") ?? loaded.Packs!.Scenarios.FirstOrDefault()?.Id;
+        string? scenario = p.One("--scenario") ?? (loaded.Packs!.Scenarios.FirstOrDefault(s => s.Politics == null) ?? loaded.Packs!.Scenarios.FirstOrDefault())?.Id;
         if (scenario == null || loaded.Packs!.Scenarios.All(s => s.Id != scenario))
         {
             output.WriteLine($"Unknown scenario '{scenario}'. Available: {string.Join(", ", loaded.Packs!.Scenarios.Select(s => s.Id))}");

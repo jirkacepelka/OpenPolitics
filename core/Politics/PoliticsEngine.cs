@@ -53,6 +53,7 @@ internal sealed class PoliticsEngine
         _lookup = lookup;
         _dt = 1.0 / turnsPerYear;
         _groups = packs.VoterGroups;
+        _policyDefs = packs.Policies.ToDictionary(p => p.Id, Ord);
         _parties = packs.Parties.OrderBy(p => p.Id, Ord).ToDictionary(p => p.Id, Ord);
         _ranges = PartyMath.PolicyRanges(packs.Policies);
         var govParties = _scenario.Government.Concat(_scenario.Leader != null ? new[] { _scenario.Leader } : Array.Empty<string>())
@@ -138,6 +139,14 @@ internal sealed class PoliticsEngine
         _turnsToElection = 1;
         return ActionResult.Ok;
     }
+
+    private readonly Dictionary<string, PolicyDef> _policyDefs;
+
+    /// <summary>The governor's move for this turn; none unless the government is sitting and the player does not lead it.</summary>
+    public (string PolicyId, double Value)? GovernorMove(int turn, Func<string, double> latestPolicy) =>
+        _phase == Phase.Governing && PlayerRole != Role.Leader
+            ? Governor.Move(_government, latestPolicy, id => _lookup("value", id), _policyDefs, turn)
+            : null;
 
     /// <summary>One turn of politics. <paramref name="turn"/> is the turn number the report will carry.</summary>
     public List<PoliticalEvent> Step(int turn, IReadOnlyDictionary<string, double> satisfaction)
