@@ -86,6 +86,20 @@ public sealed class Game
 
     public ActionResult Apply(PlayerAction action)
     {
+        if (action is ProposeCoalition or AcceptOffer or RejectOffer or CallEarlyElection)
+        {
+            if (_politics == null) return new ActionResult(false, "error.no_politics", null);
+            int reportTurn = _turn + 1;
+            var result = action switch
+            {
+                ProposeCoalition p => _politics.Propose(p.Partners, p.Agreements, reportTurn),
+                AcceptOffer => _politics.AcceptOffer(reportTurn),
+                RejectOffer => _politics.RejectOffer(reportTurn),
+                _ => _politics.CallEarlyElection(),
+            };
+            if (result.Accepted) _log.Add((_turn, action));
+            return result;
+        }
         if (action is not SetPolicy set)
             return new ActionResult(false, "error.unknown_action", action.GetType().Name);
         if (_politics?.PolicyBlock() is { } blocked) return new ActionResult(false, blocked, null);
@@ -98,6 +112,9 @@ public sealed class Game
         _log.Add((_turn, action));
         return ActionResult.Ok;
     }
+
+    /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
+    public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();

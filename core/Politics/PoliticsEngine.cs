@@ -83,6 +83,45 @@ internal sealed class PoliticsEngine
     public string? PolicyBlock() =>
         _phase != Phase.Governing ? "error.no_majority" : PlayerRole != Role.Leader ? "error.not_leader" : null;
 
+    /// <summary>What the AI would propose if the player's party were formateur now; null when it is not.</summary>
+    public CoalitionProposal? Suggest() => PlayerIsFormateur ? BuildFor(_scenario.PlayerParty) : null;
+
+    public ActionResult Propose(IReadOnlyList<string> partners, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
+    {
+        if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
+        var proposal = new CoalitionProposal(_scenario.PlayerParty,
+            partners.Where(p => p != _scenario.PlayerParty).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements);
+        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, (_, _) => DefaultRelation);
+        if (refusals.Count > 0)
+            return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
+        _pending.Add(Form(reportTurn, proposal));
+        return ActionResult.Ok;
+    }
+
+    public ActionResult AcceptOffer(int reportTurn)
+    {
+        if (_offer == null) return new ActionResult(false, "error.no_offer", null);
+        _pending.Add(Form(reportTurn, _offer));
+        return ActionResult.Ok;
+    }
+
+    public ActionResult RejectOffer(int reportTurn)
+    {
+        if (_offer == null) return new ActionResult(false, "error.no_offer", null);
+        _pending.Add(new OfferLapsed(reportTurn));
+        _excluded.Add(_scenario.PlayerParty);
+        _offer = null;
+        return ActionResult.Ok;
+    }
+
+    public ActionResult CallEarlyElection()
+    {
+        if (_phase != Phase.Governing) return new ActionResult(false, "error.wrong_phase", null);
+        if (PlayerRole != Role.Leader) return new ActionResult(false, "error.not_leader", null);
+        _turnsToElection = 1;
+        return ActionResult.Ok;
+    }
+
     /// <summary>One turn of politics. <paramref name="turn"/> is the turn number the report will carry.</summary>
     public List<PoliticalEvent> Step(int turn, IReadOnlyDictionary<string, double> satisfaction)
     {
