@@ -81,6 +81,15 @@ public sealed class PlayLoop
                 case "info": DoInfo(cmd.Args); break;
                 case "save": DoSave(cmd.Args); break;
                 case "load": DoLoad(cmd.Args); break;
+                case "coalition": ShowCoalition(); break;
+                case "auto": DoAuto(); break;
+                case "invite": DoInvite(cmd.Args, add: true); break;
+                case "drop": DoInvite(cmd.Args, add: false); break;
+                case "agree": DoAgree(cmd.Args); break;
+                case "submit": DoSubmit(); break;
+                case "accept": Report(_game.Apply(new AcceptOffer()), "ui.formation.joined"); break;
+                case "reject": Report(_game.Apply(new RejectOffer()), "ui.formation.rejected"); break;
+                case "early": Report(_game.Apply(new CallEarlyElection()), "ui.formation.early_called"); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
         }
@@ -101,6 +110,15 @@ public sealed class PlayLoop
         ["info"] = "info", ["co"] = "info",
         ["save"] = "save", ["uloz"] = "save",
         ["load"] = "load", ["nacti"] = "load",
+        ["coalition"] = "coalition", ["koalice"] = "coalition",
+        ["auto"] = "auto",
+        ["invite"] = "invite", ["pozvi"] = "invite",
+        ["drop"] = "drop", ["vyhod"] = "drop",
+        ["agree"] = "agree", ["dohoda"] = "agree",
+        ["submit"] = "submit", ["predlozit"] = "submit", ["nabidni"] = "submit",
+        ["accept"] = "accept", ["prijmout"] = "accept", ["prijmi"] = "accept",
+        ["reject"] = "reject", ["odmitnout"] = "reject", ["odmitni"] = "reject",
+        ["early"] = "early", ["predcasne"] = "early",
     };
 
     private static (string Verb, string[] Args) Parse(string line)
@@ -147,7 +165,7 @@ public sealed class PlayLoop
             foreach (var id in _last.FiredEventIds)
                 _out.WriteLine("  * " + _t.T(_packs.Events.Single(e => e.Id == id).TextKey));
         }
-        ShowElectionResults(_last.PoliticalEvents);
+        ShowPoliticalEvents(_last.PoliticalEvents);
         ShowOverview();
         if (_tips && _nextTip <= 5) _out.WriteLine("\n" + _t.T($"ui.tip.{_nextTip++}"));
         if (_game.State.Turn >= _maxTurns) { ShowEnd(); return true; }
@@ -315,22 +333,181 @@ public sealed class PlayLoop
         double fraction = _packs.Countries.First(c => c.Politics != null).Politics!.MajorityFraction;
         string verdict = _t.T(held > total * fraction ? "ui.politics.majority" : "ui.politics.no_majority");
         Line(_t.T("ui.politics.government"), $"{_t.T("ui.politics.seats_of", held, total)}  ({verdict})");
+        if (pol.Leader != null) Line(_t.T("ui.politics.leader"), _t.Name(pol.Leader));
+        ShowFormationStatus(pol);
     }
 
     private static string ShareBar(double share, int width = 20) =>
         new string('#', (int)Math.Round(Math.Clamp(share / 0.4, 0, 1) * width)).PadRight(width);
 
-    private void ShowElectionResults(IReadOnlyList<PoliticalEvent> events)
+    private void ShowPoliticalEvents(IReadOnlyList<PoliticalEvent> events)
     {
-        foreach (var e in events.OfType<ElectionHeld>())
+        bool header = false;
+        foreach (var e in events)
         {
-            _out.WriteLine($"\n{_t.T("ui.politics.result_heading")}");
-            foreach (var (id, seats) in e.Seats.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
+            if (e is ElectionHeld held) { ShowElectionResult(held); continue; }
+            string? text = e switch
             {
-                string votes = Fmt.Number(e.Votes[id] * 100) + " %";
-                _out.WriteLine("  " + (seats > 0
-                    ? _t.T("ui.politics.result_line", _t.Name(id), seats, votes)
-                    : _t.T("ui.politics.result_out", _t.Name(id), votes)));
+                FormationStarted f => _t.T("ui.event.formation_started", _t.Name(f.Formateur)),
+                FormationFailed f => _t.T("ui.event.formation_failed", _t.Name(f.Formateur)),
+                OfferMade o => _t.T("ui.event.offer_made", _t.Name(o.Proposal.Formateur)),
+                OfferLapsed => _t.T("ui.event.offer_lapsed"),
+                GovernmentFormed g => _t.T("ui.event.government_formed", string.Join(", ", g.Government.Parties.Select(_t.Name)), _t.Name(g.Government.Leader)),
+                EarlyElectionsCalled => _t.T("ui.event.early_elections"),
+                _ => null,
+            };
+            if (text == null) continue;
+            if (!header) { _out.WriteLine($"\n{_t.T("ui.heading.political_events")}"); header = true; }
+            _out.WriteLine("  * " + text);
+        }
+    }
+
+    private void ShowElectionResult(ElectionHeld e)
+    {
+        _out.WriteLine($"\n{_t.T("ui.politics.result_heading")}");
+        foreach (var (id, seats) in e.Seats.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            string votes = Fmt.Number(e.Votes[id] * 100) + " %";
+            _out.WriteLine("  " + (seats > 0
+                ? _t.T("ui.politics.result_line", _t.Name(id), seats, votes)
+                : _t.T("ui.politics.result_out", _t.Name(id), votes)));
+        }
+    }
+
+    // ---- government formation --------------------------------------------------
+
+    private readonly SortedSet<string> _draftPartners = new(StringComparer.Ordinal);
+    private readonly List<AgreedDemand> _draftAgreements = new();
+
+    private List<PartyDef> SeatedParties()
+    {
+        var seats = Current.Politics?.Seats;
+        return _packs.Parties.Where(p => (seats?.GetValueOrDefault(p.Id) ?? 0) > 0).OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
+    }
+
+    private string DemandText(DemandDef d)
+    {
+        string target = d.Kind == "policy" && _policyById.TryGetValue(d.Subject, out var pol) ? Fmt.Policy(pol, d.Target, _t)
+            : _valueById.TryGetValue(d.Subject, out var val) ? Fmt.Value(val, d.Target) : Fmt.Number(d.Target);
+        return $"{_t.Name(d.Subject)} {d.Op} {target}";
+    }
+
+    private void ShowFormationStatus(CountryPolitics pol)
+    {
+        if (pol.Phase == Phase.Caretaker)
+        {
+            _out.WriteLine("  " + _t.T("ui.formation.caretaker"));
+            return;
+        }
+        if (pol.Phase != Phase.Formation || pol.Formation == null) return;
+        var f = pol.Formation;
+        _out.WriteLine("  " + (f.PlayerIsFormateur
+            ? _t.T("ui.formation.you_form", f.TurnsLeft)
+            : _t.T("ui.formation.ai_forms", _t.Name(f.Formateur), f.Attempt)));
+        if (f.Offer != null)
+        {
+            _out.WriteLine("  " + _t.T("ui.formation.offer", _t.Name(f.Offer.Formateur), string.Join(", ", f.Offer.Partners.Select(_t.Name))));
+            foreach (var a in f.Offer.Agreements)
+            {
+                var d = _packs.Parties.First(p => p.Id == a.PartyId).Demands.First(x => x.Id == a.DemandId);
+                _out.WriteLine($"      {_t.Name(a.PartyId)}: {DemandText(d)}");
+            }
+            _out.WriteLine("  " + _t.T("ui.formation.offer_hint"));
+        }
+        else if (f.PlayerIsFormateur) _out.WriteLine("  " + _t.T("ui.formation.form_hint"));
+    }
+
+    private void ShowCoalition()
+    {
+        var pol = Current.Politics;
+        if (pol?.Formation is not { PlayerIsFormateur: true })
+        { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
+        var rules = _packs.Countries.First(c => c.Politics != null).Politics!;
+        int total = pol.Seats.Values.Sum();
+        int held = pol.Seats.GetValueOrDefault(pol.PlayerParty) + _draftPartners.Sum(p => pol.Seats.GetValueOrDefault(p));
+        _out.WriteLine($"\n{_t.T("ui.formation.heading")}");
+        _out.WriteLine("  " + _t.T("ui.formation.majority_needed", (int)Math.Floor(rules.MajorityFraction * total), held, rules.ProgramSlots));
+        var parties = SeatedParties();
+        for (int i = 0; i < parties.Count; i++)
+        {
+            var p = parties[i];
+            string mark = p.Id == pol.PlayerParty ? "*" : _draftPartners.Contains(p.Id) ? "x" : " ";
+            _out.WriteLine($"  [{mark}] {i + 1,2}. {_t.Name(p.Id),-24}" +
+                _t.T("ui.formation.party_line", pol.Seats[p.Id], Fmt.Number(p.Price * 0.85)));
+            if (p.Id == pol.PlayerParty) continue;
+            for (int d = 0; d < p.Demands.Count; d++)
+            {
+                bool agreed = _draftAgreements.Any(a => a.PartyId == p.Id && a.DemandId == p.Demands[d].Id);
+                _out.WriteLine($"        [{(agreed ? "x" : " ")}] {d + 1}) {DemandText(p.Demands[d])}  ({_t.T("ui.formation.weight", Fmt.Number(p.Demands[d].Weight))})");
+            }
+        }
+        _out.WriteLine("  " + _t.T("ui.formation.coalition_help"));
+    }
+
+    private PartyDef? ResolveParty(string token)
+    {
+        var parties = SeatedParties();
+        return Resolve(token, parties, p => p.Id, numbers: true);
+    }
+
+    private void DoInvite(string[] args, bool add)
+    {
+        var pol = Current.Politics;
+        if (pol?.Formation is not { PlayerIsFormateur: true }) { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
+        if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.unknown_item", "")); return; }
+        var party = ResolveParty(JoinArgs(args, 0));
+        if (party == null || party.Id == pol.PlayerParty) { _out.WriteLine(_t.T("ui.err.unknown_item", JoinArgs(args, 0))); return; }
+        if (add) _draftPartners.Add(party.Id);
+        else { _draftPartners.Remove(party.Id); _draftAgreements.RemoveAll(a => a.PartyId == party.Id); }
+        ShowCoalition();
+    }
+
+    private void DoAgree(string[] args)
+    {
+        var pol = Current.Politics;
+        if (pol?.Formation is not { PlayerIsFormateur: true }) { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
+        if (args.Length < 2 || !int.TryParse(args[^1], NumberStyles.None, CultureInfo.InvariantCulture, out var n))
+        { _out.WriteLine(_t.T("ui.err.usage_agree")); return; }
+        var party = ResolveParty(string.Join(" ", args[..^1]));
+        if (party == null || party.Id == pol.PlayerParty || n < 1 || n > party.Demands.Count)
+        { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args))); return; }
+        var key = new AgreedDemand(party.Id, party.Demands[n - 1].Id);
+        if (!_draftAgreements.Remove(key)) _draftAgreements.Add(key);
+        _draftPartners.Add(party.Id);
+        ShowCoalition();
+    }
+
+    private void DoAuto()
+    {
+        var s = _game.SuggestCoalition();
+        if (s == null) { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
+        Report(_game.Apply(new ProposeCoalition(s.Partners, s.Agreements)), "ui.formation.proposed");
+    }
+
+    private void DoSubmit() =>
+        Report(_game.Apply(new ProposeCoalition(_draftPartners.ToList(), _draftAgreements.ToList())), "ui.formation.proposed");
+
+    /// <summary>Prints the outcome of an action: a success text, or the error (with the refusal detail).</summary>
+    private void Report(ActionResult result, string successKey)
+    {
+        if (result.Accepted)
+        {
+            _draftPartners.Clear(); _draftAgreements.Clear();
+            _out.WriteLine(_t.T(successKey));
+            ShowPolitics();
+            return;
+        }
+        _out.WriteLine(_t.T("ui." + (result.ErrorKey ?? "error.unknown_action").Replace("error.", "err.")));
+        if (result.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && result.Detail is { Length: > 1 } detail)
+        {
+            var split = detail.Split(':'); // "base:party:demand" or "base:party:"
+            if (split.Length >= 3)
+            {
+                string partyId = split[0] + ":" + split[1];
+                string demand = split[2];
+                var def = _packs.Parties.FirstOrDefault(p => p.Id == partyId);
+                var dd = def?.Demands.FirstOrDefault(d => d.Id == demand);
+                _out.WriteLine("  " + _t.Name(partyId) + (dd != null ? ": " + DemandText(dd) : ""));
             }
         }
     }
