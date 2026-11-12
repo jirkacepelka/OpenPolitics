@@ -1,4 +1,5 @@
 using OpenPolitics.Core.Graph;
+using OpenPolitics.Core.Politics;
 
 namespace OpenPolitics.Core.Gameplay;
 
@@ -9,4 +10,9 @@ public sealed record TurnReport(
     int Turn, double Year,
     IReadOnlyList<ValueChange> Changes,
     IReadOnlyList<string> FiredEventIds,
-    IReadOnlyList<string> Warnings);
+    IReadOnlyList<string> Warnings,
+    IReadOnlyList<PoliticalEvent>? PoliticalEvents = null)
+{
+    /// <summary>Political events of this turn (elections); empty when the scenario has no politics.</summary>
+    public IReadOnlyList<PoliticalEvent> PoliticalEvents { get; init; } = PoliticalEvents ?? Array.Empty<PoliticalEvent>();
+}

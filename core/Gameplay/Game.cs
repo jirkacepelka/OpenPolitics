@@ -3,6 +3,7 @@ using OpenPolitics.Core.Economy;
 using OpenPolitics.Core.Expressions;
 using OpenPolitics.Core.Graph;
 using OpenPolitics.Core.Packs;
+using OpenPolitics.Core.Politics;
 using OpenPolitics.Core.Voters;
 
 namespace OpenPolitics.Core.Gameplay;
@@ -35,6 +36,14 @@ public sealed class Game
     private readonly List<(EventDef Def, Expr Condition)> _events = new();
     private int _turn;
 
+    // Politics (null when the scenario has no politics block). Own RNG stream so adding politics never shifts economy or event draws.
+    private readonly SupportModel? _support;
+    private readonly IElectoralSystem? _electoral;
+    private readonly Pcg32? _politicsRng;
+    private IReadOnlyDictionary<string, double> _poll = new Dictionary<string, double>();
+    private IReadOnlyDictionary<string, int> _seats = new Dictionary<string, int>();
+    private int _turnsToElection;
+
     internal Game(PackSet packs, string scenarioId, ulong seed)
     {
         _packs = packs;
@@ -64,6 +73,54 @@ public sealed class Game
                 throw new InvalidOperationException($"Event '{ev.Id}' has an invalid condition: {error}");
             _events.Add((ev, expr!));
         }
+
+        if (_scenario.Politics is { } scp && _country.Politics is { } cp)
+        {
+            var government = new HashSet<string>(scp.Government, Ord);
+            _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
+            _support.Calibrate(scp.Support, new SupportInput(new SortedDictionary<string, double>(_satisfaction, Ord), government,
+                new Dictionary<string, double>()));
+            _electoral = ElectoralSystems.Create(packs.ElectoralSystems.First(e => e.Id == cp.ElectoralSystem));
+            _politicsRng = new Pcg32(seed, 99);
+            _poll = _support.Compute(PollInput(), null);
+            _seats = _electoral.Allocate(_poll);
+            _turnsToElection = scp.TurnsToElection;
+        }
+    }
+
+    private SupportInput PollInput() => new(
+        new SortedDictionary<string, double>(_satisfaction, Ord),
+        new HashSet<string>(_scenario.Politics!.Government, Ord),
+        new Dictionary<string, double>());
+
+    private CountryPolitics? PoliticsSnapshot() => _support is null ? null : new CountryPolitics(
+        Phase.Governing, _turnsToElection,
+        _poll.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value),
+        _seats.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value),
+        _scenario.Politics!.Government.ToList(), _scenario.Politics.Leader, _scenario.Politics.PlayerParty);
+
+    /// <summary>Polls, then the election countdown; on election day votes are the poll plus small noise (sigma 0.01).</summary>
+    private List<PoliticalEvent> StepPolitics()
+    {
+        var events = new List<PoliticalEvent>();
+        if (_support is null) return events;
+        _poll = _support.Compute(PollInput(), _politicsRng);
+        if (--_turnsToElection > 0) return events;
+
+        var votes = new SortedDictionary<string, double>(Ord);
+        foreach (var (id, share) in _poll)
+        {
+            double sum = 0;
+            for (int k = 0; k < 12; k++) sum += _politicsRng!.NextDouble();
+            votes[id] = Math.Max(0.0, share + 0.01 * (sum - 6.0));
+        }
+        double total = votes.Values.Sum();
+        if (!(total > 0)) foreach (var id in votes.Keys.ToList()) votes[id] = _poll[id];
+        else foreach (var id in votes.Keys.ToList()) votes[id] /= total;
+        _seats = _electoral!.Allocate(votes);
+        events.Add(new ElectionHeld(_turn + 1, votes, _seats.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value)));
+        _turnsToElection = _country.Politics!.ElectionIntervalTurns;
+        return events;
     }
 
     private double CurrentYear => _scenario.StartYear + (double)_turn / _scenario.TurnsPerYear;
@@ -73,7 +130,8 @@ public sealed class Game
         [_country.Id] = new CountryState(
             new SortedDictionary<string, double>(_values, Ord),
             new SortedDictionary<string, double>(_policies, Ord),
-            new SortedDictionary<string, double>(_satisfaction, Ord)),
+            new SortedDictionary<string, double>(_satisfaction, Ord),
+            PoliticsSnapshot()),
     });
 
     public ActionResult Apply(PlayerAction action)
@@ -152,12 +210,15 @@ public sealed class Game
         foreach (var (id, s) in _voters.Step(_satisfaction, change, _policies, _dt)) nextSatisfaction[id] = s;
         _satisfaction = nextSatisfaction;
 
-        // 8. Commit and report.
+        // 8. Politics: today's poll from the new satisfaction, the election countdown, the election itself.
+        var politicalEvents = StepPolitics();
+
+        // 9. Commit and report.
         foreach (var (id, v) in after) _values[id] = v;
         _turn++;
         var changes = before.Keys.Select(id => new ValueChange(id, before[id], after[id],
             eval.Contributions.TryGetValue(id, out var c) ? c : Array.Empty<Contribution>())).ToList();
-        return new TurnReport(_turn, CurrentYear, changes, fired, warnings);
+        return new TurnReport(_turn, CurrentYear, changes, fired, warnings, politicalEvents);
     }
 
     /// <summary>
