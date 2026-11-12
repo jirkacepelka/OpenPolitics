@@ -172,8 +172,15 @@ internal sealed class PoliticsEngine
         events.Add(new ElectionHeld(turn, Sorted(votes), Sorted(_seats)));
         _turnsToElection = _rules.ElectionIntervalTurns;
 
+        BeginFormation(turn, events, null);
+    }
+
+    /// <summary>Starts a formation round. The queue is by seats, votes and id; <paramref name="first"/> (if seated) tries first.</summary>
+    private void BeginFormation(int turn, List<PoliticalEvent> events, string? first)
+    {
         _queue = _seats.Where(kv => kv.Value > 0)
-            .OrderByDescending(kv => kv.Value).ThenByDescending(kv => _votes[kv.Key]).ThenBy(kv => kv.Key, Ord)
+            .OrderBy(kv => kv.Key == first ? 0 : 1)
+            .ThenByDescending(kv => kv.Value).ThenByDescending(kv => _votes.GetValueOrDefault(kv.Key)).ThenBy(kv => kv.Key, Ord)
             .Select(kv => kv.Key).ToList();
         _phase = Phase.Formation;
         _attempt = 1;
@@ -265,6 +272,7 @@ internal sealed class PoliticsEngine
     private void StepLoyalty(int turn, IReadOnlyDictionary<string, double> satisfaction, List<PoliticalEvent> events)
     {
         var lp = _loyaltyParams;
+        bool departed = false;
         foreach (var partner in _government.Parties.Where(p => p != _government.Leader).ToList())
         {
             var party = _parties[partner];
@@ -307,7 +315,14 @@ internal sealed class PoliticsEngine
                 events.Add(new Ultimatum(turn, partner, late?.Demand.Id, lp.UltimatumTurns));
             }
 
-            if (leave) Depart(partner, turn, events);
+            if (leave) { Depart(partner, turn, events); departed = true; }
+        }
+
+        // The sitting government fell if it lost its majority: the leader gets the first try at a new one.
+        if (departed && !CoalitionRules.HasMajority(_government.Parties, _seats, _rules.MajorityFraction))
+        {
+            events.Add(new GovernmentFell(turn));
+            BeginFormation(turn, events, _government.Leader);
         }
     }
 

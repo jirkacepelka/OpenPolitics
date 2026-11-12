@@ -109,7 +109,8 @@ public class LoyaltyTests
     public void PartnerLeavesWhenUltimatumExpires()
     {
         var g = Coalition();
-        var reports = Run(g, 30);
+        var reports = new List<TurnReport>();
+        for (int i = 0; i < 30 && !Events<PartnerLeft>(reports).Any(); i++) reports.Add(g.EndTurn());
         var left = Assert.Single(Events<PartnerLeft>(reports));
         Assert.Equal("base:b", left.PartyId);
         Assert.DoesNotContain("base:b", Pol(g).GovernmentParties);
@@ -137,8 +138,8 @@ public class LoyaltyTests
         var reports = new List<TurnReport>();
         for (int i = 0; i < 4 && !Events<PartnerLeft>(reports).Any(); i++)
         {
-            Spend(g, 50); reports.Add(g.EndTurn()); // crossing: -30
-            Spend(g, 43); reports.Add(g.EndTurn()); // back under the line
+            g.Apply(new SetPolicy("base:spend", 50)); reports.Add(g.EndTurn()); // crossing: -30
+            g.Apply(new SetPolicy("base:spend", 43)); reports.Add(g.EndTurn()); // back under the line (refused once the partner has left)
         }
         Assert.Single(Events<PartnerLeft>(reports));
     }
