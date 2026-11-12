@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/core.tests/">
+    <Project Path="core.tests/OpenPolitics.Core.Tests.csproj" />
+  </Folder>
+  <Folder Name="/core/">
+    <Project Path="core/OpenPolitics.Core.csproj" />
+  </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/OpenPolitics.Cli/OpenPolitics.Cli.csproj" />
+  </Folder>
+</Solution>

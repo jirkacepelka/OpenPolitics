@@ -1,0 +1,24 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet build -c Release
+      - run: dotnet test -c Release --no-build
+      - name: Validate base pack
+        run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- validate data/base
+        continue-on-error: true # removed in Task 15 once validate exists
+      - name: Stability batch
+        run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- batch --games 50 --strategy random --turns 80
+        continue-on-error: true # removed in Task 15 once batch exists
