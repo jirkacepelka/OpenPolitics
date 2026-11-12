@@ -90,6 +90,13 @@ public sealed class PlayLoop
                 case "accept": Report(_game.Apply(new AcceptOffer()), "ui.formation.joined"); break;
                 case "reject": Report(_game.Apply(new RejectOffer()), "ui.formation.rejected"); break;
                 case "early": Report(_game.Apply(new CallEarlyElection()), "ui.formation.early_called"); break;
+                case "party": ShowParty(); break;
+                case "criticize": DoCriticize(cmd.Args); break;
+                case "stance": DoStance(cmd.Args); break;
+                case "campaign": DoCampaign(cmd.Args); break;
+                case "organize": Report(_game.Apply(new BuildOrganization()), "ui.party.organized", quiet: true); break;
+                case "court": DoCourt(cmd.Args); break;
+                case "platform": DoPlatform(cmd.Args); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
         }
@@ -119,6 +126,13 @@ public sealed class PlayLoop
         ["accept"] = "accept", ["prijmout"] = "accept", ["prijmi"] = "accept",
         ["reject"] = "reject", ["odmitnout"] = "reject", ["odmitni"] = "reject",
         ["early"] = "early", ["predcasne"] = "early",
+        ["party"] = "party", ["strana"] = "party",
+        ["criticize"] = "criticize", ["kritizuj"] = "criticize",
+        ["stance"] = "stance", ["postoj"] = "stance",
+        ["campaign"] = "campaign", ["kampan"] = "campaign",
+        ["organize"] = "organize", ["organizuj"] = "organize",
+        ["court"] = "court", ["nabidka"] = "court", ["sbliz"] = "court",
+        ["platform"] = "platform", ["program"] = "platform",
     };
 
     private static (string Verb, string[] Args) Parse(string line)
@@ -334,6 +348,8 @@ public sealed class PlayLoop
         string verdict = _t.T(held > total * fraction ? "ui.politics.majority" : "ui.politics.no_majority");
         Line(_t.T("ui.politics.government"), $"{_t.T("ui.politics.seats_of", held, total)}  ({verdict})");
         if (pol.Leader != null) Line(_t.T("ui.politics.leader"), _t.Name(pol.Leader));
+        if (pol.Party != null)
+            Line(_t.T("ui.party.capital"), $"{Fmt.Number(pol.Party.PoliticalCapital)}   ({_t.T("ui.party.organisation")} {Fmt.Number(pol.Party.Organization * 100, "0")} %)");
         ShowFormationStatus(pol);
         if (pol.Phase == Phase.Governing && pol.Loyalty is { Count: > 0 }) ShowCoalitionPanel(pol, full: false);
     }
@@ -488,6 +504,98 @@ public sealed class PlayLoop
         _out.WriteLine("  " + _t.T("ui.formation.coalition_help"));
     }
 
+    // ---- the player's party -------------------------------------------------------
+
+    private List<PartyDef> OtherParties() =>
+        _packs.Parties.Where(p => p.Id != Current.Politics?.PlayerParty).OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
+
+    private void ShowParty()
+    {
+        var pol = Current.Politics;
+        if (pol?.Party is not { } ps) { _out.WriteLine(_t.T("ui.err.no_politics")); return; }
+        _out.WriteLine($"\n{_t.T("ui.heading.party")}: {_t.Name(pol.PlayerParty)}  ({_t.T("ui.role." + pol.PlayerRole.ToString().ToLowerInvariant())})");
+        Line(_t.T("ui.party.capital"), Fmt.Number(ps.PoliticalCapital));
+        Line(_t.T("ui.party.organisation"), Fmt.Number(ps.Organization * 100, "0") + " %");
+        Line(_t.T("ui.party.credibility"), Fmt.Number(ps.Credibility * 100, "0") + " %");
+        Line(_t.T("ui.party.cohesion"), Fmt.Number(ps.Cohesion * 100, "0") + " %");
+        _out.WriteLine("  " + _t.T("ui.party.relations"));
+        var others = OtherParties();
+        for (int i = 0; i < others.Count; i++)
+        {
+            double r = ps.Relations.GetValueOrDefault(others[i].Id);
+            _out.WriteLine($"   {i + 1,2}. {_t.Name(others[i].Id),-24}{Fmt.Number(r, "0.00")}  {Fmt.Bar(r * 2 - 1, 5)}");
+        }
+        _out.WriteLine("  " + _t.T("ui.party.platform"));
+        foreach (var (policy, target) in ps.Platform)
+            if (_policyById.TryGetValue(policy, out var def)) _out.WriteLine($"      {_t.Name(policy),-34}{Fmt.Policy(def, target, _t)}");
+        _out.WriteLine("  " + _t.T("ui.party.measures"));
+        if (ps.Measures.Count == 0) _out.WriteLine("      " + _t.T("ui.party.no_measures"));
+        for (int i = 0; i < ps.Measures.Count; i++)
+        {
+            var m = ps.Measures[i];
+            if (!_policyById.TryGetValue(m.PolicyId, out var def)) continue;
+            _out.WriteLine($"   {i + 1,2}. {_t.T("ui.party.measure_line", m.Turn, _t.Name(m.PolicyId), Fmt.Policy(def, m.From, _t), Fmt.Policy(def, m.To, _t))}" +
+                           (m.StanceTaken ? "  [" + _t.T("ui.party.stance_taken") + "]" : ""));
+        }
+        _out.WriteLine("  " + _t.T("ui.party.goals"));
+        double share = pol.Support.GetValueOrDefault(pol.PlayerParty);
+        Line("    " + _t.T("ui.goal.poll"), $"{Fmt.Number(share * 100)} %  {ShareBar(share)}");
+        if (pol.Loyalty is { Count: > 0 } loyalty)
+            Line("    " + _t.T("ui.goal.fragility"), Fmt.Number(100 - loyalty.Values.Min(), "0") + " %");
+        else Line("    " + _t.T("ui.goal.fragility"), "-");
+        Line("    " + _t.T("ui.goal.relations"), Fmt.Number(ps.Relations.Values.DefaultIfEmpty(0).Average(), "0.00"));
+        _out.WriteLine("  " + _t.T("ui.party.help"));
+    }
+
+    private void DoCriticize(string[] args)
+    {
+        if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.unknown_item", "")); return; }
+        var value = Resolve(JoinArgs(args, 0), _values, v => v.Id, numbers: true);
+        if (value == null) { _out.WriteLine(_t.T("ui.err.unknown_item", JoinArgs(args, 0))); return; }
+        Report(_game.Apply(new Criticize(value.Id)), "ui.party.criticized", quiet: true, _t.Name(value.Id));
+    }
+
+    private void DoStance(string[] args)
+    {
+        if (args.Length < 2 || !int.TryParse(args[0], NumberStyles.None, CultureInfo.InvariantCulture, out var n))
+        { _out.WriteLine(_t.T("ui.err.usage_stance")); return; }
+        var measures = Current.Politics?.Party?.Measures;
+        if (measures == null || n < 1 || n > measures.Count) { _out.WriteLine(_t.T("ui.err.unknown_measure")); return; }
+        string word = Localizer.Fold(args[1]);
+        Stance? stance = word is "support" or "podpor" or "podporit" ? Stance.Support : word is "oppose" or "odmitni" or "odmitnout" ? Stance.Oppose : null;
+        if (stance == null) { _out.WriteLine(_t.T("ui.err.usage_stance")); return; }
+        Report(_game.Apply(new TakeStance(measures[n - 1].Id, stance.Value)), "ui.party.stance_ok", quiet: true);
+    }
+
+    private void DoCampaign(string[] args)
+    {
+        if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.usage_campaign")); return; }
+        int effort = 1;
+        var nameArgs = args;
+        if (args.Length > 1 && int.TryParse(args[^1], NumberStyles.None, CultureInfo.InvariantCulture, out var e)) { effort = e; nameArgs = args[..^1]; }
+        var group = Resolve(string.Join(" ", nameArgs), _packs.VoterGroups, g => g.Id, numbers: false);
+        if (group == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", nameArgs))); return; }
+        Report(_game.Apply(new Campaign(group.Id, effort)), "ui.party.campaign_ok", quiet: true, _t.Name(group.Id));
+    }
+
+    private void DoCourt(string[] args)
+    {
+        if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.unknown_item", "")); return; }
+        var party = Resolve(JoinArgs(args, 0), OtherParties(), p => p.Id, numbers: true);
+        if (party == null) { _out.WriteLine(_t.T("ui.err.unknown_item", JoinArgs(args, 0))); return; }
+        Report(_game.Apply(new Court(party.Id)), "ui.party.court_ok", quiet: true, _t.Name(party.Id));
+    }
+
+    private void DoPlatform(string[] args)
+    {
+        if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_platform")); return; }
+        var policy = Resolve(string.Join(" ", args[..^1]), _policies, p => p.Id, numbers: true);
+        if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args[..^1]))); return; }
+        if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
+        { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
+        Report(_game.Apply(new ShiftPlatform(policy.Id, target)), "ui.party.platform_ok", quiet: true, _t.Name(policy.Id));
+    }
+
     private PartyDef? ResolveParty(string token)
     {
         var parties = SeatedParties();
@@ -532,13 +640,13 @@ public sealed class PlayLoop
         Report(_game.Apply(new ProposeCoalition(_draftPartners.ToList(), _draftAgreements.ToList())), "ui.formation.proposed");
 
     /// <summary>Prints the outcome of an action: a success text, or the error (with the refusal detail).</summary>
-    private void Report(ActionResult result, string successKey)
+    private void Report(ActionResult result, string successKey, bool quiet = false, params object[] args)
     {
         if (result.Accepted)
         {
             _draftPartners.Clear(); _draftAgreements.Clear();
-            _out.WriteLine(_t.T(successKey));
-            ShowPolitics();
+            _out.WriteLine(_t.T(successKey, args));
+            if (!quiet) ShowPolitics();
             return;
         }
         _out.WriteLine(_t.T("ui." + (result.ErrorKey ?? "error.unknown_action").Replace("error.", "err.")));
