@@ -37,6 +37,8 @@ internal sealed class PoliticsEngine
     private readonly SortedDictionary<string, double> _momentum = new(Ord);
     private readonly SortedDictionary<string, double> _pressure = new(Ord);
     private readonly List<MeasureInfo> _measures = new();
+    private readonly List<string> _valueIds;
+    private readonly List<Dictionary<string, double>> _history = new(); // value snapshots of the last 5 turns
 
     private IReadOnlyDictionary<string, double> _poll = new Dictionary<string, double>();
     private IReadOnlyDictionary<string, int> _seats = new Dictionary<string, int>();
@@ -60,6 +62,7 @@ internal sealed class PoliticsEngine
         _lookup = lookup;
         _dt = 1.0 / turnsPerYear;
         _groups = packs.VoterGroups;
+        _valueIds = packs.Values.Select(v => v.Id).OrderBy(x => x, Ord).ToList();
         _policyDefs = packs.Policies.ToDictionary(p => p.Id, Ord);
         _parties = packs.Parties.OrderBy(p => p.Id, Ord).ToDictionary(p => p.Id, Ord);
         _ranges = PartyMath.PolicyRanges(packs.Policies);
@@ -144,6 +147,8 @@ internal sealed class PoliticsEngine
     /// <summary>Per-turn upkeep of the player's party: decay, recovery and political capital income.</summary>
     private void TickParty()
     {
+        _history.Add(_valueIds.ToDictionary(id => id, id => _lookup("value", id), Ord));
+        if (_history.Count > 5) _history.RemoveAt(0);
         double share = _poll.GetValueOrDefault(Player);
         _org = Math.Max(0.0, _org - 0.01);
         _credibility = Math.Min(1.0, _credibility + 0.1 * _dt);
@@ -176,6 +181,8 @@ internal sealed class PoliticsEngine
         Court c => CourtParty(c.PartyId),
         ShiftPlatform s => Shift(s.PolicyId, s.Target),
         Campaign c => CampaignGroup(c.GroupId, c.Effort),
+        Criticize c => DoCriticize(c.ValueId),
+        TakeStance t => DoTakeStance(t.MeasureId, t.Stance),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
 
@@ -212,6 +219,53 @@ internal sealed class PoliticsEngine
             _support.UpdateParty(updated);
             _credibility = Math.Max(0.0, _credibility - 0.5 * Math.Abs(delta) / range);
         }
+        return ActionResult.Ok;
+    }
+
+    /// <summary>Called by the game whenever the AI governor changes a policy, so the opposition can take a stance on it.</summary>
+    public void RecordMeasure(int turn, string policyId, double from, double to) =>
+        _measures.Add(new MeasureInfo($"{turn}:{policyId}", turn, policyId, from, to, false));
+
+    private ActionResult DoCriticize(string valueId)
+    {
+        if (PlayerRole == Role.Leader) return Fail("error.not_opposition");
+        if (!_valueIds.Contains(valueId)) return Fail("error.unknown_value", valueId);
+        var caring = _groups.Where(g => g.ValueWeights.GetValueOrDefault(valueId) != 0.0).OrderBy(g => g.Id, Ord).ToList();
+        double maxWeight = caring.Count == 0 ? 0.0 : caring.Max(g => Math.Abs(g.ValueWeights[valueId]));
+        double now = _lookup("value", valueId);
+        double then = _history.Count > 0 ? _history[0][valueId] : now;
+        double delta = now - then;
+        if (!(maxWeight > 0) || Math.Abs(delta) <= 1e-9 * Math.Max(1.0, Math.Abs(now))) return Fail("error.no_effect", valueId);
+        if (!TrySpend(2)) return Fail("error.not_enough_capital");
+        foreach (var g in caring)
+        {
+            double w = g.ValueWeights[valueId], scale = Math.Abs(w) / maxWeight;
+            bool worse = Math.Sign(w) * Math.Sign(delta) < 0;
+            if (worse) { _momentum[g.Id] += 0.15 * scale; _pressure[g.Id] += 0.10 * scale; }
+            else _momentum[g.Id] -= 0.10 * scale;
+        }
+        return ActionResult.Ok;
+    }
+
+    private ActionResult DoTakeStance(string measureId, Stance stance)
+    {
+        if (PlayerRole == Role.Leader) return Fail("error.not_opposition");
+        int i = _measures.FindIndex(m => m.Id == measureId);
+        if (i < 0) return Fail("error.unknown_measure", measureId);
+        if (_measures[i].StanceTaken) return Fail("error.already_taken", measureId);
+        if (!TrySpend(1)) return Fail("error.not_enough_capital");
+        var m = _measures[i];
+        double totalSize = _groups.Sum(g => g.Size);
+        foreach (var g in _groups.OrderBy(g => g.Id, Ord))
+        {
+            if (!g.PolicyPrefs.TryGetValue(m.PolicyId, out var pref) || !(totalSize > 0)) continue;
+            double before = Math.Abs(pref - m.From), after = Math.Abs(pref - m.To);
+            if (after == before) continue;
+            bool approves = after < before;
+            bool good = stance == Stance.Support ? approves : !approves;
+            _momentum[g.Id] += (good ? 0.10 : -0.10) * g.Size / totalSize;
+        }
+        _measures[i] = m with { StanceTaken = true };
         return ActionResult.Ok;
     }
 

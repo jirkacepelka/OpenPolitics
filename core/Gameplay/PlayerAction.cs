@@ -34,6 +34,14 @@ public sealed record ShiftPlatform(string PolicyId, double Target) : PoliticsAct
 /// <summary>Win over a voter group; Effort is 1 to 3 and costs 3 per level.</summary>
 public sealed record Campaign(string GroupId, int Effort) : PoliticsAction;
 
+public enum Stance { Support, Oppose }
+
+/// <summary>As opposition: publicly criticise how a value developed over the last four turns.</summary>
+public sealed record Criticize(string ValueId) : PoliticsAction;
+
+/// <summary>As opposition: support or oppose a measure the government took (id from the party panel).</summary>
+public sealed record TakeStance(string MeasureId, Stance Stance) : PoliticsAction;
+
 /// <param name="ErrorKey">Localization key such as error.unknown_policy; null when accepted.</param>
 public sealed record ActionResult(bool Accepted, string? ErrorKey, string? Detail)
 {

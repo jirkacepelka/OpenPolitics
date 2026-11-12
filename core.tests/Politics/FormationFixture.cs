@@ -13,7 +13,7 @@ internal static class FormationFixture
 
     public static PackSet Load(Spec[] parties, string player, string[]? government = null, string? leader = null,
         int interval = 16, int turnsToElection = 1, int maxFormation = 4, int caretaker = 2, int slots = 6,
-        string? redLines = null, string? agreements = null)
+        string? redLines = null, string? agreements = null, bool extraGroups = false)
     {
         return GameFixture.Load(f =>
         {
@@ -23,6 +23,13 @@ internal static class FormationFixture
                 $"    - {{id: d2, kind: policy, policy: {p.DemandPolicy}, op: \">=\", target: 42, weight: 2}}\n" +
                 $"    - {{id: d3, kind: policy, policy: {p.DemandPolicy}, op: \">=\", target: 43, weight: 1}}\n" +
                 (redLines ?? "")));
+            if (extraGroups)
+            {
+                f["voter_groups/h.yaml"] =
+                    "- id: base:contrarians\n  size: 1\n  weight: 1\n  value_weights: {base:gdp: -2}\n" +
+                    "- id: base:bystanders\n  size: 1\n  weight: 1\n  value_weights: {base:health: 1}\n  policy_prefs: {base:spend: 45}\n  policy_weights: {base:spend: 1}\n";
+                foreach (var lang in new[] { "cs", "en" }) f[$"localization/{lang}.yaml"] += $"name.base:contrarians: {lang}-c\nname.base:bystanders: {lang}-b\n";
+            }
             f["electoral_systems/pr.yaml"] = "- id: base:pr\n  type: proportional\n  seats: 200\n  method: dhondt\n  threshold: 0.05\n";
             f["countries/c.yaml"] = "- id: base:czechia\n  name_key: country.czechia\n  politics:\n    electoral_system: base:pr\n" +
                 $"    election_interval_turns: {interval}\n    majority_fraction: 0.5\n    max_formation_turns: {maxFormation}\n    caretaker_turns: {caretaker}\n    program_slots: {slots}\n";

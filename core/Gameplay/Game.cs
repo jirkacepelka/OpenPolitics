@@ -184,7 +184,9 @@ public sealed class Game
         var politicalEvents = _politics?.Step(_turn, _satisfaction) ?? new List<PoliticalEvent>();
         if (_politics?.GovernorMove(_turn, LatestPolicy) is { } move)
         {
-            politicalEvents.Add(new GovernmentMeasure(_turn, move.PolicyId, LatestPolicy(move.PolicyId), move.Value));
+            double from = LatestPolicy(move.PolicyId);
+            politicalEvents.Add(new GovernmentMeasure(_turn, move.PolicyId, from, move.Value));
+            _politics.RecordMeasure(_turn, move.PolicyId, from, move.Value);
             _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
         }
         var changes = before.Keys.Select(id => new ValueChange(id, before[id], after[id],

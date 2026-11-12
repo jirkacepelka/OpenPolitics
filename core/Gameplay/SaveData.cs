@@ -32,6 +32,7 @@ public sealed record SaveData(
         public string Party { get; set; } = "";
         public string Group { get; set; } = "";
         public int Effort { get; set; }
+        public string Stance { get; set; } = "";
         public List<string> Partners { get; set; } = new();
         public List<string> Agreements { get; set; } = new(); // "party|demand"
     }
@@ -61,6 +62,8 @@ public sealed record SaveData(
                     Turn = turn, Type = "propose_coalition", Partners = pc.Partners.ToList(),
                     Agreements = pc.Agreements.Select(a => a.PartyId + "|" + a.DemandId).ToList(),
                 });
+            else if (action is Criticize cr) dto.Actions.Add(new ActionDto { Turn = turn, Type = "criticize", Policy = cr.ValueId });
+            else if (action is TakeStance ts) dto.Actions.Add(new ActionDto { Turn = turn, Type = "take_stance", Policy = ts.MeasureId, Stance = ts.Stance.ToString() });
             else if (action is BuildOrganization) dto.Actions.Add(new ActionDto { Turn = turn, Type = "build_organization" });
             else if (action is Court court) dto.Actions.Add(new ActionDto { Turn = turn, Type = "court", Party = court.PartyId });
             else if (action is ShiftPlatform sh)
@@ -89,6 +92,8 @@ public sealed record SaveData(
                     if (parts.Length != 2) throw new FormatException($"Bad agreement '{x}' in save.");
                     return new AgreedDemand(parts[0], parts[1]);
                 }).ToList()),
+                "criticize" => new Criticize(a.Policy),
+                "take_stance" => new TakeStance(a.Policy, Enum.TryParse<Stance>(a.Stance, out var st) ? st : throw new FormatException($"Bad stance '{a.Stance}' in save.")),
                 "build_organization" => new BuildOrganization(),
                 "court" => new Court(a.Party),
                 "shift_platform" => new ShiftPlatform(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
