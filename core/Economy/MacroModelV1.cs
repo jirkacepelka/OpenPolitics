@@ -49,7 +49,21 @@ public sealed class MacroModelV1 : IEconomyModel
         ["revenue_ratio_ref"] = 0.40,           // reference revenue / GDP
         ["premium_max"] = 15.0,                 // max debt risk premium, percentage points
         ["premium_ratio_half"] = 1.5,           // debt/GDP at which the premium is about 76% of max
+        ["debt_crowding"] = 0.05,               // saving rate lost per unit of debt/GDP above 0.6 (crowding out)
     };
+
+    /// <summary>Valid inclusive range of every parameter; the validator checks country parameters against it.</summary>
+    public static readonly IReadOnlyDictionary<string, (double Min, double Max)> ParameterRanges =
+        new Dictionary<string, (double, double)>
+        {
+            ["alpha"] = (0.01, 0.99), ["delta"] = (0, 1), ["okun_beta"] = (0, 5),
+            ["base_productivity_growth"] = (-0.2, 0.2), ["labour_force_growth"] = (-0.2, 0.2),
+            ["natural_unemployment"] = (0, 50), ["unemployment_reversion"] = (0, 10),
+            ["base_interest"] = (-5, 30), ["inflation_target"] = (-5, 50), ["inflation_reversion"] = (0, 10),
+            ["kappa"] = (0, 10), ["fiscal_inflation"] = (0, 10), ["saving_rate"] = (0, 1),
+            ["tax_sensitivity"] = (0, 5), ["interest_sensitivity"] = (0, 10), ["revenue_ratio_ref"] = (0, 2),
+            ["premium_max"] = (0, 100), ["premium_ratio_half"] = (0.01, 100), ["debt_crowding"] = (0, 5),
+        };
 
     private const double MinA = 1e-9;
     private readonly IReadOnlyList<PolicyDef> _policies;
@@ -102,7 +116,8 @@ public sealed class MacroModelV1 : IEconomyModel
         double revRatio = yOld > 0 ? V(Ids.Revenue) / yOld : P("revenue_ratio_ref");
         double s = Math.Clamp(P("saving_rate")
             - P("tax_sensitivity") * (revRatio - P("revenue_ratio_ref"))
-            - P("interest_sensitivity") * ((rate - pi) - r0) / 100.0, 0.02, 0.6);
+            - P("interest_sensitivity") * ((rate - pi) - r0) / 100.0
+            - P("debt_crowding") * Math.Max((yOld > 0 ? debt / yOld : 0.0) - 0.6, 0.0), 0.0, 0.6);
         var rk = R(Ids.Capital);
         double k2 = Math.Max(k + dt * (s * yOld - P("delta") * k + rk.Additive + k * rk.Relative), 1.0);
 
@@ -135,20 +150,23 @@ public sealed class MacroModelV1 : IEconomyModel
         var rs = R(Ids.Spending);
         spending = spending * (1 + dt * rs.Relative) + dt * rs.Additive;
         double primaryDeficit = spending - revenue;
-        double deficitPct = y2 > 0 ? primaryDeficit / y2 * 100 : 0.0;
 
-        // Inflation: mean reversion, output gap, fiscal impulse.
+        // Debt service: real interest = base rate plus a convex risk premium that grows with debt/GDP.
+        double ratio = y2 > 0 ? debt / y2 : 0.0;
+        double premium = InterestPremium(ratio, P("premium_max"), P("premium_ratio_half"));
+        double rReal = r0 + premium;
+        double totalDeficit = primaryDeficit + rReal / 100.0 * debt;           // includes interest
+        double deficitPct = y2 > 0 ? totalDeficit / y2 * 100 : 0.0;
+
+        // Inflation: mean reversion, output gap, fiscal impulse (total deficit, so debt service counts).
         var rp = R(Ids.Inflation);
         double dpi = -P("inflation_reversion") * (pi - piTarget) + P("kappa") * gap * 100
             + P("fiscal_inflation") * deficitPct + rp.Additive + pi * rp.Relative;
         double pi2 = pi + dt * dpi;
 
         // Debt and interest rate.
-        double ratio = y2 > 0 ? debt / y2 : 0.0;
-        double premium = InterestPremium(ratio, P("premium_max"), P("premium_ratio_half"));
-        double rReal = r0 + premium;
         var rd = R(Ids.Debt);
-        double debt2 = debt + dt * (primaryDeficit + rReal / 100.0 * debt + rd.Additive + debt * rd.Relative);
+        double debt2 = debt + dt * (totalDeficit + rd.Additive + debt * rd.Relative);
         var rrate = R(Ids.InterestRate);
         double rate2 = (rReal + pi2) * (1 + dt * rrate.Relative) + dt * rrate.Additive;
 

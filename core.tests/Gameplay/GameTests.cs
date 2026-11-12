@@ -144,4 +144,42 @@ public class GameTests
         }
         return string.Join("|", parts);
     }
+
+    private static Dictionary<string, double> SatisfactionAfterOneTurn(Action<Dictionary<string, string>> mutate)
+    {
+        var g = New(1, mutate);
+        g.EndTurn();
+        return new Dictionary<string, double>(C(g).Satisfaction);
+    }
+
+    private static void AddGroup(Dictionary<string, string> f, string weights)
+    {
+        f["voter_groups/g.yaml"] += $"- id: base:elders\n  size: 1\n  weight: 1\n  value_weights: {{{weights}}}\n";
+        f["localization/cs.yaml"] += "name.base:elders: cs\n";
+        f["localization/en.yaml"] += "name.base:elders: en\n";
+    }
+
+    [Fact]
+    public void ValueNearZeroDoesNotSaturateVoterSatisfaction()
+    {
+        var s = SatisfactionAfterOneTurn(f =>
+        {
+            AddGroup(f, "base:inflation: -1.5");
+            f["scenarios/s.yaml"] = f["scenarios/s.yaml"].Replace("{base:health: 65}", "{base:health: 65, base:inflation: 0.001}");
+        });
+        Assert.InRange(s["base:elders"], -0.5, 0.5);
+    }
+
+    [Fact]
+    public void EventShocksReachVoters()
+    {
+        var s = SatisfactionAfterOneTurn(f =>
+        {
+            AddGroup(f, "base:health: 2.0");
+            f["events/ev.yaml"] = "- id: base:epidemic\n  condition: \"base:gdp > 0\"\n  probability: 1\n  text_key: event.epidemic\n  effects:\n    - {value: base:health, delta: -20}\n";
+            f["localization/cs.yaml"] += "event.epidemic: cs\n";
+            f["localization/en.yaml"] += "event.epidemic: en\n";
+        });
+        Assert.True(s["base:elders"] < -0.1, $"satisfaction {s["base:elders"]}");
+    }
 }

@@ -55,7 +55,7 @@
   owner: macro_v1
 - id: base:spending
   unit: CZK
-  initial: 1817000000000.0
-  reference: 1817000000000.0
+  initial: 1771000000000.0
+  reference: 1771000000000.0
   scale: 460000000000.0
   owner: macro_v1

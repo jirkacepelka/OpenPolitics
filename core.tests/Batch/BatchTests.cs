@@ -85,6 +85,31 @@ public class BatchTests
     }
 
     [Fact]
+    public void DebtSpiralInPassivePlayMakesTheReportUnstable()
+    {
+        BatchReport R(string strategy, int spiral) =>
+            new(10, 80, strategy, 0, 0, 0, 0, spiral, false, Array.Empty<string>());
+        Assert.False(R("passive", 1).Stable);   // nobody acted: the data/model is at fault
+        Assert.True(R("random", 1).Stable);     // abusive strategies may legitimately spiral
+        Assert.True(R("passive", 0).Stable);
+    }
+
+    [Fact]
+    public void PassiveHundredYearsKeepsDebtBelowSpiral()
+    {
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            var g = Simulation.NewGame(Base, Scenario, seed);
+            for (int t = 0; t < 400; t++)
+            {
+                g.EndTurn();
+                var v = g.State.Countries.Single().Value.Values;
+                Assert.True(v["base:debt"] / v["base:gdp"] < 3.0, $"seed {seed} turn {t + 1}: debt/GDP {v["base:debt"] / v["base:gdp"]:F2}");
+            }
+        }
+    }
+
+    [Fact]
     public void PassiveBatchHasNoDebtSpiral()
     {
         Assert.Equal(0, BatchRunner.Run(Base, Scenario, 50, 80, new PassiveStrategy()).DebtSpiralGames);

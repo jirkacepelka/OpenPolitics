@@ -20,9 +20,11 @@ public static class BatchRunner
         var collapsedBy = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
         var explodedBy = new SortedDictionary<string, List<int>>(StringComparer.Ordinal);
 
+        var shortFlags = new Dictionary<int, Flags>();
         for (int i = 1; i <= games; i++)
         {
             var flags = PlayOne(packs, scenarioId, (ulong)i, turns, strategy, th, null);
+            shortFlags[i] = flags;
             if (flags.NanOrInf) nan++;
             if (flags.ExtremeRate) rate++;
             if (flags.Collapse) collapse++;
@@ -41,8 +43,15 @@ public static class BatchRunner
             for (int i = 1; i <= n; i++)
             {
                 var gdp = new List<double>();
-                PlayOne(packs, scenarioId, (ulong)i, CeilingTurns, strategy, th, gdp);
+                var longFlags = PlayOne(packs, scenarioId, (ulong)i, CeilingTurns, strategy, th, gdp);
                 if (StabilityChecks.DetectCeiling(gdp)) { ceiling = true; notes.Add($"GDP looks capped in game seed {i}."); }
+                // Problems that only show up in the long run count too (once per game and category).
+                var s0 = shortFlags[i];
+                if (longFlags.NanOrInf && !s0.NanOrInf) { nan++; notes.Add($"NaN/Inf after turn {turns} in long run, seed {i}."); }
+                if (longFlags.ExtremeRate && !s0.ExtremeRate) { rate++; notes.Add($"Extreme growth after turn {turns} in long run, seed {i}."); }
+                if (longFlags.Collapse && !s0.Collapse) { collapse++; notes.Add($"Collapse after turn {turns} in long run, seed {i}: {string.Join(",", longFlags.CollapsedIds)}."); }
+                if (longFlags.Explosion && !s0.Explosion) { explosion++; notes.Add($"Explosion after turn {turns} in long run, seed {i}: {string.Join(",", longFlags.ExplodedIds)}."); }
+                if (longFlags.DebtSpiral && !s0.DebtSpiral) { spiral++; notes.Add($"Debt spiral after turn {turns} in long run, seed {i}."); }
             }
             notes.Add($"No-ceiling check: {n} passive game(s) x {CeilingTurns} turns.");
         }

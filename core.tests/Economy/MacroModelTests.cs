@@ -39,7 +39,9 @@ public class MacroModelTests
         return merged;
     }
 
-    private static MacroModelV1 Model(double tax = 40, double spend = 40) =>
+    // Primary surplus of 1.5% of GDP: sustainable with 0.4 debt/GDP (a balanced primary budget is not, because interest
+    // keeps raising debt, which raises the risk premium and crowds out saving; see LargeDeficit... below).
+    private static MacroModelV1 Model(double tax = 40, double spend = 38.5) =>
         new(new[] { Tax(tax), Spend(spend) });
 
     [Fact]
@@ -83,6 +85,17 @@ public class MacroModelTests
         double veryLate = Math.Pow(gdp[400] / gdp[392], 1 / (8 * Dt)) - 1;
         Assert.InRange(lateGrowth, 0.005, 0.06);
         Assert.InRange(veryLate, 0.005, 0.06);
+    }
+
+    [Fact]
+    public void DebtCrowdsOutInvestmentWhenDebtIsHigh()
+    {
+        var low = Initial();
+        var high = Initial();
+        high[MacroModelV1.Ids.Debt] = 3.0 * high[MacroModelV1.Ids.Gdp];
+        double kLow = Step(Model(), low)[MacroModelV1.Ids.Capital];
+        double kHigh = Step(Model(), high)[MacroModelV1.Ids.Capital];
+        Assert.True(kHigh < kLow);
     }
 
     [Fact]

@@ -45,6 +45,11 @@ public static class PackReader
         }
 
         var manifestRoot = Parse("manifest.yaml", manifestText, diags);
+        if (manifestRoot == null && diags.All(d => d.File != "manifest.yaml"))
+        {
+            diags.Add(new Diagnostic(Severity.Error, "E002", "manifest.yaml is empty.", "manifest.yaml", 0));
+            return (null, diags);
+        }
         var manifest = manifestRoot is YamlMappingNode mm ? ReadManifest(mm, diags) : null;
         if (manifest == null)
         {

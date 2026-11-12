@@ -52,6 +52,6 @@
   unit: percent_of_gdp
   min: 3
   max: 9
-  default: 5.0
+  default: 4.0
   delay_turns: 2
   cost_per_unit: 1      # parameter = spending as percent of GDP

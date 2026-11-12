@@ -55,6 +55,16 @@ public class PackReaderTests
         Assert.Contains(diags, x => x.Code == "E002" && x.File == "manifest.yaml");
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("# only a comment\n")]
+    public void EmptyManifestIsE002(string text)
+    {
+        var (pack, diags) = PackReader.Read(new InMemoryPackSource("x", new Dictionary<string, string> { ["manifest.yaml"] = text }));
+        Assert.Null(pack);
+        Assert.Contains(diags, d => d.Code == "E002" && d.File == "manifest.yaml" && d.Message.Contains("empty"));
+    }
+
     [Fact]
     public void HandlesBomAndCrlf()
     {

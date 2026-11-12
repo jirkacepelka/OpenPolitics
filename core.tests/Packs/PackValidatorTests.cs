@@ -104,3 +104,44 @@ public class ExpressionValidationTests
         Assert.Contains(r.Diagnostics, x => x.Code == "E004" && x.Message.Contains("t:ghost"));
     }
 }
+
+
+public class EconomyConfigValidationTests
+{
+    private static LoadResult WithParams(string parameters) =>
+        TestPacks.Load(f => f["countries/c.yaml"] = $"- id: t:land\n  name_key: country.land\n  parameters: {parameters}\n");
+
+    [Fact]
+    public void ValidParametersAreAccepted() => Assert.Empty(WithParams("{alpha: 0.4, premium_ratio_half: 2}").Diagnostics);
+
+    [Fact]
+    public void UnknownParameterNameIsE004()
+    {
+        var d = Assert.Single(WithParams("{alpah: 0.35}").Diagnostics, x => x.Code == "E004");
+        Assert.Contains("alpah", d.Message);
+        Assert.Equal("countries/c.yaml", d.File);
+    }
+
+    [Theory]
+    [InlineData("{alpha: 1.5}")]
+    [InlineData("{alpha: 0}")]
+    [InlineData("{premium_ratio_half: 0}")]
+    [InlineData("{saving_rate: -0.1}")]
+    public void OutOfRangeParameterIsE007(string parameters) =>
+        Assert.Contains(WithParams(parameters).Diagnostics, d => d.Code == "E007");
+
+    [Fact]
+    public void UnknownValueOwnerIsE004()
+    {
+        var r = TestPacks.Load(f => f["values/v.yaml"] = f["values/v.yaml"].Replace("unit: CZK", "unit: CZK\n  owner: macro_v2"));
+        var d = Assert.Single(r.Diagnostics, x => x.Code == "E004");
+        Assert.Contains("macro_v2", d.Message);
+    }
+
+    [Fact]
+    public void KnownValueOwnerIsAccepted()
+    {
+        var r = TestPacks.Load(f => f["values/v.yaml"] = f["values/v.yaml"].Replace("unit: CZK", "unit: CZK\n  owner: macro_v1"));
+        Assert.Empty(r.Diagnostics);
+    }
+}

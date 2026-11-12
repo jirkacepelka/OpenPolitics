@@ -70,8 +70,8 @@ quantity). M1 only computes and reports satisfaction. It does not yet drive elec
 3. Evaluate all edges from state at turn start (synchronous, order independent). Record contributions.
 4. Step `IEconomyModel`.
 5. Integrate other values: `x += rate·dt` (additive) or `x *= (1 + rate·dt)` (relative). Explicit Euler, `dt = 0.25`.
-6. Update voter satisfaction.
-7. Roll events (seeded RNG, events visited in id order).
+6. Roll events (seeded RNG, events visited in id order); their effects apply before the voters look.
+7. Update voter satisfaction: change of each value per year in units of max(|before|, |reference|, scale), plus policy distance.
 8. Emit `TurnReport`.
 
 Determinism rules: own PRNG (PCG32) seeded from the game seed; no `System.Random`, no `DateTime`, no iteration over hash

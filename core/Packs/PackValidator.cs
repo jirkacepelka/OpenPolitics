@@ -32,7 +32,18 @@ public static class PackValidator
         foreach (var v in set.Values)
         {
             if (!(v.Scale > 0)) Err("E007", "value", v.Id, $"Value '{v.Id}' needs scale > 0.");
+            if (v.Owner != null && !Economy.EconomyModels.Known.Contains(v.Owner))
+                Err("E004", "value", v.Id,
+                    $"Value '{v.Id}' has unknown owner '{v.Owner}' (known: {string.Join(", ", Economy.EconomyModels.Known.OrderBy(x => x, StringComparer.Ordinal))}).");
         }
+        foreach (var c in set.Countries)
+            foreach (var (name, value) in c.Parameters)
+            {
+                if (!Economy.MacroModelV1.ParameterRanges.TryGetValue(name, out var range))
+                    Err("E004", "country", c.Id, $"Country '{c.Id}' has unknown parameter '{name}'.");
+                else if (value < range.Min || value > range.Max)
+                    Err("E007", "country", c.Id, $"Country '{c.Id}' parameter '{name}' = {value} is outside [{range.Min}, {range.Max}].");
+            }
         foreach (var p in set.Policies)
         {
             if (p.Min > p.Max) Err("E007", "policy", p.Id, $"Policy '{p.Id}' has min greater than max.");

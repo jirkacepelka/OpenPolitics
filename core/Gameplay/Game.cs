@@ -9,8 +9,8 @@ namespace OpenPolitics.Core.Gameplay;
 
 /// <summary>
 /// One running game. All state lives here and changes only through <see cref="Apply"/> and <see cref="EndTurn"/>.
-/// Turn order (spec section 6): queued actions and policy delays, edges, economy model, integration of other values,
-/// voters, events, report. Everything iterates in ordinal id order so results are reproducible.
+/// Turn order (spec section 6, events moved before voters): queued actions and policy delays, edges, economy model,
+/// integration of other values, events, voters, report. Everything iterates in ordinal id order so results are reproducible.
 /// </summary>
 public sealed class Game
 {
@@ -24,6 +24,7 @@ public sealed class Game
     private readonly ulong _seed;
     private readonly double _dt;
     private readonly Dictionary<string, PolicyDef> _policyDefs;
+    private readonly Dictionary<string, ValueDef> _valueDefs;
     private readonly SortedDictionary<string, double> _values = new(Ord);
     private readonly SortedDictionary<string, double> _policies = new(Ord);
     private SortedDictionary<string, double> _satisfaction = new(Ord);
@@ -53,11 +54,8 @@ public sealed class Game
         foreach (var g in packs.VoterGroups) _satisfaction[g.Id] = 0.0;
 
         foreach (var owner in packs.Values.Where(v => v.Owner != null).Select(v => v.Owner!).Distinct(Ord).OrderBy(o => o, Ord))
-            _models.Add(owner switch
-            {
-                "macro_v1" => new MacroModelV1(packs.Policies),
-                _ => throw new InvalidOperationException($"Unknown economy model '{owner}'."),
-            });
+            _models.Add(EconomyModels.Create(owner, packs.Policies));
+        _valueDefs = packs.Values.ToDictionary(v => v.Id);
 
         _graph = new GraphEvaluator(packs.Edges, packs.Values, packs.Policies);
         _voters = new VoterModel(packs.VoterGroups, packs.Values, packs.Policies);
@@ -137,16 +135,21 @@ public sealed class Game
                 warnings.Add($"Value '{id}' was not finite after the step and was kept at its previous value.");
             }
 
-        // 6. Voter satisfaction from annual relative changes and current policies.
+        // 6. Events. Their effects change values before the voters look, so shocks are felt.
+        var fired = RollEvents(after);
+
+        // 7. Voter satisfaction from the change of each value in units of max(|before|, |reference|, scale)
+        //    per year (robust near zero), and from the current policies.
         var change = new SortedDictionary<string, double>(Ord);
         foreach (var id in before.Keys)
-            change[id] = (after[id] - before[id]) / Math.Max(Math.Abs(before[id]), 1e-9) / _dt;
+        {
+            var def = _valueDefs[id];
+            double denominator = Math.Max(Math.Max(Math.Abs(before[id]), Math.Abs(def.Reference)), def.Scale);
+            change[id] = (after[id] - before[id]) / denominator / _dt;
+        }
         var nextSatisfaction = new SortedDictionary<string, double>(Ord);
         foreach (var (id, s) in _voters.Step(_satisfaction, change, _policies, _dt)) nextSatisfaction[id] = s;
         _satisfaction = nextSatisfaction;
-
-        // 7. Events.
-        var fired = RollEvents(after);
 
         // 8. Commit and report.
         foreach (var (id, v) in after) _values[id] = v;

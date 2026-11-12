@@ -18,7 +18,8 @@ public sealed record StabilityThresholds(
 }
 
 /// <summary>
-/// DebtSpiralGames is informational and does not make a batch unstable: a debt spiral is a limit that arises from the
+/// DebtSpiralGames does not make random or extreme batches unstable (they abuse the model on purpose), but a spiral
+/// in passive play, where nobody acted, is a defect of the data or the model and does fail the batch. Informational otherwise: a debt spiral is a limit that arises from the
 /// model (interest on growing debt), which random and extreme strategies are expected to trigger.
 /// </summary>
 public sealed record BatchReport(
@@ -27,5 +28,6 @@ public sealed record BatchReport(
     bool CeilingDetected, IReadOnlyList<string> Notes)
 {
     public bool Stable =>
-        NanOrInfGames == 0 && ExtremeRateGames == 0 && CollapseGames == 0 && ExplosionGames == 0 && !CeilingDetected;
+        NanOrInfGames == 0 && ExtremeRateGames == 0 && CollapseGames == 0 && ExplosionGames == 0 && !CeilingDetected
+        && (Strategy != "passive" || DebtSpiralGames == 0);
 }
