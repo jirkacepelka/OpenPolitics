@@ -9,7 +9,7 @@ namespace OpenPolitics.Core.Tests.Politics;
 /// <summary>Builds small political worlds. Scenario "base:f" starts with an election after turn 1 at the given support.</summary>
 internal static class FormationFixture
 {
-    public sealed record Spec(string Id, double Support, double Price = 0, double Tax = 30);
+    public sealed record Spec(string Id, double Support, double Price = 0, double Tax = 30, bool Swing = false);
 
     public static PackSet Load(Spec[] parties, string player, string[]? government = null, string? leader = null,
         int interval = 16, int turnsToElection = 1, int maxFormation = 4, int caretaker = 2, int slots = 6,
@@ -18,7 +18,7 @@ internal static class FormationFixture
         return GameFixture.Load(f =>
         {
             f["parties/p.yaml"] = string.Join("", parties.Select(p =>
-                $"- id: base:{p.Id}\n  price: {p.Price}\n  platform:\n    base:tax: {{target: {p.Tax}, weight: 1}}\n" +
+                $"- id: base:{p.Id}\n  swing: {(p.Swing ? "true" : "false")}\n  price: {p.Price}\n  platform:\n    base:tax: {{target: {p.Tax}, weight: 1}}\n" +
                 "  demands:\n    - {id: d1, kind: policy, policy: base:spend, op: \">=\", target: 41, weight: 3}\n" +
                 "    - {id: d2, kind: policy, policy: base:spend, op: \">=\", target: 42, weight: 2}\n" +
                 "    - {id: d3, kind: policy, policy: base:spend, op: \">=\", target: 43, weight: 1}\n" +

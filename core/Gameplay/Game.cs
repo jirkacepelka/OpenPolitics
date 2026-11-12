@@ -70,7 +70,8 @@ public sealed class Game
 
         if (_scenario.Politics != null && _country.Politics != null)
             _politics = new PoliticsEngine(packs, _scenario, _country, seed, _satisfaction,
-                (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id));
+                (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
+                _scenario.TurnsPerYear);
     }
 
     private double CurrentYear => _scenario.StartYear + (double)_turn / _scenario.TurnsPerYear;
@@ -178,12 +179,12 @@ public sealed class Game
         foreach (var (id, s) in _voters.Step(_satisfaction, change, _policies, _dt)) nextSatisfaction[id] = s;
         _satisfaction = nextSatisfaction;
 
-        // 8. Politics: today's poll from the new satisfaction, the election countdown, the election itself.
-        var politicalEvents = _politics?.Step(_turn + 1, _satisfaction) ?? new List<PoliticalEvent>();
-
         // 9. Commit and report.
         foreach (var (id, v) in after) _values[id] = v;
         _turn++;
+
+        // Politics runs on the committed state: today's poll, loyalty, the election countdown, formation.
+        var politicalEvents = _politics?.Step(_turn, _satisfaction) ?? new List<PoliticalEvent>();
         var changes = before.Keys.Select(id => new ValueChange(id, before[id], after[id],
             eval.Contributions.TryGetValue(id, out var c) ? c : Array.Empty<Contribution>())).ToList();
         return new TurnReport(_turn, CurrentYear, changes, fired, warnings, politicalEvents);

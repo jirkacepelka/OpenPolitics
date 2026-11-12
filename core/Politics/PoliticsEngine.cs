@@ -21,7 +21,15 @@ internal sealed class PoliticsEngine
     private readonly SupportModel _support;
     private readonly IElectoralSystem _electoral;
     private readonly Pcg32 _rng;
-    private readonly Func<string, string, double> _baseline;
+    private readonly Func<string, string, double> _lookup; // current value of (kind, subject): "policy" or "value"
+    private readonly double _dt;
+    private readonly IReadOnlyList<VoterGroupDef> _groups;
+    private readonly LoyaltyParams _loyaltyParams = new();
+    private readonly SortedDictionary<string, double> _loyalty = new(Ord);
+    private readonly HashSet<string> _warned = new(Ord);
+    private readonly SortedDictionary<string, (string? DemandId, int Left)> _ultimatums = new(Ord);
+    private readonly HashSet<string> _redLinesActive = new(Ord); // "party|policy|op"
+    private int _lastTurn;
 
     private IReadOnlyDictionary<string, double> _poll = new Dictionary<string, double>();
     private IReadOnlyDictionary<string, int> _seats = new Dictionary<string, int>();
@@ -38,11 +46,13 @@ internal sealed class PoliticsEngine
     private readonly List<PoliticalEvent> _pending = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
-        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> baseline)
+        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear)
     {
         _scenario = scenario.Politics!;
         _rules = country.Politics!;
-        _baseline = baseline;
+        _lookup = lookup;
+        _dt = 1.0 / turnsPerYear;
+        _groups = packs.VoterGroups;
         _parties = packs.Parties.OrderBy(p => p.Id, Ord).ToDictionary(p => p.Id, Ord);
         _ranges = PartyMath.PolicyRanges(packs.Policies);
         var govParties = _scenario.Government.Concat(_scenario.Leader != null ? new[] { _scenario.Leader } : Array.Empty<string>())
@@ -56,6 +66,7 @@ internal sealed class PoliticsEngine
         _seats = _electoral.Allocate(_poll);
         _votes = _poll;
         _turnsToElection = _scenario.TurnsToElection;
+        ResetLoyalty();
     }
 
     private SupportInput Input(IReadOnlyDictionary<string, double> satisfaction) => new(
@@ -77,7 +88,13 @@ internal sealed class PoliticsEngine
         _scenario.PlayerParty, _government,
         _phase == Phase.Formation && _attempt >= 1 && _attempt <= _queue.Count
             ? new FormationInfo(_queue[_attempt - 1], _attempt, _turnsLeft, PlayerIsFormateur, _offer) : null,
-        PlayerRole);
+        PlayerRole,
+        new SortedDictionary<string, double>(_loyalty, Ord),
+        _government.Commitments.Select(c => new CommitmentStatus(c.PartyId, c.Demand.Id,
+            CommitmentMath.Progress(c, Current(c)), CommitmentMath.Expected(c, _lastTurn, _government.FormedTurn))).ToList(),
+        _ultimatums.Select(kv => new UltimatumInfo(kv.Key, kv.Value.DemandId, kv.Value.Left)).ToList());
+
+    private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
     /// <summary>Error key when the player may not change policies right now, otherwise null.</summary>
     public string? PolicyBlock() =>
@@ -125,6 +142,7 @@ internal sealed class PoliticsEngine
     /// <summary>One turn of politics. <paramref name="turn"/> is the turn number the report will carry.</summary>
     public List<PoliticalEvent> Step(int turn, IReadOnlyDictionary<string, double> satisfaction)
     {
+        _lastTurn = turn;
         var events = new List<PoliticalEvent>(_pending);
         _pending.Clear();
         _poll = _support.Compute(Input(satisfaction), _rng);
@@ -133,6 +151,7 @@ internal sealed class PoliticsEngine
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
         if (electionDue) { HoldElection(turn, events); return events; }
         if (_phase == Phase.Formation) StepFormation(turn, events);
+        else if (_phase == Phase.Governing) StepLoyalty(turn, satisfaction, events);
         return events;
     }
 
@@ -218,13 +237,85 @@ internal sealed class PoliticsEngine
         foreach (var a in proposal.Agreements)
         {
             var d = _parties[a.PartyId].Demands.First(x => x.Id == a.DemandId);
-            commitments.Add(new Commitment(a.PartyId, d, _baseline(d.Kind, d.Subject), turn + d.DueTurns));
+            commitments.Add(new Commitment(a.PartyId, d, _lookup(d.Kind, d.Subject), turn + d.DueTurns));
         }
         var parties = new[] { proposal.Formateur }.Concat(proposal.Partners).Distinct(Ord).OrderBy(x => x, Ord).ToList();
         _government = new Government(proposal.Formateur, parties, commitments, turn);
         _phase = Phase.Governing;
         _offer = null;
         _caretakerLeft = 0;
+        ResetLoyalty();
         return new GovernmentFormed(turn, _government);
+    }
+
+    private static string RedKey(string party, RedLineDef r) => $"{party}|{r.Policy}|{r.Op}";
+
+    /// <summary>Every partner (government parties but the leader) starts at the same loyalty; current red-line violations are not "crossings".</summary>
+    private void ResetLoyalty()
+    {
+        _loyalty.Clear(); _warned.Clear(); _ultimatums.Clear(); _redLinesActive.Clear();
+        foreach (var p in _government.Parties.Where(p => p != _government.Leader))
+        {
+            _loyalty[p] = _loyaltyParams.Start;
+            foreach (var r in _parties[p].RedLines)
+                if (LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy))) _redLinesActive.Add(RedKey(p, r));
+        }
+    }
+
+    private void StepLoyalty(int turn, IReadOnlyDictionary<string, double> satisfaction, List<PoliticalEvent> events)
+    {
+        var lp = _loyaltyParams;
+        foreach (var partner in _government.Parties.Where(p => p != _government.Leader).ToList())
+        {
+            var party = _parties[partner];
+            var mine = _government.Commitments.Where(c => c.PartyId == partner).ToList();
+            double fulfil = CommitmentMath.Fulfil(mine, Current, turn, _government.FormedTurn);
+            double shortfall = CommitmentMath.Shortfall(mine, Current, turn, _government.FormedTurn);
+            double mood = LoyaltyModel.BaseMood(party, _groups, satisfaction);
+
+            bool violated = false, crossed = false;
+            foreach (var r in party.RedLines)
+            {
+                bool now = LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy));
+                string key = RedKey(partner, r);
+                if (now) { violated = true; if (_redLinesActive.Add(key)) crossed = true; }
+                else _redLinesActive.Remove(key);
+            }
+
+            double target = LoyaltyModel.Target(fulfil, shortfall, mood, violated);
+            double loyalty = LoyaltyModel.Step(_loyalty.GetValueOrDefault(partner, lp.Start), target,
+                party.Swing ? lp.SwingLambda : lp.Lambda, _dt);
+            if (crossed) loyalty = Math.Max(0.0, loyalty - lp.Shock);
+            _loyalty[partner] = loyalty;
+
+            var late = CommitmentMath.MostLate(mine, Current, turn, _government.FormedTurn);
+            if (loyalty < lp.WarnBelow) { if (_warned.Add(partner)) events.Add(new LoyaltyWarning(turn, partner, late?.Demand.Id)); }
+            else if (loyalty >= lp.WarnReset) _warned.Remove(partner);
+
+            bool leave = loyalty <= lp.LeaveAt;
+            if (_ultimatums.TryGetValue(partner, out var ult))
+            {
+                var named = ult.DemandId == null ? null : mine.FirstOrDefault(c => c.Demand.Id == ult.DemandId);
+                bool delivered = named != null && CommitmentMath.Progress(named, Current(named)) + 1e-9 >= CommitmentMath.Expected(named, turn, _government.FormedTurn);
+                if (loyalty > lp.ResolveAbove || delivered) _ultimatums.Remove(partner);
+                else if (ult.Left - 1 <= 0) leave = true;
+                else _ultimatums[partner] = (ult.DemandId, ult.Left - 1);
+            }
+            else if (!leave && loyalty < lp.UltimatumBelow)
+            {
+                _ultimatums[partner] = (late?.Demand.Id, lp.UltimatumTurns);
+                events.Add(new Ultimatum(turn, partner, late?.Demand.Id, lp.UltimatumTurns));
+            }
+
+            if (leave) Depart(partner, turn, events);
+        }
+    }
+
+    private void Depart(string partner, int turn, List<PoliticalEvent> events)
+    {
+        events.Add(new PartnerLeft(turn, partner));
+        _government = new Government(_government.Leader, _government.Parties.Where(p => p != partner).ToList(),
+            _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn);
+        _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner);
     }
 }
