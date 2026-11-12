@@ -45,3 +45,9 @@ and politicians. They are not statistics and not predictions.
 
 Code: MIT ([LICENSE](LICENSE)). Data packs: CC BY-SA 4.0 ([data/LICENSE](data/LICENSE)).
 No text, data, art or names from Democracy 4, Hearts of Iron IV or Millennium Dawn are used.
+
+## Playing
+
+- Text client: `dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang en` (Czechia 2015, coalition government; `?` for help).
+- Godot client: see [client-godot/README.md](client-godot/README.md) (Godot 4.7 .NET, shares the core and the texts in the packs).
+- Headless balancing: `batch --politics --strategy ignorer|keeper|random|extreme|activist` (see `docs/decisions/`).

@@ -376,7 +376,7 @@ public sealed class PlayLoop
             {
                 var d = DemandOf(party, c.DemandId);
                 string status = c.Progress >= 0.999 ? "ui.commitment.done" : c.Progress + 0.05 >= c.Expected ? "ui.commitment.on_track" : "ui.commitment.late";
-                _out.WriteLine($"      [{_t.T(status)}] {(d == null ? c.DemandId : DemandText(d))}  ({Fmt.Number(c.Progress * 100, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)");
+                _out.WriteLine($"      [{_t.T(status)}] {(d == null ? c.DemandId : DemandText(d))}  ({Fmt.Number(c.Progress * 100 + 0.0, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)");
             }
         }
     }

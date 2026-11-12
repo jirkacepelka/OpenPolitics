@@ -197,7 +197,7 @@ public partial class PoliticsScreen : Screen
                 var d = s.Texts.DemandOf(party, c.DemandId);
                 string status = c.Progress >= 0.999 ? "ui.commitment.done" : c.Progress + 0.05 >= c.Expected ? "ui.commitment.on_track" : "ui.commitment.late";
                 var color = status == "ui.commitment.late" ? Ui.Bad : status == "ui.commitment.done" ? Ui.Good : Ui.Muted;
-                _body.AddChild(Ui.Text($"      [{t.T(status)}] {(d == null ? c.DemandId : s.Texts.Demand(d))}  ({Fmt.Number(c.Progress * 100, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)", color));
+                _body.AddChild(Ui.Text($"      [{t.T(status)}] {(d == null ? c.DemandId : s.Texts.Demand(d))}  ({Fmt.Number(c.Progress * 100 + 0.0, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)", color));
             }
         }
         if (pol.PlayerRole == Role.Leader) EarlyElectionButton(s);

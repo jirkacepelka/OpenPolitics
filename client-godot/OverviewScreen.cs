@@ -21,6 +21,11 @@ public partial class OverviewScreen : Screen
         Ui.Clear(_body);
         var t = s.T;
         var f = s.Figures;
+        if (s.Turn == 0)
+        {
+            _body.AddChild(Ui.Text(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Ui.Warn, 0, true));
+            _body.AddChild(Ui.Rule());
+        }
         _body.AddChild(Ui.Heading(t.T("ui.heading.overview")));
 
         var grid = new GridContainer { Columns = 2 };
