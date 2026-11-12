@@ -142,6 +142,9 @@ internal sealed class PoliticsEngine
     public string? PolicyBlock() =>
         _phase != Phase.Governing ? "error.no_majority" : PlayerRole != Role.Leader ? "error.not_leader" : null;
 
+    /// <summary>Capital cannot be banked without limit: a party that never acts does not stockpile an unbeatable campaign.</summary>
+    public const double MaxCapital = 30.0;
+
     private static readonly double HalfLifeFactor = DetMath.Pow(0.5, 0.25); // half-life of 4 turns
 
     /// <summary>Per-turn upkeep of the player's party: decay, recovery and political capital income.</summary>
@@ -159,7 +162,7 @@ internal sealed class PoliticsEngine
         }
         foreach (var id in _momentum.Keys.ToList()) _momentum[id] *= HalfLifeFactor;
         foreach (var id in _pressure.Keys.ToList()) _pressure[id] *= HalfLifeFactor;
-        _pc += 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0);
+        _pc = Math.Min(MaxCapital, _pc + 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0));
     }
 
     private bool TrySpend(double cost)
@@ -274,7 +277,7 @@ internal sealed class PoliticsEngine
         if (_groups.All(g => g.Id != groupId)) return Fail("error.unknown_group", groupId);
         if (effort < 1 || effort > 3) return Fail("error.bad_effort", effort.ToString());
         if (!TrySpend(3.0 * effort)) return Fail("error.not_enough_capital");
-        _momentum[groupId] += 0.12 * effort * (_turnsToElection <= 4 ? 2.0 : 1.0);
+        _momentum[groupId] += 0.06 * effort * (_turnsToElection <= 4 ? 2.0 : 1.0);
         return ActionResult.Ok;
     }
 

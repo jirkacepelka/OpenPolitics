@@ -120,12 +120,12 @@ public class PartyActionTests
     {
         var far = As("z", turnsToElection: 10);
         Assert.True(far.Apply(new Campaign("base:workers", 1)).Accepted);
-        Assert.Equal(0.12, St(far).Momentum["base:workers"], 12);
+        Assert.Equal(0.06, St(far).Momentum["base:workers"], 12);
         Assert.Equal(3.0, St(far).PoliticalCapital, 12);
 
         var near = As("z", turnsToElection: 3);
         Assert.True(near.Apply(new Campaign("base:workers", 1)).Accepted);
-        Assert.Equal(0.24, St(near).Momentum["base:workers"], 12);
+        Assert.Equal(0.12, St(near).Momentum["base:workers"], 12);
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class PartyActionTests
         var g = As("z", turnsToElection: 40);
         g.Apply(new Campaign("base:workers", 1));
         Run(g, 4);
-        Assert.Equal(0.06, St(g).Momentum["base:workers"], 9);
+        Assert.Equal(0.03, St(g).Momentum["base:workers"], 9);
     }
 
     [Fact]
@@ -182,5 +182,29 @@ public class PartyActionTests
         Assert.Equal(x.Platform, y.Platform);
         Assert.Equal(x.Momentum, y.Momentum);
         Assert.Equal(Pol(g).Support, Pol(h).Support);
+    }
+
+    [Fact]
+    public void CapitalIsCappedSoItCannotBeStockpiledForever()
+    {
+        var g = As("z");
+        Run(g, 60);
+        Assert.Equal(30.0, St(g).PoliticalCapital, 9);
+    }
+
+    [Fact]
+    public void CampaignRaisesTheSupportOfThePlayersPartyAmongThatGroup()
+    {
+        double Share(bool campaign)
+        {
+            var g = As("z", turnsToElection: 40);
+            for (int i = 0; i < 6; i++)
+            {
+                if (campaign) g.Apply(new Campaign("base:workers", 1));
+                g.EndTurn();
+            }
+            return Pol(g).Support["base:z"];
+        }
+        Assert.True(Share(true) > Share(false));
     }
 }

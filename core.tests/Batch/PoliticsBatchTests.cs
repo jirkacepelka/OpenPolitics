@@ -24,6 +24,7 @@ public class PoliticsBatchTests(ITestOutputHelper output)
     [InlineData(PoliticsStrategy.Keeper)]
     [InlineData(PoliticsStrategy.Random)]
     [InlineData(PoliticsStrategy.Extreme)]
+    [InlineData(PoliticsStrategy.Activist)]
     public void StrategiesOnlyUsePublicApiAndNeverThrow(PoliticsStrategy s)
     {
         var r = Run(s, 200);
@@ -72,5 +73,39 @@ public class PoliticsBatchTests(ITestOutputHelper output)
         }, w);
         Assert.Equal(0, code);
         Assert.Contains("Politics batch: 5 game(s) x 40 turns, strategy 'keeper'", w.ToString());
+    }
+
+    [Fact]
+    public void ActivistIsDeterministicAndNeverOverspends()
+    {
+        var a = PoliticsBatch.Run(Packs, Scenario, 100, Turns, PoliticsStrategy.Activist);
+        var b = PoliticsBatch.Run(Packs, Scenario, 100, Turns, PoliticsStrategy.Activist);
+        Assert.Equal(a.ToText(), b.ToText());
+        Assert.Equal(0, a.StuckGames);
+        Assert.Equal(0, a.NegativeCapitalGames);
+    }
+
+    [Fact]
+    public void ActivismPaysOff()
+    {
+        // The poll averaged over every quarter: the end-of-run poll and the last election depend on who happens to
+        // govern at that moment, and governing is blamed, so single snapshots are confounded.
+        var ignorer = Run(PoliticsStrategy.Ignorer, 500);
+        var activist = Run(PoliticsStrategy.Activist, 500);
+        double gain = activist.MeanPlayerSupportOverRun - ignorer.MeanPlayerSupportOverRun;
+        Assert.True(gain >= 0.01, $"activist {activist.MeanPlayerSupportOverRun:0.000} vs ignorer {ignorer.MeanPlayerSupportOverRun:0.000}");
+        Assert.True(gain <= 0.15, "activism must not be absurdly strong");
+    }
+
+    [Fact]
+    public void CliAcceptsTheActivistStrategy()
+    {
+        var w = new StringWriter();
+        int code = OpenPolitics.Cli.Commands.BatchCommand.Execute(new[]
+        {
+            "--packs", Path.Combine(BasePackTests.RepoRoot(), "data", "base"), "--politics", "--games", "3", "--turns", "30", "--strategy", "activist",
+        }, w);
+        Assert.Equal(0, code);
+        Assert.Contains("strategy 'activist'", w.ToString());
     }
 }
