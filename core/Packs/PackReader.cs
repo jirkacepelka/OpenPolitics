@@ -419,8 +419,19 @@ public static class PackReader
         int startYear = f.Int("start_year"), tpy = f.Int("turns_per_year", 4);
         var startValues = f.NumMap("start_values");
         var startPolicies = f.NumMap("start_policies");
-        var politics = ReadNested(f, f.Map("politics"), file, g => new ScenarioPoliticsDef(
-            g.Str("player_party"), g.NumMap("support"), g.StrList("government"), g.OptStr("leader"), g.Int("turns_to_election", 12)));
+        var politics = ReadNested(f, f.Map("politics"), file, g =>
+        {
+            var agreements = new List<AgreementDef>();
+            foreach (var item in g.Seq("agreements"))
+            {
+                if (item is not YamlMappingNode m) { g.Error(item, "Each agreement must be a mapping."); continue; }
+                var a = ReadNested(g, m, file, h => new AgreementDef(h.Str("party"), h.Str("demand")));
+                if (a != null) agreements.Add(a);
+            }
+            return new ScenarioPoliticsDef(
+                g.Str("player_party"), g.NumMap("support"), g.StrList("government"), g.OptStr("leader"), g.Int("turns_to_election", 12),
+                agreements);
+        });
         return new ScenarioDef(id, country, startYear, tpy, startValues, startPolicies, file, politics);
     }
 

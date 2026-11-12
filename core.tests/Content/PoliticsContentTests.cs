@@ -89,10 +89,10 @@ public class PoliticsContentTests
         {
             var g = Simulation.NewGame(Packs, Scenario, seed);
             var start = Pol(g).Support;
-            for (int i = 0; i < 11; i++) g.EndTurn(); // stop before the election so the poll is compared
+            for (int i = 0; i < 6; i++) g.EndTurn(); // before an idle player's coalition starts losing partners (that changes who is blamed)
             var end = Pol(g).Support;
             if (start.Keys.All(k => Math.Abs(end[k] - start[k]) <= 0.08)) ok++;
         }
-        Assert.True(ok >= seeds * 0.95, $"{ok}/{seeds} seeds stayed within 8 points");
+        Assert.True(ok >= seeds * 0.95, $"{ok}/{seeds} seeds stayed within 8 points in 6 quarters");
     }
 }

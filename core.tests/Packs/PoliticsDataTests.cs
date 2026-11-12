@@ -166,4 +166,28 @@ public class PoliticsDataTests
         var r = TestPacks.Load(f => AddParty(f, Party + "  mascot: owl\n"));
         Assert.Contains(r.Diagnostics, d => d.Code == "E002" && d.Message.Contains("mascot"));
     }
+
+    private static void AddAgreements(Dictionary<string, string> f, string agreements)
+    {
+        AddPolitics(f);
+        f["scenarios/s.yaml"] += "    agreements:\n" + agreements;
+    }
+
+    [Fact]
+    public void ReadsScenarioAgreements()
+    {
+        var r = TestPacks.Load(f => AddAgreements(f, "      - {party: t:p1, demand: d1}\n      - {party: t:p1, demand: d2}\n"));
+        Assert.Empty(r.Diagnostics);
+        var a = r.Packs!.Scenarios.Single().Politics!.Agreements!;
+        Assert.Equal(new[] { ("t:p1", "d1"), ("t:p1", "d2") }, a.Select(x => (x.Party, x.Demand)).ToArray());
+    }
+
+    [Fact]
+    public void AgreementWithUnknownDemandOrPartyIsE004()
+    {
+        var bad = TestPacks.Load(f => AddAgreements(f, "      - {party: t:p1, demand: nope}\n"));
+        Assert.Contains(bad.Diagnostics, d => d.Code == "E004" && d.Message.Contains("nope"));
+        var ghost = TestPacks.Load(f => AddAgreements(f, "      - {party: t:ghost, demand: d1}\n"));
+        Assert.Contains(ghost.Diagnostics, d => d.Code == "E004" && d.Message.Contains("t:ghost"));
+    }
 }

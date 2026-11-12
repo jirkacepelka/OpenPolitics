@@ -58,7 +58,13 @@ internal sealed class PoliticsEngine
         _ranges = PartyMath.PolicyRanges(packs.Policies);
         var govParties = _scenario.Government.Concat(_scenario.Leader != null ? new[] { _scenario.Leader } : Array.Empty<string>())
             .Distinct(Ord).OrderBy(x => x, Ord).ToList();
-        _government = new Government(_scenario.Leader ?? govParties.FirstOrDefault() ?? "", govParties, new List<Commitment>(), 0);
+        var initial = new List<Commitment>();
+        foreach (var a in _scenario.Agreements ?? Array.Empty<AgreementDef>())
+        {
+            var d = _parties[a.Party].Demands.First(x => x.Id == a.Demand);
+            initial.Add(new Commitment(a.Party, d, lookup(d.Kind, d.Subject), d.DueTurns));
+        }
+        _government = new Government(_scenario.Leader ?? govParties.FirstOrDefault() ?? "", govParties, initial, 0);
         _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
         _support.Calibrate(_scenario.Support, Input(satisfaction));
         _electoral = ElectoralSystems.Create(packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem));

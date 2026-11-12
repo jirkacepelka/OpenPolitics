@@ -164,6 +164,13 @@ public static class PackValidator
             foreach (var k in pol.Support.Keys) Ref("support", k);
             if (pol.Support.Values.Any(v => v < 0) || Math.Abs(pol.Support.Values.Sum() - 1.0) > 1e-6)
                 err("E007", "scenario", sc.Id, $"Scenario '{sc.Id}' support shares must be non-negative and sum to 1 (they sum to {pol.Support.Values.Sum():0.######}).");
+            foreach (var a in pol.Agreements ?? Array.Empty<AgreementDef>())
+            {
+                var owner = set.Parties.FirstOrDefault(p => p.Id == a.Party);
+                if (owner == null) Ref("agreement", a.Party);
+                else if (owner.Demands.All(d => d.Id != a.Demand))
+                    err("E004", "scenario", sc.Id, $"Scenario '{sc.Id}' agreement refers to unknown demand '{a.Demand}' of party '{a.Party}'.");
+            }
             if (pol.TurnsToElection < 1) err("E007", "scenario", sc.Id, $"Scenario '{sc.Id}' turns_to_election must be at least 1.");
         }
     }

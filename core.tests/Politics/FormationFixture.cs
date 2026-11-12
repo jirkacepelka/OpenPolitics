@@ -13,7 +13,7 @@ internal static class FormationFixture
 
     public static PackSet Load(Spec[] parties, string player, string[]? government = null, string? leader = null,
         int interval = 16, int turnsToElection = 1, int maxFormation = 4, int caretaker = 2, int slots = 6,
-        string? redLines = null)
+        string? redLines = null, string? agreements = null)
     {
         return GameFixture.Load(f =>
         {
@@ -31,7 +31,8 @@ internal static class FormationFixture
                 "- id: base:test\n  country: base:czechia\n  start_year: 2015\n  turns_per_year: 4\n" +
                 "- id: base:f\n  country: base:czechia\n  start_year: 2015\n  turns_per_year: 4\n  politics:\n" +
                 $"    player_party: base:{player}\n    support: {{{string.Join(", ", parties.Select(p => $"base:{p.Id}: {p.Support}"))}}}\n" +
-                $"    government: [{string.Join(", ", gov.Select(g => "base:" + g))}]\n    leader: base:{leader ?? gov[0]}\n    turns_to_election: {turnsToElection}\n";
+                $"    government: [{string.Join(", ", gov.Select(g => "base:" + g))}]\n    leader: base:{leader ?? gov[0]}\n    turns_to_election: {turnsToElection}\n" +
+                (agreements == null ? "" : "    agreements:\n" + agreements);
             foreach (var lang in new[] { "cs", "en" })
                 f[$"localization/{lang}.yaml"] += string.Join("", parties.Select(p => $"name.base:{p.Id}: {lang}-{p.Id}\n"));
         });

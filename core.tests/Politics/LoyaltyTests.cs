@@ -174,4 +174,16 @@ public class LoyaltyTests
         double Decay(bool swing) { var g = Coalition(swingB: swing); Run(g, 2); return Loyalty(g); }
         Assert.True(Decay(true) < Decay(false));
     }
+
+    [Fact]
+    public void ScenarioAgreementsBecomeInitialCommitments()
+    {
+        var packs = Load(Parties(), "a", government: new[] { "a", "b" }, leader: "a", turnsToElection: 60, interval: 60,
+            agreements: "      - {party: base:b, demand: d1}\n");
+        var g = New(packs);
+        var c = Assert.Single(Pol(g).Commitments!);
+        Assert.Equal(("base:b", "d1", 0.0), (c.PartyId, c.DemandId, c.Progress));
+        Run(g, 6);
+        Assert.True(Pol(g).Loyalty!["base:b"] < 70); // d1 (spend >= 41) is never delivered
+    }
 }

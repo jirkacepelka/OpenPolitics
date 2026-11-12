@@ -60,9 +60,13 @@ public sealed record CountryPoliticsDef(
     string ElectoralSystem, int ElectionIntervalTurns, double MajorityFraction,
     int MaxFormationTurns, int CaretakerTurns, int ProgramSlots);
 
+/// <summary>A demand already written into the starting coalition agreement (party id, demand id).</summary>
+public sealed record AgreementDef(string Party, string Demand);
+
 public sealed record ScenarioPoliticsDef(
     string PlayerParty, IReadOnlyDictionary<string, double> Support,
-    IReadOnlyList<string> Government, string? Leader, int TurnsToElection);
+    IReadOnlyList<string> Government, string? Leader, int TurnsToElection,
+    IReadOnlyList<AgreementDef>? Agreements = null);
 
 /// <summary>Parameters are model parameters (e.g. alpha, delta) for the country's economy model.</summary>
 public sealed record CountryDef(
