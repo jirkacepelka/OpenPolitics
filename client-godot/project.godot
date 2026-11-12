@@ -1,0 +1,18 @@
+; Engine configuration file. OpenPolitics Godot client (milestone M3).
+config_version=5
+
+[application]
+config/name="OpenPolitics"
+run/main_scene="res://Main.tscn"
+config/features=PackedStringArray("4.7", "C#")
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=800
+window/stretch/mode="canvas_items"
+
+[dotnet]
+project/assembly_name="OpenPolitics.Client"
+
+[gui]
+theme/default_font_size=16

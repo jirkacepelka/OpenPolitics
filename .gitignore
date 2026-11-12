@@ -6,3 +6,8 @@ obj/
 .superpowers/
 *.save.yaml
 TestResults/
+
+# Godot
+client-godot/.godot/
+client-godot/.mono/
+client-godot/*.screenshot.png
