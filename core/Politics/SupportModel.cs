@@ -7,7 +7,9 @@ namespace OpenPolitics.Core.Politics;
 public sealed record SupportInput(
     IReadOnlyDictionary<string, double> Satisfaction,
     ISet<string> GovernmentParties,
-    IReadOnlyDictionary<string, double> Credibility);
+    IReadOnlyDictionary<string, double> Credibility,
+    IReadOnlyDictionary<string, double>? Momentum = null, string? MomentumParty = null,
+    IReadOnlyDictionary<string, double>? TurnoutBoost = null);
 
 /// <summary>
 /// Turns voter-group satisfaction and party platforms into vote shares (spec M2, section 3):
@@ -21,6 +23,7 @@ public sealed class SupportModel
     private readonly double _kPos, _kGov, _tau, _sigma, _turnout;
     private readonly double[,] _distance; // [group, party]
     private readonly double[] _offset;
+    private readonly Dictionary<string, double> _range;
 
     public SupportModel(
         IReadOnlyList<PartyDef> parties, IReadOnlyList<VoterGroupDef> groups, IReadOnlyList<PolicyDef> policies,
@@ -31,10 +34,19 @@ public sealed class SupportModel
         _kPos = kPos; _kGov = kGov; _tau = tau; _sigma = sigma; _turnout = turnout;
         _offset = new double[_parties.Count];
         _distance = new double[_groups.Count, _parties.Count];
-        var range = policies.ToDictionary(p => p.Id, p => p.Max - p.Min, StringComparer.Ordinal);
+        _range = policies.ToDictionary(p => p.Id, p => p.Max - p.Min, StringComparer.Ordinal);
         for (int g = 0; g < _groups.Count; g++)
             for (int p = 0; p < _parties.Count; p++)
-                _distance[g, p] = Distance(_groups[g], _parties[p], range);
+                _distance[g, p] = Distance(_groups[g], _parties[p], _range);
+    }
+
+    /// <summary>Replaces a party's definition (its platform changed) and recomputes how far each group is from it.</summary>
+    public void UpdateParty(PartyDef party)
+    {
+        int p = _parties.FindIndex(x => x.Id == party.Id);
+        if (p < 0) throw new ArgumentException($"Unknown party '{party.Id}'.", nameof(party));
+        _parties[p] = party;
+        for (int g = 0; g < _groups.Count; g++) _distance[g, p] = Distance(_groups[g], party, _range);
     }
 
     private static double Distance(VoterGroupDef g, PartyDef p, Dictionary<string, double> range)
@@ -88,8 +100,10 @@ public sealed class SupportModel
                 var party = _parties[p];
                 double cred = input.Credibility.GetValueOrDefault(party.Id, 1.0);
                 double blame = input.GovernmentParties.Contains(party.Id) ? _kGov * sat : -0.5 * _kGov * sat;
+                double momentum = input.MomentumParty == party.Id && input.Momentum != null
+                    ? input.Momentum.GetValueOrDefault(grp.Id, 0.0) : 0.0;
                 double v = _offset[p] + party.Affinity.GetValueOrDefault(grp.Id, 0.0)
-                    + _kPos * (1.0 - _distance[g, p]) * (0.5 + 0.5 * cred) + blame;
+                    + _kPos * (1.0 - _distance[g, p]) * (0.5 + 0.5 * cred) + blame + momentum;
                 if (noise is not null)
                 {
                     double sum = 0;
@@ -101,7 +115,8 @@ public sealed class SupportModel
             double max = u.Max(), z = 0;
             for (int p = 0; p < np; p++) { u[p] = DetMath.Exp(u[p] - max); z += u[p]; }
             double weight = grp.Size * _turnout;
-            for (int p = 0; p < np; p++) support[p] += weight * u[p] / z;
+            for (int p = 0; p < np; p++)
+                support[p] += weight * u[p] / z * (input.TurnoutBoost?.GetValueOrDefault(_parties[p].Id, 1.0) ?? 1.0);
         }
         double sumAll = support.Sum();
         if (!(sumAll > 0)) return Enumerable.Repeat(1.0 / np, np).ToArray();
