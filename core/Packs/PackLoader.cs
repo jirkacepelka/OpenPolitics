@@ -18,6 +18,7 @@ public static class PackLoader
         var edges = new Dictionary<string, EdgeDef>(); var groups = new Dictionary<string, VoterGroupDef>();
         var events = new Dictionary<string, EventDef>(); var countries = new Dictionary<string, CountryDef>();
         var scenarios = new Dictionary<string, ScenarioDef>();
+        var parties = new Dictionary<string, PartyDef>(); var electoral = new Dictionary<string, ElectoralSystemDef>();
         var owner = new Dictionary<string, string>(); // kind/id -> pack id
         var localization = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
         int packs = 0;
@@ -44,6 +45,8 @@ public static class PackLoader
             Merge("event", pack, pack.Events, v => v.Id, events, owner, loc, diags);
             Merge("country", pack, pack.Countries, v => v.Id, countries, owner, loc, diags);
             Merge("scenario", pack, pack.Scenarios, v => v.Id, scenarios, owner, loc, diags);
+            Merge("party", pack, pack.Parties, v => v.Id, parties, owner, loc, diags);
+            Merge("electoral_system", pack, pack.ElectoralSystems, v => v.Id, electoral, owner, loc, diags);
             foreach (var (lang, table) in pack.Localization)
             {
                 if (!localization.TryGetValue(lang, out var merged))
@@ -57,7 +60,7 @@ public static class PackLoader
         var loc2 = localization.ToDictionary(kv => kv.Key,
             kv => (IReadOnlyDictionary<string, string>)kv.Value, StringComparer.Ordinal);
         var set = new PackSet(values.Values, policies.Values, edges.Values, groups.Values, events.Values,
-            countries.Values, scenarios.Values, loc2, hashes, loc);
+            countries.Values, scenarios.Values, loc2, hashes, loc, parties.Values, electoral.Values);
         diags.AddRange(PackValidator.Validate(set));
         return new LoadResult(set, diags);
     }

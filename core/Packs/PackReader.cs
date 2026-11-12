@@ -17,6 +17,8 @@ public sealed class RawPack
     public List<EventDef> Events { get; } = new();
     public List<CountryDef> Countries { get; } = new();
     public List<ScenarioDef> Scenarios { get; } = new();
+    public List<PartyDef> Parties { get; } = new();
+    public List<ElectoralSystemDef> ElectoralSystems { get; } = new();
     public Dictionary<string, Dictionary<string, string>> Localization { get; } = new();
     /// <summary>Ids whose YAML entry carries <c>override: true</c>.</summary>
     public HashSet<string> Overrides { get; } = new();
@@ -29,7 +31,7 @@ public sealed class RawPack
 public static class PackReader
 {
     private static readonly string[] KnownFolders =
-        { "values", "policies", "edges", "voter_groups", "events", "countries", "scenarios", "localization", "electoral_systems" };
+        { "values", "policies", "edges", "voter_groups", "events", "countries", "scenarios", "localization", "parties", "electoral_systems" };
 
     public static (RawPack? Pack, IReadOnlyList<Diagnostic> Diagnostics) Read(IPackSource source)
     {
@@ -81,8 +83,9 @@ public static class PackReader
                 case "events": Entries(path, root, diags, pack, ReadEvent, pack.Events, v => v.Id); break;
                 case "countries": Entries(path, root, diags, pack, ReadCountry, pack.Countries, v => v.Id); break;
                 case "scenarios": Entries(path, root, diags, pack, ReadScenario, pack.Scenarios, v => v.Id); break;
+                case "parties": Entries(path, root, diags, pack, ReadParty, pack.Parties, v => v.Id, "party"); break;
+                case "electoral_systems": Entries(path, root, diags, pack, ReadElectoralSystem, pack.ElectoralSystems, v => v.Id, "electoral_system"); break;
                 case "localization": ReadLocalization(path, root, diags, pack); break;
-                // electoral_systems: reserved for M2, intentionally not read yet.
             }
         }
         return (pack, diags);
@@ -278,7 +281,7 @@ public static class PackReader
     }
 
     private static void Entries<T>(string file, YamlNode root, List<Diagnostic> diags, RawPack pack,
-        Func<Fields, string, T?> read, List<T> into, Func<T, string> idOf) where T : class
+        Func<Fields, string, T?> read, List<T> into, Func<T, string> idOf, string? kindHint = null) where T : class
     {
         if (root is not YamlSequenceNode seq)
         {
@@ -398,12 +401,97 @@ public static class PackReader
         return new EventDef(id, cond, prob, effects, text, file);
     }
 
-    private static CountryDef? ReadCountry(Fields f, string file) =>
-        new(f.Str("id"), f.Str("name_key"), f.NumMap("parameters"), file);
+    private static CountryDef? ReadCountry(Fields f, string file)
+    {
+        var id = f.Str("id");
+        var nameKey = f.Str("name_key");
+        var parameters = f.NumMap("parameters");
+        var politics = ReadNested(f, f.Map("politics"), file, g => new CountryPoliticsDef(
+            g.Str("electoral_system"), g.Int("election_interval_turns", 16), g.Num("majority_fraction", 0.5),
+            g.Int("max_formation_turns", 4), g.Int("caretaker_turns", 2), g.Int("program_slots", 6)));
+        return new CountryDef(id, nameKey, parameters, file, politics);
+    }
 
-    private static ScenarioDef? ReadScenario(Fields f, string file) =>
-        new(f.Str("id"), f.Str("country"), f.Int("start_year"), f.Int("turns_per_year", 4),
-            f.NumMap("start_values"), f.NumMap("start_policies"), file);
+    private static ScenarioDef? ReadScenario(Fields f, string file)
+    {
+        var id = f.Str("id");
+        var country = f.Str("country");
+        int startYear = f.Int("start_year"), tpy = f.Int("turns_per_year", 4);
+        var startValues = f.NumMap("start_values");
+        var startPolicies = f.NumMap("start_policies");
+        var politics = ReadNested(f, f.Map("politics"), file, g => new ScenarioPoliticsDef(
+            g.Str("player_party"), g.NumMap("support"), g.StrList("government"), g.OptStr("leader"), g.Int("turns_to_election", 12)));
+        return new ScenarioDef(id, country, startYear, tpy, startValues, startPolicies, file, politics);
+    }
+
+    /// <summary>Reads a nested mapping with its own Fields; its diagnostics (incl. unknown fields) go to the parent.</summary>
+    private static T? ReadNested<T>(Fields parent, YamlMappingNode? node, string file, Func<Fields, T> read) where T : class
+    {
+        if (node == null) return null;
+        var diags = new List<Diagnostic>();
+        var g = new Fields(node, file, diags);
+        var result = read(g);
+        g.ReportUnknown();
+        Forward(diags, parent);
+        return result;
+    }
+
+    private static ElectoralSystemDef? ReadElectoralSystem(Fields f, string file) =>
+        new(f.Str("id"), f.Str("type"), f.Int("seats"), f.Str("method", "dhondt"), f.Num("threshold", 0), file);
+
+    private static PartyDef? ReadParty(Fields f, string file)
+    {
+        string id = f.Str("id");
+        string nameKey = f.Str("name_key", "name." + id);
+
+        var platform = new SortedDictionary<string, PlatformPosition>(StringComparer.Ordinal);
+        var platformNode = f.Map("platform");
+        if (platformNode != null)
+            foreach (var kv in platformNode.Children)
+            {
+                if (kv.Key is not YamlScalarNode k || kv.Value is not YamlMappingNode m)
+                { f.Error(kv.Key, "Platform entries must map a policy id to {target, weight}."); continue; }
+                var pos = ReadNested(f, m, file, g => new PlatformPosition(g.Num("target"), g.Num("weight", 1)));
+                if (pos != null) platform[k.Value ?? ""] = pos;
+            }
+
+        var affinity = f.NumMap("affinity");
+        bool swing = f.Bool("swing", false);
+
+        var demands = new List<DemandDef>();
+        foreach (var item in f.Seq("demands"))
+        {
+            if (item is not YamlMappingNode m) { f.Error(item, "Each demand must be a mapping."); continue; }
+            var d = ReadNested(f, m, file, g =>
+            {
+                string? pol = g.OptStr("policy"), val = g.OptStr("value");
+                string kind = g.Str("kind", val != null && pol == null ? "value" : "policy");
+                string subject = (kind == "value" ? val : pol) ?? "";
+                if (subject == "") g.Error(m, $"Demand needs '{(kind == "value" ? "value" : "policy")}'.");
+                return new DemandDef(g.Str("id"), kind, subject, g.Str("op"), g.Num("target"), g.Num("weight", 1), g.Int("due_turns", 8));
+            });
+            if (d != null) demands.Add(d);
+        }
+
+        var redLines = new List<RedLineDef>();
+        foreach (var item in f.Seq("red_lines"))
+        {
+            if (item is not YamlMappingNode m) { f.Error(item, "Each red line must be a mapping."); continue; }
+            var r = ReadNested(f, m, file, g => new RedLineDef(g.Str("policy"), g.Str("op"), g.Num("threshold")));
+            if (r != null) redLines.Add(r);
+        }
+
+        double price = f.Num("price", 0);
+
+        var factions = new List<FactionDef>();
+        foreach (var item in f.Seq("factions"))
+        {
+            if (item is not YamlMappingNode m) { f.Error(item, "Each faction must be a mapping."); continue; }
+            var fa = ReadNested(f, m, file, g => new FactionDef(g.Str("id"), g.Num("weight", 1), g.NumMap("platform")));
+            if (fa != null) factions.Add(fa);
+        }
+        return new PartyDef(id, nameKey, platform, affinity, swing, demands, redLines, price, factions, file);
+    }
 
     private static void ReadLocalization(string path, YamlNode root, List<Diagnostic> diags, RawPack pack)
     {

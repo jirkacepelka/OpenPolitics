@@ -36,12 +36,42 @@ public sealed record EffectDef(string ValueId, double Delta);
 public sealed record EventDef(
     string Id, string Condition, double Probability, IReadOnlyList<EffectDef> Effects, string TextKey, string Source);
 
+public sealed record PlatformPosition(double Target, double Weight);
+
+/// <summary>A coalition demand. Kind is "policy" or "value"; Subject is that policy or value id; Op is ">=" or "<=".</summary>
+public sealed record DemandDef(string Id, string Kind, string Subject, string Op, double Target, double Weight, int DueTurns);
+
+public sealed record RedLineDef(string Policy, string Op, double Threshold);
+
+public sealed record FactionDef(string Id, double Weight, IReadOnlyDictionary<string, double> Platform);
+
+/// <summary>A fictional party: platform, voter-group affinities, coalition demands, red lines and factions.</summary>
+public sealed record PartyDef(
+    string Id, string NameKey,
+    IReadOnlyDictionary<string, PlatformPosition> Platform,
+    IReadOnlyDictionary<string, double> Affinity,
+    bool Swing,
+    IReadOnlyList<DemandDef> Demands, IReadOnlyList<RedLineDef> RedLines,
+    double Price, IReadOnlyList<FactionDef> Factions, string Source);
+
+public sealed record ElectoralSystemDef(string Id, string Type, int Seats, string Method, double Threshold, string Source);
+
+public sealed record CountryPoliticsDef(
+    string ElectoralSystem, int ElectionIntervalTurns, double MajorityFraction,
+    int MaxFormationTurns, int CaretakerTurns, int ProgramSlots);
+
+public sealed record ScenarioPoliticsDef(
+    string PlayerParty, IReadOnlyDictionary<string, double> Support,
+    IReadOnlyList<string> Government, string? Leader, int TurnsToElection);
+
 /// <summary>Parameters are model parameters (e.g. alpha, delta) for the country's economy model.</summary>
 public sealed record CountryDef(
-    string Id, string NameKey, IReadOnlyDictionary<string, double> Parameters, string Source);
+    string Id, string NameKey, IReadOnlyDictionary<string, double> Parameters, string Source,
+    CountryPoliticsDef? Politics = null);
 
 public sealed record ScenarioDef(
     string Id, string CountryId, int StartYear, int TurnsPerYear,
     IReadOnlyDictionary<string, double> StartValues,
     IReadOnlyDictionary<string, double> StartPolicies,
-    string Source);
+    string Source,
+    ScenarioPoliticsDef? Politics = null);

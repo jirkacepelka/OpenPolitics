@@ -10,13 +10,15 @@ public sealed class PackSet
     public IReadOnlyList<EventDef> Events { get; }
     public IReadOnlyList<CountryDef> Countries { get; }
     public IReadOnlyList<ScenarioDef> Scenarios { get; }
+    public IReadOnlyList<PartyDef> Parties { get; }
+    public IReadOnlyList<ElectoralSystemDef> ElectoralSystems { get; }
     /// <summary>language -> key -> text</summary>
     public IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> Localization { get; }
     /// <summary>pack id -> SHA-256 hex of its content</summary>
     public IReadOnlyDictionary<string, string> PackHashes { get; }
     private readonly IReadOnlyDictionary<string, (string File, int Line)> _locations;
 
-    /// <summary>Where a definition was declared. Kinds: value, policy, edge, voter_group, event, country, scenario.</summary>
+    /// <summary>Where a definition was declared. Kinds: value, policy, edge, voter_group, event, country, scenario, party, electoral_system.</summary>
     public (string? File, int Line) Where(string kind, string id) =>
         _locations.TryGetValue(kind + "/" + id, out var l) ? (l.File, l.Line) : (null, 0);
 
@@ -26,8 +28,11 @@ public sealed class PackSet
         IEnumerable<CountryDef> countries, IEnumerable<ScenarioDef> scenarios,
         IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> localization,
         IReadOnlyDictionary<string, string> packHashes,
-        IReadOnlyDictionary<string, (string File, int Line)>? locations = null)
+        IReadOnlyDictionary<string, (string File, int Line)>? locations = null,
+        IEnumerable<PartyDef>? parties = null, IEnumerable<ElectoralSystemDef>? electoralSystems = null)
     {
+        Parties = Sort(parties ?? Array.Empty<PartyDef>(), v => v.Id);
+        ElectoralSystems = Sort(electoralSystems ?? Array.Empty<ElectoralSystemDef>(), v => v.Id);
         _locations = locations ?? new Dictionary<string, (string File, int Line)>();
         Values = Sort(values, v => v.Id);
         Policies = Sort(policies, v => v.Id);

@@ -93,9 +93,79 @@ public static class PackValidator
             }
         }
 
+        CheckPolitics(set, valueIds, policyIds, countryIds, Err);
         CheckZeroDelayCycles(set, Err);
         CheckLocalization(set, diags);
         return diags;
+    }
+
+    private static void CheckPolitics(PackSet set, ISet<string> valueIds, ISet<string> policyIds, ISet<string> countryIds,
+        Action<string, string, string, string> err)
+    {
+        var partyIds = new HashSet<string>(set.Parties.Select(p => p.Id), StringComparer.Ordinal);
+        var groupIds = new HashSet<string>(set.VoterGroups.Select(g => g.Id), StringComparer.Ordinal);
+        var systemIds = new HashSet<string>(set.ElectoralSystems.Select(s => s.Id), StringComparer.Ordinal);
+        var ops = new HashSet<string> { ">=", "<=" };
+
+        foreach (var s in set.ElectoralSystems)
+        {
+            if (s.Type != "proportional") err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' has unknown type '{s.Type}' (known: proportional).");
+            if (s.Method != "dhondt") err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' has unknown method '{s.Method}' (known: dhondt).");
+            if (s.Seats < 1) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' needs seats >= 1.");
+            if (!(s.Threshold >= 0 && s.Threshold < 1)) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' threshold {s.Threshold} must be in [0, 1).");
+        }
+
+        foreach (var p in set.Parties)
+        {
+            void Ref(string what, string target, ISet<string> allowed, string kind)
+            {
+                if (!allowed.Contains(target)) err("E004", "party", p.Id, $"Party '{p.Id}' {what} refers to unknown {kind} '{target}'.");
+            }
+            foreach (var pol in p.Platform.Keys) Ref("platform", pol, policyIds, "policy");
+            foreach (var g in p.Affinity.Keys) Ref("affinity", g, groupIds, "voter group");
+            foreach (var d in p.Demands)
+            {
+                Ref($"demand '{d.Id}'", d.Subject, d.Kind == "value" ? valueIds : policyIds, d.Kind == "value" ? "value" : "policy");
+                if (!ops.Contains(d.Op)) err("E007", "party", p.Id, $"Party '{p.Id}' demand '{d.Id}' has operator '{d.Op}' (use >= or <=).");
+                if (d.Kind != "policy" && d.Kind != "value") err("E007", "party", p.Id, $"Party '{p.Id}' demand '{d.Id}' has unknown kind '{d.Kind}'.");
+            }
+            foreach (var r in p.RedLines)
+            {
+                Ref("red line", r.Policy, policyIds, "policy");
+                if (!ops.Contains(r.Op)) err("E007", "party", p.Id, $"Party '{p.Id}' red line on '{r.Policy}' has operator '{r.Op}' (use >= or <=).");
+            }
+            foreach (var fa in p.Factions)
+                foreach (var pol in fa.Platform.Keys) Ref($"faction '{fa.Id}'", pol, policyIds, "policy");
+            if (p.Price < 0) err("E007", "party", p.Id, $"Party '{p.Id}' price must not be negative.");
+        }
+
+        foreach (var c in set.Countries)
+        {
+            if (c.Politics == null) continue;
+            if (!systemIds.Contains(c.Politics.ElectoralSystem))
+                err("E004", "country", c.Id, $"Country '{c.Id}' refers to unknown electoral system '{c.Politics.ElectoralSystem}'.");
+            if (c.Politics.ElectionIntervalTurns < 1 || c.Politics.MaxFormationTurns < 1 || c.Politics.CaretakerTurns < 1 || c.Politics.ProgramSlots < 1)
+                err("E007", "country", c.Id, $"Country '{c.Id}' politics intervals and slots must be at least 1.");
+            if (!(c.Politics.MajorityFraction > 0 && c.Politics.MajorityFraction < 1))
+                err("E007", "country", c.Id, $"Country '{c.Id}' majority_fraction must be in (0, 1).");
+        }
+
+        foreach (var sc in set.Scenarios)
+        {
+            var pol = sc.Politics;
+            if (pol == null) continue;
+            void Ref(string what, string target)
+            {
+                if (!partyIds.Contains(target)) err("E004", "scenario", sc.Id, $"Scenario '{sc.Id}' {what} refers to unknown party '{target}'.");
+            }
+            Ref("player_party", pol.PlayerParty);
+            foreach (var g in pol.Government) Ref("government", g);
+            if (pol.Leader != null) Ref("leader", pol.Leader);
+            foreach (var k in pol.Support.Keys) Ref("support", k);
+            if (pol.Support.Values.Any(v => v < 0) || Math.Abs(pol.Support.Values.Sum() - 1.0) > 1e-6)
+                err("E007", "scenario", sc.Id, $"Scenario '{sc.Id}' support shares must be non-negative and sum to 1 (they sum to {pol.Support.Values.Sum():0.######}).");
+            if (pol.TurnsToElection < 1) err("E007", "scenario", sc.Id, $"Scenario '{sc.Id}' turns_to_election must be at least 1.");
+        }
     }
 
     private static void CheckZeroDelayCycles(PackSet set, Action<string, string, string, string> err)
@@ -153,6 +223,7 @@ public static class PackValidator
         foreach (var p in set.Policies) needs.Add(("policy", p.Id, "name." + p.Id));
         foreach (var g in set.VoterGroups) needs.Add(("voter_group", g.Id, "name." + g.Id));
         foreach (var c in set.Countries) needs.Add(("country", c.Id, c.NameKey));
+        foreach (var p in set.Parties) needs.Add(("party", p.Id, p.NameKey));
         foreach (var e in set.Events) needs.Add(("event", e.Id, e.TextKey));
 
         foreach (var lang in RequiredLanguages)
