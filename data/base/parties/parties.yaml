@@ -1,0 +1,158 @@
+# ILLUSTRATIVE and FICTIONAL parties. Any resemblance to real parties is unintended; positions are invented for play.
+- id: base:citizens_movement
+  platform:
+    base:income_tax: {target: 21, weight: 0.6}
+    base:vat: {target: 12, weight: 0.3}
+    base:corporate_tax: {target: 3, weight: 0.6}
+    base:administration: {target: 3.5, weight: 0.8}
+    base:infrastructure: {target: 4.5, weight: 0.5}
+    base:migration: {target: 2, weight: 0.4}
+  affinity: {base:low_income: 0.10, base:middle_class: 0.20, base:high_income: 0.30, base:pensioners: 0.20, base:young_urban: -0.10, base:rural_conservatives: 0.20}
+  price: 4
+  demands:
+    - {id: low_corporate_tax, kind: policy, policy: base:corporate_tax, op: "<=", target: 4, weight: 3, due_turns: 8}
+    - {id: lean_state, kind: policy, policy: base:administration, op: "<=", target: 4, weight: 2, due_turns: 12}
+    - {id: infrastructure, kind: policy, policy: base:infrastructure, op: ">=", target: 4, weight: 2, due_turns: 12}
+    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 6, weight: 2, due_turns: 16}
+  red_lines:
+    - {policy: base:corporate_tax, op: ">=", threshold: 8}
+    - {policy: base:income_tax, op: ">=", threshold: 32}
+  factions:
+    - {id: managers, weight: 0.6, platform: {base:corporate_tax: 2, base:administration: 3}}
+    - {id: populists, weight: 0.4, platform: {base:pensions: 11, base:social_benefits: 9}}
+- id: base:social_alliance
+  platform:
+    base:income_tax: {target: 27, weight: 0.5}
+    base:social_benefits: {target: 10, weight: 0.8}
+    base:pensions: {target: 11, weight: 0.7}
+    base:health_spending: {target: 8, weight: 0.6}
+    base:education_spending: {target: 5.5, weight: 0.4}
+    base:migration: {target: 3, weight: 0.2}
+  affinity: {base:low_income: 0.30, base:middle_class: 0.05, base:high_income: -0.30, base:pensioners: 0.25, base:young_urban: 0.00, base:rural_conservatives: -0.05}
+  price: 5
+  demands:
+    - {id: pensions, kind: policy, policy: base:pensions, op: ">=", target: 10, weight: 3, due_turns: 8}
+    - {id: social_benefits, kind: policy, policy: base:social_benefits, op: ">=", target: 9, weight: 2, due_turns: 12}
+    - {id: health, kind: policy, policy: base:health_spending, op: ">=", target: 7.5, weight: 2, due_turns: 12}
+  red_lines:
+    - {policy: base:pensions, op: "<=", threshold: 7}
+    - {policy: base:social_benefits, op: "<=", threshold: 5}
+  factions:
+    - {id: unions, weight: 0.5, platform: {base:social_benefits: 11, base:pensions: 12}}
+    - {id: reformers, weight: 0.5, platform: {base:education_spending: 6, base:research: 2}}
+- id: base:civic_right
+  platform:
+    base:income_tax: {target: 19, weight: 0.8}
+    base:corporate_tax: {target: 2, weight: 0.5}
+    base:vat: {target: 11, weight: 0.3}
+    base:social_benefits: {target: 6, weight: 0.5}
+    base:administration: {target: 3.5, weight: 0.5}
+    base:police: {target: 2, weight: 0.4}
+  affinity: {base:low_income: -0.25, base:middle_class: 0.15, base:high_income: 0.35, base:pensioners: 0.00, base:young_urban: 0.05, base:rural_conservatives: 0.10}
+  price: 4
+  demands:
+    - {id: income_tax_cut, kind: policy, policy: base:income_tax, op: "<=", target: 21, weight: 3, due_turns: 8}
+    - {id: corporate_tax_cut, kind: policy, policy: base:corporate_tax, op: "<=", target: 3, weight: 2, due_turns: 12}
+    - {id: lean_benefits, kind: policy, policy: base:social_benefits, op: "<=", target: 7, weight: 2, due_turns: 12}
+  red_lines:
+    - {policy: base:income_tax, op: ">=", threshold: 30}
+    - {policy: base:corporate_tax, op: ">=", threshold: 7}
+  factions:
+    - {id: liberals, weight: 0.5, platform: {base:income_tax: 17, base:migration: 5}}
+    - {id: conservatives, weight: 0.5, platform: {base:police: 2.5, base:migration: 2}}
+- id: base:peoples_union
+  platform:
+    base:pensions: {target: 11, weight: 0.8}
+    base:health_spending: {target: 8, weight: 0.5}
+    base:vat: {target: 11, weight: 0.4}
+    base:police: {target: 2, weight: 0.4}
+    base:migration: {target: 1.5, weight: 0.5}
+    base:infrastructure: {target: 4, weight: 0.3}
+  affinity: {base:low_income: 0.05, base:middle_class: 0.00, base:high_income: -0.10, base:pensioners: 0.30, base:young_urban: -0.25, base:rural_conservatives: 0.30}
+  price: 3
+  demands:
+    - {id: pensions, kind: policy, policy: base:pensions, op: ">=", target: 10, weight: 3, due_turns: 8}
+    - {id: lower_vat, kind: policy, policy: base:vat, op: "<=", target: 12, weight: 2, due_turns: 12}
+    - {id: police, kind: policy, policy: base:police, op: ">=", target: 1.8, weight: 1, due_turns: 12}
+  red_lines:
+    - {policy: base:vat, op: ">=", threshold: 18}
+    - {policy: base:pensions, op: "<=", threshold: 7}
+  factions:
+    - {id: farmers, weight: 0.5, platform: {base:infrastructure: 4.5}}
+    - {id: traditionalists, weight: 0.5, platform: {base:migration: 1}}
+- id: base:workers_left
+  platform:
+    base:income_tax: {target: 30, weight: 0.6}
+    base:corporate_tax: {target: 8, weight: 0.7}
+    base:social_benefits: {target: 12, weight: 0.8}
+    base:pensions: {target: 12, weight: 0.6}
+    base:health_spending: {target: 9, weight: 0.5}
+    base:migration: {target: 4, weight: 0.2}
+  affinity: {base:low_income: 0.35, base:middle_class: -0.10, base:high_income: -0.40, base:pensioners: 0.10, base:young_urban: 0.10, base:rural_conservatives: -0.20}
+  price: 6
+  demands:
+    - {id: corporate_tax_up, kind: policy, policy: base:corporate_tax, op: ">=", target: 6, weight: 3, due_turns: 8}
+    - {id: social_benefits, kind: policy, policy: base:social_benefits, op: ">=", target: 10, weight: 3, due_turns: 8}
+    - {id: health, kind: policy, policy: base:health_spending, op: ">=", target: 8.5, weight: 2, due_turns: 12}
+  red_lines:
+    - {policy: base:social_benefits, op: "<=", threshold: 6}
+    - {policy: base:corporate_tax, op: "<=", threshold: 2}
+  factions:
+    - {id: radicals, weight: 0.4, platform: {base:corporate_tax: 10}}
+    - {id: pragmatists, weight: 0.6, platform: {base:corporate_tax: 6}}
+- id: base:homeland_first
+  platform:
+    base:migration: {target: 0.5, weight: 1.0}
+    base:police: {target: 2.5, weight: 0.8}
+    base:pensions: {target: 11, weight: 0.4}
+    base:environment_regulation: {target: 2, weight: 0.4}
+    base:vat: {target: 11, weight: 0.3}
+  affinity: {base:low_income: 0.10, base:middle_class: -0.05, base:high_income: -0.25, base:pensioners: 0.10, base:young_urban: -0.45, base:rural_conservatives: 0.45}
+  price: 5
+  demands:
+    - {id: closed_borders, kind: policy, policy: base:migration, op: "<=", target: 1.5, weight: 3, due_turns: 8}
+    - {id: police, kind: policy, policy: base:police, op: ">=", target: 2.2, weight: 2, due_turns: 12}
+    - {id: relaxed_green_rules, kind: policy, policy: base:environment_regulation, op: "<=", target: 3, weight: 1, due_turns: 12}
+  red_lines:
+    - {policy: base:migration, op: ">=", threshold: 5}
+  factions:
+    - {id: hardliners, weight: 0.5, platform: {base:migration: 0}}
+    - {id: moderates, weight: 0.5, platform: {base:migration: 1.5}}
+- id: base:green_wave
+  platform:
+    base:environment_regulation: {target: 8, weight: 1.0}
+    base:education_spending: {target: 6, weight: 0.5}
+    base:research: {target: 2, weight: 0.5}
+    base:migration: {target: 5, weight: 0.4}
+    base:infrastructure: {target: 4, weight: 0.3}
+    base:corporate_tax: {target: 6, weight: 0.3}
+  affinity: {base:low_income: 0.00, base:middle_class: 0.05, base:high_income: -0.15, base:pensioners: -0.30, base:young_urban: 0.55, base:rural_conservatives: -0.45}
+  price: 5
+  demands:
+    - {id: environment, kind: policy, policy: base:environment_regulation, op: ">=", target: 6, weight: 3, due_turns: 8}
+    - {id: research, kind: policy, policy: base:research, op: ">=", target: 2, weight: 2, due_turns: 12}
+    - {id: education, kind: policy, policy: base:education_spending, op: ">=", target: 5.5, weight: 2, due_turns: 12}
+  red_lines:
+    - {policy: base:environment_regulation, op: "<=", threshold: 2.5}
+  factions:
+    - {id: fundamentalists, weight: 0.4, platform: {base:environment_regulation: 9}}
+    - {id: realists, weight: 0.6, platform: {base:environment_regulation: 6.5}}
+- id: base:open_net
+  swing: true
+  platform:
+    base:education_spending: {target: 6, weight: 0.6}
+    base:research: {target: 2.5, weight: 0.7}
+    base:administration: {target: 3.5, weight: 0.6}
+    base:migration: {target: 5, weight: 0.3}
+    base:income_tax: {target: 22, weight: 0.3}
+  affinity: {base:low_income: -0.10, base:middle_class: 0.15, base:high_income: 0.10, base:pensioners: -0.40, base:young_urban: 0.55, base:rural_conservatives: -0.30}
+  price: 3
+  demands:
+    - {id: research, kind: policy, policy: base:research, op: ">=", target: 2, weight: 3, due_turns: 8}
+    - {id: lean_state, kind: policy, policy: base:administration, op: "<=", target: 4, weight: 2, due_turns: 12}
+    - {id: education, kind: policy, policy: base:education_spending, op: ">=", target: 5.5, weight: 2, due_turns: 12}
+  red_lines:
+    - {policy: base:research, op: "<=", threshold: 0.5}
+  factions:
+    - {id: coders, weight: 0.5, platform: {base:research: 3}}
+    - {id: activists, weight: 0.5, platform: {base:migration: 6}}

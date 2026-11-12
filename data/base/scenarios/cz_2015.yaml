@@ -1,0 +1,19 @@
+# Illustrative start: a three-party coalition with a seat majority, twelve quarters before the next election.
+- id: base:cz_2015
+  country: base:czechia
+  start_year: 2015
+  turns_per_year: 4
+  politics:
+    player_party: base:social_alliance
+    support:
+      base:citizens_movement: 0.30
+      base:social_alliance: 0.17
+      base:civic_right: 0.13
+      base:peoples_union: 0.09
+      base:workers_left: 0.12
+      base:homeland_first: 0.07
+      base:green_wave: 0.06
+      base:open_net: 0.06
+    government: [base:social_alliance, base:peoples_union, base:citizens_movement]
+    leader: base:social_alliance
+    turns_to_election: 12

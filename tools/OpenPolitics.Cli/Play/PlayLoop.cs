@@ -3,6 +3,7 @@ using System.Text;
 using OpenPolitics.Core.Economy;
 using OpenPolitics.Core.Gameplay;
 using OpenPolitics.Core.Packs;
+using OpenPolitics.Core.Politics;
 
 namespace OpenPolitics.Cli.Play;
 
@@ -146,6 +147,7 @@ public sealed class PlayLoop
             foreach (var id in _last.FiredEventIds)
                 _out.WriteLine("  * " + _t.T(_packs.Events.Single(e => e.Id == id).TextKey));
         }
+        ShowElectionResults(_last.PoliticalEvents);
         ShowOverview();
         if (_tips && _nextTip <= 5) _out.WriteLine("\n" + _t.T($"ui.tip.{_nextTip++}"));
         if (_game.State.Turn >= _maxTurns) { ShowEnd(); return true; }
@@ -292,6 +294,45 @@ public sealed class PlayLoop
         }
         double mood = VoterMood();
         Line(_t.T("ui.line.mood"), $"{MoodLabel(mood).PadRight(11)} {Fmt.Bar(mood)}");
+        ShowPolitics();
+    }
+
+    private void ShowPolitics()
+    {
+        var pol = Current.Politics;
+        if (pol == null) return;
+        _out.WriteLine($"\n{_t.T("ui.heading.politics")}");
+        Line(_t.T("ui.line.next_election"), pol.TurnsToElection <= 1
+            ? _t.T("ui.politics.election_next") : _t.T("ui.politics.election_in", pol.TurnsToElection));
+        _out.WriteLine("  " + _t.T("ui.politics.polls"));
+        foreach (var (id, share) in pol.Support.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            string tag = id == pol.PlayerParty ? "  <- " + _t.T("ui.politics.you") : "";
+            string gov = pol.GovernmentParties.Contains(id) ? "*" : " ";
+            _out.WriteLine($"   {gov} {_t.Name(id),-26}{ShareBar(share)} {Fmt.Number(share * 100),5} %{tag}");
+        }
+        int total = pol.Seats.Values.Sum(), held = pol.GovernmentParties.Sum(id => pol.Seats.GetValueOrDefault(id));
+        double fraction = _packs.Countries.First(c => c.Politics != null).Politics!.MajorityFraction;
+        string verdict = _t.T(held > total * fraction ? "ui.politics.majority" : "ui.politics.no_majority");
+        Line(_t.T("ui.politics.government"), $"{_t.T("ui.politics.seats_of", held, total)}  ({verdict})");
+    }
+
+    private static string ShareBar(double share, int width = 20) =>
+        new string('#', (int)Math.Round(Math.Clamp(share / 0.4, 0, 1) * width)).PadRight(width);
+
+    private void ShowElectionResults(IReadOnlyList<PoliticalEvent> events)
+    {
+        foreach (var e in events.OfType<ElectionHeld>())
+        {
+            _out.WriteLine($"\n{_t.T("ui.politics.result_heading")}");
+            foreach (var (id, seats) in e.Seats.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                string votes = Fmt.Number(e.Votes[id] * 100) + " %";
+                _out.WriteLine("  " + (seats > 0
+                    ? _t.T("ui.politics.result_line", _t.Name(id), seats, votes)
+                    : _t.T("ui.politics.result_out", _t.Name(id), votes)));
+            }
+        }
     }
 
     private void ShowPolicies()

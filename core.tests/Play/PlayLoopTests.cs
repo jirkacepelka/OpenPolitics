@@ -14,6 +14,52 @@ public class PlayLoopTests
         return output.ToString();
     }
 
+    private static string PlayCz(string input, string lang = "en", ulong seed = 1)
+    {
+        var packs = BasePackTests.LoadBase().Packs!;
+        var output = new StringWriter();
+        Assert.Equal(0, new PlayLoop(packs, "base:cz_2015", seed, lang, 80, false, new StringReader(input), output).Run());
+        return output.ToString();
+    }
+
+    [Fact]
+    public void OverviewShowsPollsAndNextElection()
+    {
+        var o = PlayCz("quit\n");
+        Assert.Contains("POLITICS", o);
+        Assert.Contains("Next election", o);
+        Assert.Contains("in 12 quarters", o);
+        Assert.Contains("Citizens' Movement", o);
+        Assert.Contains("30.0 %", o);
+        Assert.Contains("Government parties hold", o);
+        Assert.Contains("a majority", o);
+        Assert.Contains("your party", o);
+    }
+
+    [Fact]
+    public void SandboxHasNoPoliticsBlock()
+    {
+        Assert.DoesNotContain("POLITICS", Play("quit\n"));
+    }
+
+    [Fact]
+    public void ElectionResultIsReportedInTheQuarterItHappens()
+    {
+        Assert.DoesNotContain("ELECTION RESULT", PlayCz(Quarters(11) + "quit\n"));
+        var o = PlayCz(Quarters(12) + "quit\n");
+        Assert.Contains("ELECTION RESULT", o);
+        Assert.Contains("seats", o);
+    }
+
+    [Fact]
+    public void PoliticsTextsAreAlsoAvailableInCzech()
+    {
+        var o = PlayCz("quit\n", "cs");
+        Assert.Contains("POLITIKA", o);
+        Assert.Contains("Hnutí Občanů", o);
+        Assert.Contains("za 12 čtvrtletí", o);
+    }
+
     private static string Quarters(int n) => string.Concat(Enumerable.Repeat("\n", n));
 
     [Fact]

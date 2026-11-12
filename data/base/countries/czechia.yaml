@@ -7,3 +7,10 @@
     base_productivity_growth: 0.012
     natural_unemployment: 5.0
     revenue_ratio_ref: 0.40
+  politics:
+    electoral_system: base:czech_pr
+    election_interval_turns: 16
+    majority_fraction: 0.5
+    max_formation_turns: 4
+    caretaker_turns: 2
+    program_slots: 6

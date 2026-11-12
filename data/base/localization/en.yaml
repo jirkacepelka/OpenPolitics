@@ -124,3 +124,26 @@ desc.base:administration: "Running the state (offices, defence), percent of GDP.
 desc.base:environment_regulation: "How strict environmental rules are (0 to 10). Cleans up nature, costs firms money."
 desc.base:migration: "How open the country is to migration (0 to 10). Adds workers, divides opinion."
 ui.unit.gdp_share: "% of GDP"
+
+# --- Parties (fictional) and politics texts ---
+name.base:citizens_movement: Citizens' Movement
+name.base:social_alliance: Social Alliance
+name.base:civic_right: Civic Right
+name.base:peoples_union: People's Union
+name.base:workers_left: Workers' Left
+name.base:homeland_first: Homeland First
+name.base:green_wave: Green Wave
+name.base:open_net: Open Net
+ui.heading.politics: "POLITICS"
+ui.line.next_election: "Next election"
+ui.politics.election_in: "in {0} quarters"
+ui.politics.election_next: "next quarter"
+ui.politics.polls: "Polls (share of votes)"
+ui.politics.government: "Government parties hold"
+ui.politics.seats_of: "{0} of {1} seats"
+ui.politics.majority: "a majority"
+ui.politics.no_majority: "a minority"
+ui.politics.you: "your party"
+ui.politics.result_heading: "ELECTION RESULT"
+ui.politics.result_line: "{0}: {1} seats ({2})"
+ui.politics.result_out: "{0}: below the threshold, no seats ({1})"

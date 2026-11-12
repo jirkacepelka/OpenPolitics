@@ -1,0 +1,6 @@
+# Simplified: one national constituency, D'Hondt, 5 % threshold (illustrative, not the exact legal rules).
+- id: base:czech_pr
+  type: proportional
+  seats: 200
+  method: dhondt
+  threshold: 0.05

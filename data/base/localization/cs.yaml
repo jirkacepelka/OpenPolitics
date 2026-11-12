@@ -124,3 +124,26 @@ desc.base:administration: "Chod státu (úřady, obrana) v % HDP. Škrty šetř�
 desc.base:environment_regulation: "Jak přísná je ekologická regulace (0 až 10). Čistí přírodu, stojí firmy peníze."
 desc.base:migration: "Jak otevřená je země migraci (0 až 10). Přidává pracovníky, rozděluje názory."
 ui.unit.gdp_share: "% HDP"
+
+# --- Parties (fictional) and politics texts ---
+name.base:citizens_movement: Hnutí Občanů
+name.base:social_alliance: Sociální aliance
+name.base:civic_right: Občanská pravice
+name.base:peoples_union: Lidová unie
+name.base:workers_left: Levice práce
+name.base:homeland_first: Domov především
+name.base:green_wave: Zelená vlna
+name.base:open_net: Otevřená síť
+ui.heading.politics: "POLITIKA"
+ui.line.next_election: "Další volby"
+ui.politics.election_in: "za {0} čtvrtletí"
+ui.politics.election_next: "příští čtvrtletí"
+ui.politics.polls: "Průzkumy (podíl hlasů)"
+ui.politics.government: "Vládní strany mají"
+ui.politics.seats_of: "{0} ze {1} křesel"
+ui.politics.majority: "většinu"
+ui.politics.no_majority: "menšinu"
+ui.politics.you: "vaše strana"
+ui.politics.result_heading: "VOLBY: VÝSLEDEK"
+ui.politics.result_line: "{0}: {1} křesel ({2})"
+ui.politics.result_out: "{0}: pod prahem, bez křesel ({1})"
