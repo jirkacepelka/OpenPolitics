@@ -1,7 +1,7 @@
 namespace OpenPolitics.Core.Politics;
 
-/// <summary>Where the country is in the political cycle. Extended with formation and caretaker phases in M2b.</summary>
-public enum Phase { Governing }
+/// <summary>Governing; Formation (formateur attempts, old government caretaking); Caretaker (attempts failed, early elections ahead).</summary>
+public enum Phase { Governing, Formation, Caretaker }
 
 /// <summary>Immutable political snapshot: latest poll, current seats, the government and the player's party.</summary>
 public sealed record CountryPolitics(
@@ -9,10 +9,21 @@ public sealed record CountryPolitics(
     IReadOnlyDictionary<string, double> Support,
     IReadOnlyDictionary<string, int> Seats,
     IReadOnlyList<string> GovernmentParties,
-    string? Leader, string PlayerParty);
+    string? Leader, string PlayerParty,
+    Government? Government = null, FormationInfo? Formation = null, Role PlayerRole = Role.Opposition);
+
+/// <summary>An attempt to form a government. Offer is set while the AI's coalition waits for the player's answer.</summary>
+public sealed record FormationInfo(string Formateur, int Attempt, int TurnsLeft, bool PlayerIsFormateur, CoalitionProposal? Offer);
 
 public abstract record PoliticalEvent(int Turn);
 
 /// <summary>An election took place: the votes (shares summing to 1) and the resulting seats.</summary>
 public sealed record ElectionHeld(
     int Turn, IReadOnlyDictionary<string, double> Votes, IReadOnlyDictionary<string, int> Seats) : PoliticalEvent(Turn);
+
+public sealed record FormationStarted(int Turn, string Formateur) : PoliticalEvent(Turn);
+public sealed record FormationFailed(int Turn, string Formateur) : PoliticalEvent(Turn);
+public sealed record OfferMade(int Turn, CoalitionProposal Proposal) : PoliticalEvent(Turn);
+public sealed record OfferLapsed(int Turn) : PoliticalEvent(Turn);
+public sealed record GovernmentFormed(int Turn, Government Government) : PoliticalEvent(Turn);
+public sealed record EarlyElectionsCalled(int Turn) : PoliticalEvent(Turn);

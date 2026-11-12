@@ -10,7 +10,7 @@ public class GamePoliticsTests
 {
     private const string Scenario = "base:test_politics";
 
-    internal static void AddPolitics(Dictionary<string, string> f, string support = "{base:pa: 0.45, base:pb: 0.35, base:pc: 0.20}")
+    internal static void AddPolitics(Dictionary<string, string> f, string support = "{base:pa: 0.45, base:pb: 0.35, base:pc: 0.20}", int turnsToElection = 3)
     {
         string Party(string id, double tax, string aff) =>
             $"- id: base:{id}\n  platform:\n    base:tax: {{target: {tax}, weight: 1}}\n  affinity: {{base:workers: {aff}}}\n";
@@ -21,7 +21,7 @@ public class GamePoliticsTests
         f["scenarios/s.yaml"] =
             "- id: base:test\n  country: base:czechia\n  start_year: 2015\n  turns_per_year: 4\n  start_values: {base:health: 65}\n" +
             "- id: base:test_politics\n  country: base:czechia\n  start_year: 2015\n  turns_per_year: 4\n  start_values: {base:health: 65}\n" +
-            "  politics:\n    player_party: base:pa\n    support: " + support + "\n    government: [base:pa]\n    leader: base:pa\n    turns_to_election: 3\n";
+            "  politics:\n    player_party: base:pa\n    support: " + support + "\n    government: [base:pa]\n    leader: base:pa\n    turns_to_election: " + turnsToElection + "\n";
         foreach (var lang in new[] { "cs", "en" })
             f[$"localization/{lang}.yaml"] += string.Join("", new[] { "pa", "pb", "pc" }.Select(i => $"name.base:{i}: {lang}-{i}\n"));
     }
@@ -95,7 +95,8 @@ public class GamePoliticsTests
     {
         double GovShare(bool bad)
         {
-            var g = Simulation.NewGame(Packs(), Scenario, 9);
+            // No election inside the window, so the government (and who gets blamed) stays the same.
+            var g = Simulation.NewGame(GameFixture.Load(f => AddPolitics(f, turnsToElection: 40)), Scenario, 9);
             if (bad)
             {
                 Assert.True(g.Apply(new SetPolicy("base:tax", 60)).Accepted);
