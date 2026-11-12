@@ -14,8 +14,6 @@ namespace OpenPolitics.Core.Gameplay;
 /// </summary>
 public sealed class Game
 {
-    private sealed record Pending(int EffectiveTurn, string PolicyId, double Value);
-
     private static readonly StringComparer Ord = StringComparer.Ordinal;
 
     private readonly PackSet _packs;
@@ -28,7 +26,7 @@ public sealed class Game
     private readonly SortedDictionary<string, double> _values = new(Ord);
     private readonly SortedDictionary<string, double> _policies = new(Ord);
     private SortedDictionary<string, double> _satisfaction = new(Ord);
-    private readonly List<Pending> _pending = new();
+    private readonly List<PendingPolicy> _pending = new();
     private readonly List<(int Turn, PlayerAction Action)> _log = new();
     private readonly GraphEvaluator _graph;
     private readonly List<IEconomyModel> _models = new();
@@ -87,10 +85,13 @@ public sealed class Game
         if (!double.IsFinite(set.Value) || set.Value < policy.Min || set.Value > policy.Max)
             return new ActionResult(false, "error.value_out_of_range", $"{set.PolicyId} must be in [{policy.Min}, {policy.Max}]");
 
-        _pending.Add(new Pending(_turn + policy.DelayTurns, set.PolicyId, set.Value));
+        _pending.Add(new PendingPolicy(set.PolicyId, set.Value, _turn + policy.DelayTurns));
         _log.Add((_turn, action));
         return ActionResult.Ok;
     }
+
+    /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
+    public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 
     public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn);
 

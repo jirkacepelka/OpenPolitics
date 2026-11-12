@@ -10,3 +10,6 @@ public sealed record ActionResult(bool Accepted, string? ErrorKey, string? Detai
 {
     public static ActionResult Ok { get; } = new(true, null, null);
 }
+
+/// <summary>A policy change that was accepted but has not taken effect yet.</summary>
+public sealed record PendingPolicy(string PolicyId, double Value, int EffectiveTurn);

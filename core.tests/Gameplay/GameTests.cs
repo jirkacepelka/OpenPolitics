@@ -88,6 +88,21 @@ public class GameTests
     }
 
     [Fact]
+    public void PendingPoliciesListQueuedChangesUntilTheyTakeEffect()
+    {
+        var g = New();
+        Assert.Empty(g.PendingPolicies);
+        g.Apply(new SetPolicy("base:slow", 5));             // delay_turns: 2
+        g.Apply(new SetPolicy("base:tax", 30));             // delay 0
+        Assert.Equal(new[] { ("base:slow", 5.0, 2), ("base:tax", 30.0, 0) },
+            g.PendingPolicies.OrderBy(p => p.PolicyId, StringComparer.Ordinal).Select(p => (p.PolicyId, p.Value, p.EffectiveTurn)).ToArray());
+        g.EndTurn();
+        Assert.Equal(new[] { "base:slow" }, g.PendingPolicies.Select(p => p.PolicyId).ToArray());
+        g.EndTurn(); g.EndTurn();
+        Assert.Empty(g.PendingPolicies);
+    }
+
+    [Fact]
     public void TurnReportExplainsChange()
     {
         var g = New();
