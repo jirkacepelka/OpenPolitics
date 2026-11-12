@@ -91,17 +91,10 @@ public sealed class Game
 
     public ActionResult Apply(PlayerAction action)
     {
-        if (action is ProposeCoalition or AcceptOffer or RejectOffer or CallEarlyElection)
+        if (action is PoliticsAction)
         {
             if (_politics == null) return new ActionResult(false, "error.no_politics", null);
-            int reportTurn = _turn + 1;
-            var result = action switch
-            {
-                ProposeCoalition p => _politics.Propose(p.Partners, p.Agreements, reportTurn),
-                AcceptOffer => _politics.AcceptOffer(reportTurn),
-                RejectOffer => _politics.RejectOffer(reportTurn),
-                _ => _politics.CallEarlyElection(),
-            };
+            var result = _politics.Execute(action, _turn + 1);
             if (result.Accepted) _log.Add((_turn, action));
             return result;
         }

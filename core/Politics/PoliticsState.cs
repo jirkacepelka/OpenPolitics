@@ -12,7 +12,7 @@ public sealed record CountryPolitics(
     string? Leader, string PlayerParty,
     Government? Government = null, FormationInfo? Formation = null, Role PlayerRole = Role.Opposition,
     IReadOnlyDictionary<string, double>? Loyalty = null, IReadOnlyList<CommitmentStatus>? Commitments = null,
-    IReadOnlyList<UltimatumInfo>? Ultimatums = null);
+    IReadOnlyList<UltimatumInfo>? Ultimatums = null, PartyStatus? Party = null);
 
 /// <summary>How far an agreed demand is delivered (Progress) against how far it should be by now (Expected), both 0..1.</summary>
 public sealed record CommitmentStatus(string PartyId, string DemandId, double Progress, double Expected);

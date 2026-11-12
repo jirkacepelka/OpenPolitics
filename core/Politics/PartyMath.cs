@@ -26,4 +26,26 @@ public static class PartyMath
     /// <summary>Range (max - min) of every policy, keyed by policy id.</summary>
     public static Dictionary<string, double> PolicyRanges(IEnumerable<PolicyDef> policies) =>
         policies.ToDictionary(p => p.Id, p => p.Max - p.Min, StringComparer.Ordinal);
+
+    /// <summary>
+    /// How united the party is behind its platform, in [0, 1]: one minus the weight-averaged distance of its factions'
+    /// preferred settings from the platform (policies the party does not mention or without a range are skipped).
+    /// </summary>
+    public static double Cohesion(PartyDef party, IReadOnlyDictionary<string, double> policyRange)
+    {
+        double totalWeight = party.Factions.Sum(f => Math.Max(0.0, f.Weight));
+        if (!(totalWeight > 0)) return 1.0;
+        double distance = 0;
+        foreach (var f in party.Factions)
+        {
+            double sum = 0; int n = 0;
+            foreach (var (policy, target) in f.Platform.OrderBy(k => k.Key, StringComparer.Ordinal))
+            {
+                if (!party.Platform.TryGetValue(policy, out var pos) || !policyRange.TryGetValue(policy, out var range) || !(range > 0)) continue;
+                sum += Math.Min(1.0, Math.Abs(target - pos.Target) / range); n++;
+            }
+            distance += Math.Max(0.0, f.Weight) * (n > 0 ? sum / n : 0.0);
+        }
+        return Math.Clamp(1.0 - distance / totalWeight, 0.0, 1.0);
+    }
 }

@@ -29,6 +29,9 @@ public sealed record SaveData(
         public string Type { get; set; } = "";
         public string Policy { get; set; } = "";
         public string Value { get; set; } = "0";
+        public string Party { get; set; } = "";
+        public string Group { get; set; } = "";
+        public int Effort { get; set; }
         public List<string> Partners { get; set; } = new();
         public List<string> Agreements { get; set; } = new(); // "party|demand"
     }
@@ -58,6 +61,11 @@ public sealed record SaveData(
                     Turn = turn, Type = "propose_coalition", Partners = pc.Partners.ToList(),
                     Agreements = pc.Agreements.Select(a => a.PartyId + "|" + a.DemandId).ToList(),
                 });
+            else if (action is BuildOrganization) dto.Actions.Add(new ActionDto { Turn = turn, Type = "build_organization" });
+            else if (action is Court court) dto.Actions.Add(new ActionDto { Turn = turn, Type = "court", Party = court.PartyId });
+            else if (action is ShiftPlatform sh)
+                dto.Actions.Add(new ActionDto { Turn = turn, Type = "shift_platform", Policy = sh.PolicyId, Value = sh.Target.ToString("R", CultureInfo.InvariantCulture) });
+            else if (action is Campaign camp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "campaign", Group = camp.GroupId, Effort = camp.Effort });
             else if (action is AcceptOffer) dto.Actions.Add(new ActionDto { Turn = turn, Type = "accept_offer" });
             else if (action is RejectOffer) dto.Actions.Add(new ActionDto { Turn = turn, Type = "reject_offer" });
             else if (action is CallEarlyElection) dto.Actions.Add(new ActionDto { Turn = turn, Type = "call_early_election" });
@@ -81,6 +89,10 @@ public sealed record SaveData(
                     if (parts.Length != 2) throw new FormatException($"Bad agreement '{x}' in save.");
                     return new AgreedDemand(parts[0], parts[1]);
                 }).ToList()),
+                "build_organization" => new BuildOrganization(),
+                "court" => new Court(a.Party),
+                "shift_platform" => new ShiftPlatform(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "campaign" => new Campaign(a.Group, a.Effort),
                 "accept_offer" => new AcceptOffer(),
                 "reject_offer" => new RejectOffer(),
                 "call_early_election" => new CallEarlyElection(),

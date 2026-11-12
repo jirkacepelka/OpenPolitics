@@ -31,6 +31,13 @@ internal sealed class PoliticsEngine
     private readonly HashSet<string> _redLinesActive = new(Ord); // "party|policy|op"
     private int _lastTurn;
 
+    // The player's own party.
+    private double _pc = 6.0, _org = 0.2, _credibility = 1.0;
+    private readonly SortedDictionary<string, double> _relations = new(Ord);
+    private readonly SortedDictionary<string, double> _momentum = new(Ord);
+    private readonly SortedDictionary<string, double> _pressure = new(Ord);
+    private readonly List<MeasureInfo> _measures = new();
+
     private IReadOnlyDictionary<string, double> _poll = new Dictionary<string, double>();
     private IReadOnlyDictionary<string, int> _seats = new Dictionary<string, int>();
     private IReadOnlyDictionary<string, double> _votes = new Dictionary<string, double>();
@@ -65,6 +72,8 @@ internal sealed class PoliticsEngine
             initial.Add(new Commitment(a.Party, d, lookup(d.Kind, d.Subject), d.DueTurns));
         }
         _government = new Government(_scenario.Leader ?? govParties.FirstOrDefault() ?? "", govParties, initial, 0);
+        foreach (var id in _parties.Keys) if (id != _scenario.PlayerParty) _relations[id] = DefaultRelation;
+        foreach (var g in _groups) { _momentum[g.Id] = 0.0; _pressure[g.Id] = 0.0; }
         _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
         _support.Calibrate(_scenario.Support, Input(satisfaction));
         _electoral = ElectoralSystems.Create(packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem));
@@ -76,9 +85,27 @@ internal sealed class PoliticsEngine
         ResetLoyalty();
     }
 
+    private string Player => _scenario.PlayerParty;
+
+    /// <summary>Voters' mood as the parties feel it: satisfaction minus the pressure the opposition built up.</summary>
+    private SortedDictionary<string, double> Effective(IReadOnlyDictionary<string, double> satisfaction)
+    {
+        var eff = new SortedDictionary<string, double>(Ord);
+        foreach (var (id, s) in satisfaction) eff[id] = Math.Clamp(s - _pressure.GetValueOrDefault(id), -1.0, 1.0);
+        return eff;
+    }
+
+    private double Cohesion() => PartyMath.Cohesion(_parties[Player], _ranges);
+
     private SupportInput Input(IReadOnlyDictionary<string, double> satisfaction) => new(
-        new SortedDictionary<string, double>(satisfaction.ToDictionary(k => k.Key, k => k.Value), Ord),
-        new HashSet<string>(_government.Parties, Ord), new Dictionary<string, double>());
+        Effective(satisfaction), new HashSet<string>(_government.Parties, Ord),
+        new Dictionary<string, double> { [Player] = _credibility * Cohesion() },
+        new Dictionary<string, double>(_momentum), Player,
+        new Dictionary<string, double> { [Player] = 1.0 + 0.2 * _org });
+
+    private double Relation(string a, string b) =>
+        a == Player ? _relations.GetValueOrDefault(b, DefaultRelation)
+        : b == Player ? _relations.GetValueOrDefault(a, DefaultRelation) : DefaultRelation;
 
     public Role PlayerRole =>
         _government.Leader == _scenario.PlayerParty ? Role.Leader
@@ -99,7 +126,12 @@ internal sealed class PoliticsEngine
         new SortedDictionary<string, double>(_loyalty, Ord),
         _government.Commitments.Select(c => new CommitmentStatus(c.PartyId, c.Demand.Id,
             CommitmentMath.Progress(c, Current(c)), CommitmentMath.Expected(c, _lastTurn, _government.FormedTurn))).ToList(),
-        _ultimatums.Select(kv => new UltimatumInfo(kv.Key, kv.Value.DemandId, kv.Value.Left)).ToList());
+        _ultimatums.Select(kv => new UltimatumInfo(kv.Key, kv.Value.DemandId, kv.Value.Left)).ToList(),
+        new PartyStatus(_pc, _org, _credibility, Cohesion(),
+            new SortedDictionary<string, double>(_relations, Ord), new SortedDictionary<string, double>(_momentum, Ord),
+            new SortedDictionary<string, double>(_pressure, Ord),
+            _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
+            _measures.ToList()));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
@@ -107,29 +139,114 @@ internal sealed class PoliticsEngine
     public string? PolicyBlock() =>
         _phase != Phase.Governing ? "error.no_majority" : PlayerRole != Role.Leader ? "error.not_leader" : null;
 
+    private static readonly double HalfLifeFactor = DetMath.Pow(0.5, 0.25); // half-life of 4 turns
+
+    /// <summary>Per-turn upkeep of the player's party: decay, recovery and political capital income.</summary>
+    private void TickParty()
+    {
+        double share = _poll.GetValueOrDefault(Player);
+        _org = Math.Max(0.0, _org - 0.01);
+        _credibility = Math.Min(1.0, _credibility + 0.1 * _dt);
+        foreach (var id in _relations.Keys.ToList())
+        {
+            double r = _relations[id];
+            _relations[id] = r > DefaultRelation ? Math.Max(DefaultRelation, r - 0.02) : Math.Min(DefaultRelation, r + 0.02);
+        }
+        foreach (var id in _momentum.Keys.ToList()) _momentum[id] *= HalfLifeFactor;
+        foreach (var id in _pressure.Keys.ToList()) _pressure[id] *= HalfLifeFactor;
+        _pc += 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0);
+    }
+
+    private bool TrySpend(double cost)
+    {
+        if (_pc + 1e-12 < cost) return false;
+        _pc -= cost;
+        return true;
+    }
+
+    private static ActionResult Fail(string key, string? detail = null) => new(false, key, detail);
+
+    public ActionResult Execute(PlayerAction action, int reportTurn) => action switch
+    {
+        ProposeCoalition p => DoPropose(p.Partners, p.Agreements, reportTurn),
+        AcceptOffer => DoAcceptOffer(reportTurn),
+        RejectOffer => DoRejectOffer(reportTurn),
+        CallEarlyElection => DoCallEarlyElection(),
+        BuildOrganization => DoBuild(),
+        Court c => CourtParty(c.PartyId),
+        ShiftPlatform s => Shift(s.PolicyId, s.Target),
+        Campaign c => CampaignGroup(c.GroupId, c.Effort),
+        _ => Fail("error.unknown_action", action.GetType().Name),
+    };
+
+    private ActionResult DoBuild()
+    {
+        if (!TrySpend(4)) return Fail("error.not_enough_capital");
+        _org = Math.Min(1.0, _org + 0.04);
+        return ActionResult.Ok;
+    }
+
+    private ActionResult CourtParty(string partyId)
+    {
+        if (partyId == Player || !_relations.ContainsKey(partyId)) return Fail("error.unknown_party", partyId);
+        if (!TrySpend(3)) return Fail("error.not_enough_capital");
+        _relations[partyId] = Math.Min(1.0, _relations[partyId] + 0.1);
+        return ActionResult.Ok;
+    }
+
+    private ActionResult Shift(string policyId, double target)
+    {
+        if (!_policyDefs.TryGetValue(policyId, out var def)) return Fail("error.unknown_policy", policyId);
+        var party = _parties[Player];
+        if (!party.Platform.TryGetValue(policyId, out var pos)) return Fail("error.not_in_platform", policyId);
+        if (!double.IsFinite(target)) return Fail("error.value_out_of_range", policyId);
+        if (!TrySpend(1)) return Fail("error.not_enough_capital");
+        double range = def.Max - def.Min;
+        double delta = range > 0 ? Math.Clamp(target - pos.Target, -0.1 * range, 0.1 * range) : 0.0;
+        if (delta != 0.0)
+        {
+            var platform = party.Platform.ToDictionary(k => k.Key, k => k.Value, Ord);
+            platform[policyId] = pos with { Target = Math.Clamp(pos.Target + delta, def.Min, def.Max) };
+            var updated = party with { Platform = platform };
+            _parties[Player] = updated;
+            _support.UpdateParty(updated);
+            _credibility = Math.Max(0.0, _credibility - 0.5 * Math.Abs(delta) / range);
+        }
+        return ActionResult.Ok;
+    }
+
+    private ActionResult CampaignGroup(string groupId, int effort)
+    {
+        if (_groups.All(g => g.Id != groupId)) return Fail("error.unknown_group", groupId);
+        if (effort < 1 || effort > 3) return Fail("error.bad_effort", effort.ToString());
+        if (!TrySpend(3.0 * effort)) return Fail("error.not_enough_capital");
+        _momentum[groupId] += 0.12 * effort * (_turnsToElection <= 4 ? 2.0 : 1.0);
+        return ActionResult.Ok;
+    }
+
     /// <summary>What the AI would propose if the player's party were formateur now; null when it is not.</summary>
     public CoalitionProposal? Suggest() => PlayerIsFormateur ? BuildFor(_scenario.PlayerParty) : null;
 
-    public ActionResult Propose(IReadOnlyList<string> partners, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
+    private ActionResult DoPropose(IReadOnlyList<string> partners, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
     {
         if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
         var proposal = new CoalitionProposal(_scenario.PlayerParty,
             partners.Where(p => p != _scenario.PlayerParty).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements);
-        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, (_, _) => DefaultRelation);
+        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation);
         if (refusals.Count > 0)
             return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
         _pending.Add(Form(reportTurn, proposal));
         return ActionResult.Ok;
     }
 
-    public ActionResult AcceptOffer(int reportTurn)
+    private ActionResult DoAcceptOffer(int reportTurn)
     {
         if (_offer == null) return new ActionResult(false, "error.no_offer", null);
         _pending.Add(Form(reportTurn, _offer));
         return ActionResult.Ok;
     }
 
-    public ActionResult RejectOffer(int reportTurn)
+    private ActionResult DoRejectOffer(int reportTurn)
     {
         if (_offer == null) return new ActionResult(false, "error.no_offer", null);
         _pending.Add(new OfferLapsed(reportTurn));
@@ -138,7 +255,7 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    public ActionResult CallEarlyElection()
+    private ActionResult DoCallEarlyElection()
     {
         if (_phase != Phase.Governing) return new ActionResult(false, "error.wrong_phase", null);
         if (PlayerRole != Role.Leader) return new ActionResult(false, "error.not_leader", null);
@@ -160,13 +277,15 @@ internal sealed class PoliticsEngine
         _lastTurn = turn;
         var events = new List<PoliticalEvent>(_pending);
         _pending.Clear();
+        TickParty();
+        var effective = Effective(satisfaction);
         _poll = _support.Compute(Input(satisfaction), _rng);
 
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
         if (electionDue) { HoldElection(turn, events); return events; }
         if (_phase == Phase.Formation) StepFormation(turn, events);
-        else if (_phase == Phase.Governing) StepLoyalty(turn, satisfaction, events);
+        else if (_phase == Phase.Governing) StepLoyalty(turn, effective, events);
         return events;
     }
 
@@ -234,7 +353,7 @@ internal sealed class PoliticsEngine
 
     private CoalitionProposal? BuildFor(string formateur) =>
         CoalitionBuilder.Build(formateur, _parties, _seats, _ranges, _rules.MajorityFraction, _rules.ProgramSlots,
-            (_, _) => DefaultRelation, _excluded);
+            Relation, _excluded);
 
     private void FailAttempt(int turn, string formateur, List<PoliticalEvent> events)
     {
