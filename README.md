@@ -25,6 +25,17 @@ dotnet test
 dotnet run --project tools/OpenPolitics.Cli -- --version
 ```
 
+## Play (text client)
+
+```bash
+dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang en
+```
+
+You run an illustrative Czechia-like country in the sandbox scenario: change taxes and spending (`set 1 26`), press
+Enter to advance a quarter, and use `why unemployment`, `info vat`, `voters`, `values` and `?` to understand what is
+going on. `save FILE` / `load FILE` keep a game. Use `--lang cs` for Czech. Politics (elections, coalitions) arrive in
+milestone M2; a graphical Godot client in M3.
+
 ## Data is illustrative
 
 All data packs use approximate, **illustrative** numbers for real countries and **fictional** parties

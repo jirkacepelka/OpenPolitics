@@ -24,6 +24,16 @@ dotnet test
 dotnet run --project tools/OpenPolitics.Cli -- --version
 ```
 
+## Hra (textový klient)
+
+```bash
+dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang cs
+```
+
+Řídíte ilustrativní zemi podobnou Česku v pískovišti: měníte daně a výdaje (`set 1 26`), Enterem posunete čas o čtvrtletí
+a příkazy `why nezaměstnanost`, `info dph`, `voters`, `values` a `?` zjistíte, co se děje. `save SOUBOR` / `load SOUBOR`
+uloží a obnoví hru. Politika (volby, koalice) přijde v milníku M2, grafický klient v Godotu v M3.
+
 ## Data jsou ilustrativní
 
 Všechny balíčky obsahují přibližná, **ilustrativní** čísla reálných zemí a **fiktivní** strany a politiky.
