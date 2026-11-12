@@ -44,7 +44,8 @@ public static class CoalitionRules
         var known = members.Where(parties.ContainsKey).Distinct(StringComparer.Ordinal).ToList();
 
         var agreed = new List<(AgreedDemand A, DemandDef D)>();
-        foreach (var a in p.Agreements)
+        var distinctAgreements = p.Agreements.Distinct().ToList(); // a repeated agreement never counts twice
+        foreach (var a in distinctAgreements)
         {
             if (!p.Partners.Contains(a.PartyId) || !parties.TryGetValue(a.PartyId, out var owner)
                 || owner.Demands.FirstOrDefault(d => d.Id == a.DemandId) is not { } demand)
@@ -55,7 +56,7 @@ public static class CoalitionRules
             agreed.Add((a, demand));
         }
 
-        if (p.Agreements.Count > programSlots) refusals.Add(new Refusal("slots", null, null));
+        if (distinctAgreements.Count > programSlots) refusals.Add(new Refusal("slots", null, null));
         if (!CoalitionRules.HasMajority(known, seats, fraction)) refusals.Add(new Refusal("majority", null, null));
 
         foreach (var (a, d) in agreed)

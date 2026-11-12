@@ -91,4 +91,14 @@ public class PlayFormationTests
         var o = Play("test:leads", "\nset 1 30\nquit\n");
         Assert.Contains("no majority right now", o);
     }
+
+    [Fact]
+    public void CoalitionScreenShowsThePriceAfterCourting()
+    {
+        // Civic Right asks for 4; the displayed price is 4 * (1 - 0.5 * relation): 3.4 at the default relation 0.3, 3.0 at 0.5.
+        var before = Play("test:leads", "\ncoalition\nquit\n");
+        Assert.Matches(@"Civic Right\s+\d+ seats, price 3\.4", before);
+        var after = Play("test:leads", "\ncourt civic_right\ncourt civic_right\ncoalition\nquit\n");
+        Assert.Matches(@"Civic Right\s+\d+ seats, price 3\.0", after);
+    }
 }

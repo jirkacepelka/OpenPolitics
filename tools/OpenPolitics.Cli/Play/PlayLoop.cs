@@ -493,7 +493,7 @@ public sealed class PlayLoop
             var p = parties[i];
             string mark = p.Id == pol.PlayerParty ? "*" : _draftPartners.Contains(p.Id) ? "x" : " ";
             _out.WriteLine($"  [{mark}] {i + 1,2}. {_t.Name(p.Id),-24}" +
-                _t.T("ui.formation.party_line", pol.Seats[p.Id], Fmt.Number(p.Price * 0.85)));
+                _t.T("ui.formation.party_line", pol.Seats[p.Id], Fmt.Number(CoalitionRules.RequiredWeight(p, pol.Party?.Relations.GetValueOrDefault(p.Id, 0.3) ?? 0.3))));
             if (p.Id == pol.PlayerParty) continue;
             for (int d = 0; d < p.Demands.Count; d++)
             {

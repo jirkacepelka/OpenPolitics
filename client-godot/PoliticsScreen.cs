@@ -133,7 +133,7 @@ public partial class PoliticsScreen : Screen
         {
             var invite = new CheckBox
             {
-                Text = $"{t.Name(party.Id)}  —  {t.T("ui.formation.party_line", pol.Seats[party.Id], Fmt.Number(party.Price * 0.85))}",
+                Text = $"{t.Name(party.Id)}  —  {t.T("ui.formation.party_line", pol.Seats[party.Id], Fmt.Number(CoalitionRules.RequiredWeight(party, pol.Party?.Relations.GetValueOrDefault(party.Id, 0.3) ?? 0.3)))}",
                 ButtonPressed = _invited.Contains(party.Id),
             };
             invite.Toggled += on =>

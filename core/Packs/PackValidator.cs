@@ -64,6 +64,7 @@ public static class PackValidator
         }
         foreach (var g in set.VoterGroups)
         {
+            if (!(g.Size >= 0) || !(g.Weight >= 0)) Err("E007", "voter_group", g.Id, $"Voter group '{g.Id}' size and weight must not be negative.");
             foreach (var k in g.ValueWeights.Keys) Ref("voter_group", g.Id, $"Voter group '{g.Id}' value_weights", k, valueIds, "value");
             foreach (var k in g.PolicyPrefs.Keys) Ref("voter_group", g.Id, $"Voter group '{g.Id}' policy_prefs", k, policyIds, "policy");
             foreach (var k in g.PolicyWeights.Keys) Ref("voter_group", g.Id, $"Voter group '{g.Id}' policy_weights", k, policyIds, "policy");

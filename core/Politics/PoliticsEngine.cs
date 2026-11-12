@@ -90,6 +90,9 @@ internal sealed class PoliticsEngine
 
     private string Player => _scenario.PlayerParty;
 
+    /// <summary>Turns until the next election actually happens: the early election during caretaker, else the regular term.</summary>
+    private int ElectionIn => _phase == Phase.Caretaker ? Math.Min(_turnsToElection, Math.Max(1, _caretakerLeft)) : _turnsToElection;
+
     /// <summary>Voters' mood as the parties feel it: satisfaction minus the pressure the opposition built up.</summary>
     private SortedDictionary<string, double> Effective(IReadOnlyDictionary<string, double> satisfaction)
     {
@@ -121,7 +124,7 @@ internal sealed class PoliticsEngine
         d.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value);
 
     public CountryPolitics Snapshot() => new(
-        _phase, _turnsToElection, Sorted(_poll), Sorted(_seats), _government.Parties.ToList(), _government.Leader,
+        _phase, ElectionIn, Sorted(_poll), Sorted(_seats), _government.Parties.ToList(), _government.Leader,
         _scenario.PlayerParty, _government,
         _phase == Phase.Formation && _attempt >= 1 && _attempt <= _queue.Count
             ? new FormationInfo(_queue[_attempt - 1], _attempt, _turnsLeft, PlayerIsFormateur, _offer) : null,
@@ -277,7 +280,7 @@ internal sealed class PoliticsEngine
         if (_groups.All(g => g.Id != groupId)) return Fail("error.unknown_group", groupId);
         if (effort < 1 || effort > 3) return Fail("error.bad_effort", effort.ToString());
         if (!TrySpend(3.0 * effort)) return Fail("error.not_enough_capital");
-        _momentum[groupId] += 0.06 * effort * (_turnsToElection <= 4 ? 2.0 : 1.0);
+        _momentum[groupId] += 0.06 * effort * (ElectionIn <= 4 ? 2.0 : 1.0);
         return ActionResult.Ok;
     }
 
@@ -288,7 +291,7 @@ internal sealed class PoliticsEngine
     {
         if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
         var proposal = new CoalitionProposal(_scenario.PlayerParty,
-            partners.Where(p => p != _scenario.PlayerParty).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements);
+            partners.Where(p => p != _scenario.PlayerParty).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements.Distinct().ToList());
         var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation);
         if (refusals.Count > 0)
             return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
