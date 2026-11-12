@@ -1,5 +1,6 @@
 using OpenPolitics.Core.Determinism;
 using OpenPolitics.Core.Economy;
+using OpenPolitics.Core.Expressions;
 using OpenPolitics.Core.Graph;
 using OpenPolitics.Core.Packs;
 using OpenPolitics.Core.Voters;
@@ -32,6 +33,7 @@ public sealed class Game
     private readonly List<IEconomyModel> _models = new();
     private readonly VoterModel _voters;
     private readonly Pcg32 _rng;
+    private readonly List<(EventDef Def, Expr Condition)> _events = new();
     private int _turn;
 
     internal Game(PackSet packs, string scenarioId, ulong seed)
@@ -60,6 +62,12 @@ public sealed class Game
         _graph = new GraphEvaluator(packs.Edges, packs.Values, packs.Policies);
         _voters = new VoterModel(packs.VoterGroups, packs.Values, packs.Policies);
         _rng = new Pcg32(seed);
+        foreach (var ev in packs.Events)
+        {
+            if (!ExprParser.TryParse(ev.Condition, out var expr, out var error))
+                throw new InvalidOperationException($"Event '{ev.Id}' has an invalid condition: {error}");
+            _events.Add((ev, expr!));
+        }
     }
 
     private double CurrentYear => _scenario.StartYear + (double)_turn / _scenario.TurnsPerYear;
@@ -148,6 +156,24 @@ public sealed class Game
         return new TurnReport(_turn, CurrentYear, changes, fired, warnings);
     }
 
-    /// <summary>Filled in by the events task; returns the ids of events fired this turn.</summary>
-    private IReadOnlyList<string> RollEvents(SortedDictionary<string, double> values) => Array.Empty<string>();
+    /// <summary>
+    /// Events are visited in id order. Conditions read the values as they were after the step (before any event
+    /// effect). One RNG draw is made for every event whose condition holds, so unrelated events never shift the stream.
+    /// </summary>
+    private IReadOnlyList<string> RollEvents(SortedDictionary<string, double> values)
+    {
+        var fired = new List<string>();
+        if (_events.Count == 0) return fired;
+        var snapshot = new SortedDictionary<string, double>(values, Ord);
+        double Lookup(string id) => snapshot.TryGetValue(id, out var v) ? v : 0.0;
+        foreach (var (def, condition) in _events)
+        {
+            if (condition.Eval(Lookup) == 0) continue;
+            if (_rng.NextDouble() >= def.Probability) continue;
+            fired.Add(def.Id);
+            foreach (var effect in def.Effects)
+                if (values.TryGetValue(effect.ValueId, out var current)) values[effect.ValueId] = current + effect.Delta;
+        }
+        return fired;
+    }
 }
