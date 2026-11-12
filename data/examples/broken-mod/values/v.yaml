@@ -1,0 +1,3 @@
+- id: broken:x       # no localization -> E006
+  unit: widgets
+  initial: 1

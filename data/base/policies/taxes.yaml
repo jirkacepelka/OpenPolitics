@@ -1,0 +1,6 @@
+- id: base:income_tax
+  unit: percent
+  min: 0
+  max: 60
+  default: 15
+  revenue_base: base:gdp

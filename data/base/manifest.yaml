@@ -1,0 +1,6 @@
+# Base pack of OpenPolitics. All numbers are ILLUSTRATIVE approximations, not statistics.
+id: base
+version: 0.1.0
+license: CC-BY-SA-4.0
+illustrative: true
+dependencies: []

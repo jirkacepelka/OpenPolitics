@@ -1,0 +1,9 @@
+- id: broken:e1
+  from: broken:x
+  to: base:gdp
+- id: broken:e2      # e1 + e2 form a cycle without delay -> E005
+  from: base:gdp
+  to: broken:x
+- id: broken:e3      # dangling target -> E004
+  from: base:gdp
+  to: base:missing

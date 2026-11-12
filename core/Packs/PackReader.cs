@@ -21,6 +21,8 @@ public sealed class RawPack
     /// <summary>Ids whose YAML entry carries <c>override: true</c>.</summary>
     public HashSet<string> Overrides { get; } = new();
     public string Hash { get; set; } = "";
+    /// <summary>Definition (by reference) -> file and line where it was declared.</summary>
+    public Dictionary<object, (string File, int Line)> Origins { get; } = new(ReferenceEqualityComparer.Instance);
 }
 
 /// <summary>Reads one pack from a source into definitions; problems become diagnostics with file and line.</summary>
@@ -292,6 +294,7 @@ public static class PackReader
             if (def != null && !f.Failed)
             {
                 into.Add(def);
+                pack.Origins[def] = (file, (int)map.Start.Line);
                 if (ov) pack.Overrides.Add(idOf(def));
             }
         }

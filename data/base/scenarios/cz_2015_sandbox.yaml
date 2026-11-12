@@ -1,0 +1,4 @@
+- id: base:cz_2015_sandbox
+  country: base:czechia
+  start_year: 2015
+  turns_per_year: 4
