@@ -1,0 +1,34 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:recession
+  condition: "base:gdp > 0"
+  probability: 0.008          # about 3 percent per year
+  text_key: event.recession
+  effects:
+    - {value: base:unemployment, delta: 2.0}
+    - {value: base:inflation, delta: -0.5}
+- id: base:energy_shock
+  condition: "base:gdp > 0"
+  probability: 0.01
+  text_key: event.energy_shock
+  effects:
+    - {value: base:inflation, delta: 1.5}
+    - {value: base:unemployment, delta: 0.3}
+- id: base:tech_boom
+  condition: "base:education_level > 60"
+  probability: 0.01
+  text_key: event.tech_boom
+  effects:
+    - {value: base:productivity, delta: 50.9918}    # about +1 percent
+- id: base:health_crisis
+  condition: "base:health < 85"
+  probability: 0.005
+  text_key: event.health_crisis
+  effects:
+    - {value: base:health, delta: -6.0}
+    - {value: base:unemployment, delta: 0.5}
+- id: base:crime_wave
+  condition: "base:unemployment > 7 and base:inequality > 27"
+  probability: 0.1
+  text_key: event.crime_wave
+  effects:
+    - {value: base:crime, delta: 200.0}

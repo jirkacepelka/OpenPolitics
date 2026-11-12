@@ -1,3 +1,41 @@
+# Illustrative content. Keys: name.<id>, country.*, event.*
 name.base:gdp: GDP
-name.base:income_tax: Income tax
+name.base:capital: Capital stock
+name.base:productivity: Productivity
+name.base:labour_force: Labour force
+name.base:unemployment: Unemployment
+name.base:inflation: Inflation
+name.base:debt: Public debt
+name.base:interest_rate: Interest rate
+name.base:revenue: Government revenue
+name.base:spending: Government spending
+name.base:health: Public health
+name.base:education_level: Education level
+name.base:crime: Crime
+name.base:environment: Environment quality
+name.base:inequality: Inequality
+name.base:income_tax: Income tax and contributions
+name.base:vat: VAT and excise
+name.base:corporate_tax: Corporate tax
+name.base:pensions: Pensions
+name.base:health_spending: Healthcare spending
+name.base:education_spending: Education spending
+name.base:police: Police and justice
+name.base:research: Research funding
+name.base:social_benefits: Social benefits
+name.base:infrastructure: Infrastructure
+name.base:administration: Administration
+name.base:environment_regulation: Environmental regulation
+name.base:migration: Migration openness
+name.base:low_income: Low-income households
+name.base:middle_class: Middle class
+name.base:high_income: High earners
+name.base:pensioners: Pensioners
+name.base:young_urban: Young urban voters
+name.base:rural_conservatives: Rural conservatives
 country.czechia: Czechia (illustrative)
+event.recession: A global recession hits exports and jobs.
+event.energy_shock: Energy prices spike and push inflation up.
+event.tech_boom: A wave of new technology lifts productivity.
+event.health_crisis: A health crisis strains hospitals and workplaces.
+event.crime_wave: A crime wave follows unemployment and inequality.

@@ -1,0 +1,57 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:pensions
+  unit: percent_of_gdp
+  min: 4
+  max: 16
+  default: 9
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:health_spending
+  unit: percent_of_gdp
+  min: 3
+  max: 14
+  default: 7
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:education_spending
+  unit: percent_of_gdp
+  min: 2
+  max: 9
+  default: 4.5
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:police
+  unit: percent_of_gdp
+  min: 0.5
+  max: 4
+  default: 1.5
+  delay_turns: 1
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:research
+  unit: percent_of_gdp
+  min: 0
+  max: 4
+  default: 1
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:social_benefits
+  unit: percent_of_gdp
+  min: 3
+  max: 16
+  default: 8
+  delay_turns: 1
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:infrastructure
+  unit: percent_of_gdp
+  min: 1
+  max: 8
+  default: 3.5
+  delay_turns: 4
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:administration
+  unit: percent_of_gdp
+  min: 3
+  max: 9
+  default: 5.0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP

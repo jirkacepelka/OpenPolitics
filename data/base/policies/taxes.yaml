@@ -1,6 +1,22 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:income_tax
-  unit: percent
+  unit: percent_of_gdp
+  min: 8
+  max: 45
+  default: 24
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+- id: base:vat
+  unit: percent_of_gdp
+  min: 4
+  max: 24
+  default: 12
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+- id: base:corporate_tax
+  unit: percent_of_gdp
   min: 0
-  max: 60
-  default: 15
-  revenue_base: base:gdp
+  max: 12
+  default: 4
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP

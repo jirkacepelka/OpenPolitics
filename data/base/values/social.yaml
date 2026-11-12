@@ -1,0 +1,21 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:health
+  unit: index
+  initial: 70.0
+  scale: 10.0
+- id: base:education_level
+  unit: index
+  initial: 60.0
+  scale: 10.0
+- id: base:crime
+  unit: per_100k
+  initial: 2800.0
+  scale: 300.0
+- id: base:environment
+  unit: index
+  initial: 55.0
+  scale: 10.0
+- id: base:inequality
+  unit: gini
+  initial: 26.0
+  scale: 3.0

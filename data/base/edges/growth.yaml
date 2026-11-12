@@ -1,0 +1,120 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:education_spending_to_productivity
+  from: base:education_spending
+  to: base:productivity
+  kind: relative
+  strength: 1.0
+  delay: {type: lag, turns: 8}
+- id: base:research_to_productivity
+  from: base:research
+  to: base:productivity
+  kind: relative
+  strength: 1.5
+  delay: {type: lag, turns: 4}
+- id: base:infrastructure_to_productivity
+  from: base:infrastructure
+  to: base:productivity
+  kind: relative
+  strength: 1.0
+  delay: {type: lag, turns: 8}
+- id: base:education_level_to_productivity
+  from: base:education_level
+  to: base:productivity
+  kind: relative
+  strength: 0.8
+  delay: {type: smooth, turns: 8}
+- id: base:crime_to_productivity
+  from: base:crime
+  to: base:productivity
+  kind: relative
+  strength: -0.3
+  delay: {type: smooth, turns: 4}
+- id: base:environment_regulation_to_productivity
+  from: base:environment_regulation
+  to: base:productivity
+  kind: relative
+  strength: -0.15
+  delay: {type: lag, turns: 4}
+- id: base:health_to_productivity
+  from: base:health
+  to: base:productivity
+  kind: relative
+  strength: 0.5
+  delay: {type: smooth, turns: 8}
+- id: base:corporate_tax_to_productivity
+  from: base:corporate_tax
+  to: base:productivity
+  kind: relative
+  strength: -0.3
+  delay: {type: lag, turns: 4}
+- id: base:corporate_tax_to_capital
+  from: base:corporate_tax
+  to: base:capital
+  kind: relative
+  strength: -0.5
+  delay: {type: lag, turns: 4}
+- id: base:infrastructure_to_capital
+  from: base:infrastructure
+  to: base:capital
+  kind: relative
+  strength: 0.6
+  delay: {type: lag, turns: 4}
+- id: base:migration_to_labour_force
+  from: base:migration
+  to: base:labour_force
+  kind: relative
+  strength: 1.0
+  delay: {type: lag, turns: 2}
+- id: base:pensions_to_labour_force
+  from: base:pensions
+  to: base:labour_force
+  kind: relative
+  strength: -0.3
+  delay: {type: lag, turns: 8}
+- id: base:social_benefits_to_labour_force
+  from: base:social_benefits
+  to: base:labour_force
+  kind: relative
+  strength: -0.2
+  delay: {type: lag, turns: 4}
+- id: base:health_to_labour_force
+  from: base:health
+  to: base:labour_force
+  kind: relative
+  strength: 0.2
+  delay: {type: smooth, turns: 8}
+- id: base:income_tax_to_unemployment
+  from: base:income_tax
+  to: base:unemployment
+  strength: 1.0
+  delay: {type: lag, turns: 2}
+- id: base:social_benefits_to_unemployment
+  from: base:social_benefits
+  to: base:unemployment
+  strength: 1.0
+  delay: {type: lag, turns: 2}
+- id: base:education_level_to_unemployment
+  from: base:education_level
+  to: base:unemployment
+  strength: -1.0
+  delay: {type: smooth, turns: 8}
+- id: base:migration_to_unemployment
+  from: base:migration
+  to: base:unemployment
+  strength: 0.3
+  delay: {type: lag, turns: 4}
+- id: base:corporate_tax_to_unemployment
+  from: base:corporate_tax
+  to: base:unemployment
+  strength: 0.5
+  delay: {type: lag, turns: 4}
+- id: base:vat_to_inflation
+  from: base:vat
+  to: base:inflation
+  strength: 0.8
+  delay: {type: lag, turns: 1}
+- id: base:infrastructure_to_inflation
+  from: base:infrastructure
+  to: base:inflation
+  strength: 0.2
+  delay: {type: lag, turns: 2}

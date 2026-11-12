@@ -1,2 +1,9 @@
+# Model parameters override the macro_v1 defaults (see core/Economy/MacroModelV1.cs).
 - id: base:czechia
   name_key: country.czechia
+  parameters:
+    alpha: 0.35
+    delta: 0.05
+    base_productivity_growth: 0.012
+    natural_unemployment: 5.0
+    revenue_ratio_ref: 0.40

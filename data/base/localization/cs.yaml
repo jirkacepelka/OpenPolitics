@@ -1,3 +1,41 @@
+# Illustrative content. Keys: name.<id>, country.*, event.*
 name.base:gdp: HDP
-name.base:income_tax: Daň z příjmu
+name.base:capital: Kapitál
+name.base:productivity: Produktivita
+name.base:labour_force: Pracovní síla
+name.base:unemployment: Nezaměstnanost
+name.base:inflation: Inflace
+name.base:debt: Veřejný dluh
+name.base:interest_rate: Úroková sazba
+name.base:revenue: Příjmy státu
+name.base:spending: Výdaje státu
+name.base:health: Zdraví populace
+name.base:education_level: Úroveň vzdělání
+name.base:crime: Kriminalita
+name.base:environment: Kvalita životního prostředí
+name.base:inequality: Nerovnost
+name.base:income_tax: Daň z příjmu a odvody
+name.base:vat: DPH a spotřební daně
+name.base:corporate_tax: Daň z příjmu právnických osob
+name.base:pensions: Důchody
+name.base:health_spending: Výdaje na zdravotnictví
+name.base:education_spending: Výdaje na školství
+name.base:police: Policie a justice
+name.base:research: Podpora výzkumu
+name.base:social_benefits: Sociální dávky
+name.base:infrastructure: Infrastruktura
+name.base:administration: Veřejná správa
+name.base:environment_regulation: Ekologická regulace
+name.base:migration: Otevřenost migraci
+name.base:low_income: Domácnosti s nízkými příjmy
+name.base:middle_class: Střední třída
+name.base:high_income: Vysoké příjmy
+name.base:pensioners: Senioři
+name.base:young_urban: Mladí ve městech
+name.base:rural_conservatives: Konzervativní venkov
 country.czechia: Česko (ilustrativní)
+event.recession: Globální recese zasáhla export a zaměstnanost.
+event.energy_shock: Ceny energií vyskočily a zvedají inflaci.
+event.tech_boom: Vlna nových technologií zvedá produktivitu.
+event.health_crisis: Zdravotní krize zatěžuje nemocnice i pracoviště.
+event.crime_wave: Vlna kriminality následuje nezaměstnanost a nerovnost.

@@ -1,0 +1,133 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:health_spending_to_health
+  from: base:health_spending
+  to: base:health
+  strength: 4.0
+  delay: {type: lag, turns: 4}
+- id: base:environment_to_health
+  from: base:environment
+  to: base:health
+  strength: 1.5
+  delay: {type: smooth, turns: 4}
+- id: base:inequality_to_health
+  from: base:inequality
+  to: base:health
+  strength: -1.0
+  delay: {type: smooth, turns: 4}
+- id: base:unemployment_to_health
+  from: base:unemployment
+  to: base:health
+  strength: -0.5
+  delay: {type: smooth, turns: 4}
+- id: base:gdp_to_health
+  from: base:gdp
+  to: base:health
+  strength: 0.6
+  fn: {type: tanh, scale: 3}
+  delay: {type: smooth, turns: 8}
+- id: base:education_spending_to_education_level
+  from: base:education_spending
+  to: base:education_level
+  strength: 4.0
+  delay: {type: lag, turns: 8}
+- id: base:inequality_to_education_level
+  from: base:inequality
+  to: base:education_level
+  strength: -0.8
+  delay: {type: smooth, turns: 8}
+- id: base:research_to_education_level
+  from: base:research
+  to: base:education_level
+  strength: 1.0
+  delay: {type: lag, turns: 8}
+- id: base:police_to_crime
+  from: base:police
+  to: base:crime
+  strength: -300.0
+  delay: {type: lag, turns: 4}
+- id: base:unemployment_to_crime
+  from: base:unemployment
+  to: base:crime
+  strength: 100.0
+  delay: {type: smooth, turns: 4}
+- id: base:inequality_to_crime
+  from: base:inequality
+  to: base:crime
+  strength: 120.0
+  delay: {type: smooth, turns: 4}
+- id: base:social_benefits_to_crime
+  from: base:social_benefits
+  to: base:crime
+  strength: -60.0
+  delay: {type: lag, turns: 4}
+- id: base:environment_regulation_to_environment
+  from: base:environment_regulation
+  to: base:environment
+  strength: 3.0
+  delay: {type: lag, turns: 4}
+- id: base:gdp_to_environment
+  from: base:gdp
+  to: base:environment
+  strength: -0.6
+  fn: {type: tanh, scale: 3}
+  delay: {type: smooth, turns: 8}
+- id: base:research_to_environment
+  from: base:research
+  to: base:environment
+  strength: 0.8
+  delay: {type: lag, turns: 8}
+- id: base:income_tax_to_inequality
+  from: base:income_tax
+  to: base:inequality
+  strength: -1.0
+  delay: {type: lag, turns: 4}
+- id: base:social_benefits_to_inequality
+  from: base:social_benefits
+  to: base:inequality
+  strength: -1.2
+  delay: {type: lag, turns: 4}
+- id: base:unemployment_to_inequality
+  from: base:unemployment
+  to: base:inequality
+  strength: 0.8
+  delay: {type: smooth, turns: 4}
+- id: base:pensions_to_inequality
+  from: base:pensions
+  to: base:inequality
+  strength: -0.5
+  delay: {type: lag, turns: 4}
+- id: base:migration_to_inequality
+  from: base:migration
+  to: base:inequality
+  strength: 0.3
+  delay: {type: lag, turns: 8}
+- id: base:education_level_to_inequality
+  from: base:education_level
+  to: base:inequality
+  strength: -0.6
+  delay: {type: smooth, turns: 8}
+- id: base:health_damping
+  from: base:health
+  to: base:health
+  strength: -5.0
+  delay: {type: lag, turns: 1}
+- id: base:education_level_damping
+  from: base:education_level
+  to: base:education_level
+  strength: -5.0
+  delay: {type: lag, turns: 1}
+- id: base:crime_damping
+  from: base:crime
+  to: base:crime
+  strength: -150.0
+  delay: {type: lag, turns: 1}
+- id: base:environment_damping
+  from: base:environment
+  to: base:environment
+  strength: -5.0
+  delay: {type: lag, turns: 1}
+- id: base:inequality_damping
+  from: base:inequality
+  to: base:inequality
+  strength: -1.5
+  delay: {type: lag, turns: 1}

@@ -1,6 +1,0 @@
-# Skeleton - Task 13 fills in the full starter content.
-- id: base:gdp
-  unit: CZK
-  initial: 4.6e12     # approx. annual GDP of Czechia around 2015 (illustrative)
-  reference: 4.6e12
-  scale: 4.6e11

@@ -1,0 +1,37 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:low_income
+  size: 0.25
+  weight: 1.0
+  value_weights: {base:unemployment: -1.0, base:inequality: -2.0, base:health: 1.0}
+  policy_prefs: {base:social_benefits: 11, base:vat: 10, base:income_tax: 22}
+  policy_weights: {base:social_benefits: 0.6, base:vat: 0.3, base:income_tax: 0.2}
+- id: base:middle_class
+  size: 0.35
+  weight: 1.0
+  value_weights: {base:gdp: 4.0, base:crime: -1.0, base:inequality: -0.5}
+  policy_prefs: {base:income_tax: 22, base:education_spending: 5.5}
+  policy_weights: {base:income_tax: 0.5, base:education_spending: 0.3}
+- id: base:high_income
+  size: 0.10
+  weight: 1.2
+  value_weights: {base:gdp: 5.0}
+  policy_prefs: {base:income_tax: 20, base:corporate_tax: 3}
+  policy_weights: {base:income_tax: 0.6, base:corporate_tax: 0.4}
+- id: base:pensioners
+  size: 0.20
+  weight: 1.0
+  value_weights: {base:health: 2.0, base:inflation: -1.5, base:crime: -1.0}
+  policy_prefs: {base:pensions: 11, base:vat: 11}
+  policy_weights: {base:pensions: 1.0, base:vat: 0.2}
+- id: base:young_urban
+  size: 0.15
+  weight: 1.0
+  value_weights: {base:education_level: 2.0, base:environment: 3.0, base:unemployment: -1.0}
+  policy_prefs: {base:environment_regulation: 6, base:migration: 5}
+  policy_weights: {base:environment_regulation: 0.5, base:migration: 0.3}
+- id: base:rural_conservatives
+  size: 0.15
+  weight: 1.0
+  value_weights: {base:crime: -2.0, base:gdp: 2.0}
+  policy_prefs: {base:migration: 1, base:environment_regulation: 3}
+  policy_weights: {base:migration: 0.6, base:environment_regulation: 0.2}

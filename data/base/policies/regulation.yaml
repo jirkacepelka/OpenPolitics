@@ -1,0 +1,13 @@
+# ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
+- id: base:environment_regulation
+  unit: index
+  min: 0
+  max: 10
+  default: 4
+  delay_turns: 4
+- id: base:migration
+  unit: index
+  min: 0
+  max: 10
+  default: 3
+  delay_turns: 2
