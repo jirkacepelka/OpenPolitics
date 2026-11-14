@@ -50,4 +50,5 @@ No text, data, art or names from Democracy 4, Hearts of Iron IV or Millennium Da
 
 - Text client: `dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang en` (Czechia 2015, coalition government; `?` for help).
 - Godot client: see [client-godot/README.md](client-godot/README.md) (Godot 4.7 .NET, shares the core and the texts in the packs).
+- Spending can follow GDP, inflation or nothing: `index N gdp|inflation|none`.
 - Headless balancing: `batch --politics --strategy ignorer|keeper|random|extreme|activist` (see `docs/decisions/`).
