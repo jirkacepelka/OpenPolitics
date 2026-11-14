@@ -48,3 +48,10 @@ touches and, in a card on the right, why it moved last quarter.
 GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh            # headless
 GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh /tmp/shots # windowed, writes PNGs
 ```
+
+## Look and feel
+
+Redesigned after a design critique (five rounds of screenshots; notes in decision record 0010): Fira Sans (falls back to the system font if it is not
+installed), a dark palette with lighter floating panels, about 40 vector pictograms drawn in code (every policy, indicator and voter group gets one
+from its id), a Cities: Skylines-style top bar and toolbar, policy cards with a category filter and an inspector, a parliament half-circle on the
+Politics panel. There are no image assets to maintain. Check changes with `scripts/client-smoke.sh <dir>` and look at the PNGs.

@@ -11,13 +11,36 @@ namespace OpenPolitics.Client;
 /// </summary>
 public partial class PolicyEffectsPanel : PanelContainer
 {
-    private readonly VBoxContainer _body = Ui.VBox(6);
+    private readonly VBoxContainer _body = Ui.VBox(10);
+
+    /// <summary>Whether to repeat "from → to" (the policy inspector already shows it).</summary>
+    public bool ShowRange { get; set; } = true;
 
     public PolicyEffectsPanel()
     {
-        CustomMinimumSize = new Vector2(320, 0);
-        SizeFlagsVertical = SizeFlags.ExpandFill;
+        CustomMinimumSize = new Vector2(300, 0);
+        SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        AddThemeStyleboxOverride("panel", new StyleBoxEmpty());
         AddChild(_body);
+    }
+
+    /// <summary>A row of the infographic: arrows in a tinted chip, the pictogram, the name and the amount.</summary>
+    private static Control EffectRow(string id, string name, string arrows, Color color, string? amount)
+    {
+        var row = Ui.HBox(10);
+        var chip = new PanelContainer { CustomMinimumSize = new Vector2(52, 26) };
+        var box = AppTheme.Box(AppTheme.Tint(color, 0.16f), 13); box.ContentMarginLeft = 6; box.ContentMarginRight = 6;
+        chip.AddThemeStyleboxOverride("panel", box);
+        var a = Ui.Text(arrows, color, 13, false, AppTheme.Bold);
+        a.HorizontalAlignment = HorizontalAlignment.Center; a.VerticalAlignment = VerticalAlignment.Center;
+        chip.AddChild(a);
+        chip.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        row.AddChild(chip);
+        row.AddChild(new IconView(Icons.For(id), 18, AppTheme.Text2));
+        var n = Ui.Text(name, AppTheme.Text, 14, true);
+        row.AddChild(n);
+        if (amount != null) { var am = Ui.Text(amount, AppTheme.Muted, AppTheme.Caption); am.SizeFlagsVertical = SizeFlags.ShrinkCenter; row.AddChild(am); }
+        return row;
     }
 
     public static string Arrows(double strength, bool up)
@@ -34,11 +57,10 @@ public partial class PolicyEffectsPanel : PanelContainer
     {
         var t = s.T;
         Ui.Clear(_body);
-        _body.AddChild(Ui.Section(t.T("ui.effects.title")));
-        _body.AddChild(Ui.Text(t.Name(policy.Id), Colors.White, 18));
+        _body.AddChild(Ui.Text(t.T("ui.effects.title"), Colors.White, AppTheme.Subhead, false, AppTheme.Semi));
         var preview = s.Game.PreviewPolicy(policy.Id, target);
         if (preview == null) return;
-        _body.AddChild(Ui.Text($"{Fmt.Policy(policy, preview.From, t)}  →  {Fmt.Policy(policy, preview.To, t)}", Ui.Muted));
+        if (ShowRange) _body.AddChild(Ui.Text($"{Fmt.Policy(policy, preview.From, t)}  →  {Fmt.Policy(policy, preview.To, t)}", AppTheme.Text2, 14));
         if (Math.Abs(preview.To - preview.From) < 1e-9)
         {
             _body.AddChild(Ui.Text(t.T("ui.effects.none"), Ui.Muted, 14, true));
@@ -48,8 +70,11 @@ public partial class PolicyEffectsPanel : PanelContainer
         if (Math.Abs(preview.BudgetPercentOfGdp) > 1e-9)
         {
             bool wider = preview.BudgetPercentOfGdp > 0;
-            _body.AddChild(Ui.Card(Ui.Text($"{t.T(wider ? "ui.effects.budget_worse" : "ui.effects.budget_better")}  {Fmt.Signed(preview.BudgetPercentOfGdp, "0.0")} {t.T("ui.unit.gdp_share")}",
-                wider ? Ui.Bad : Ui.Good, 15, true), AppTheme.Surface));
+            var color = wider ? Ui.Bad : Ui.Good;
+            var row = Ui.HBox(10);
+            row.AddChild(new IconView(wider ? IconKind.CoinOut : IconKind.CoinIn, 20, color));
+            row.AddChild(Ui.Text($"{t.T(wider ? "ui.effects.budget_worse" : "ui.effects.budget_better")}  {Fmt.Signed(preview.BudgetPercentOfGdp, "0.0")} {t.T("ui.unit.gdp_share")}", color, 14, true));
+            _body.AddChild(Ui.Callout(row, color));
         }
 
         var values = s.Packs.Values.ToDictionary(v => v.Id);
@@ -68,37 +93,21 @@ public partial class PolicyEffectsPanel : PanelContainer
         }
         if (rows.Count > 0)
         {
-            _body.AddChild(Ui.Text(t.T("ui.effects.values"), Ui.Accent, 15));
+            _body.AddChild(Ui.Caption(t.T("ui.effects.values")));
             foreach (var r in rows.OrderByDescending(r => r.Strength))
-            {
-                var row = Ui.HBox(8);
-                var arrows = Ui.Text(Arrows(r.Strength, r.Up), r.Color, 15);
-                arrows.CustomMinimumSize = new Vector2(48, 0);
-                row.AddChild(arrows);
-                var name = Ui.Text(t.Name(r.Id), null, 15);
-                name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-                row.AddChild(name);
-                row.AddChild(Ui.Text(r.Text, Ui.Muted, 13));
-                _body.AddChild(row);
-            }
+                _body.AddChild(EffectRow(r.Id, t.Name(r.Id), Arrows(r.Strength, r.Up), r.Color, r.Text));
         }
 
         var groups = preview.Groups.Where(g => Math.Abs(g.Pressure) > 0.002).OrderByDescending(g => Math.Abs(g.Pressure)).ToList();
         if (groups.Count > 0)
         {
-            _body.AddChild(Ui.Text(t.T("ui.effects.groups"), Ui.Accent, 15));
+            _body.AddChild(Ui.Gap(2));
+            _body.AddChild(Ui.Caption(t.T("ui.effects.groups")));
             foreach (var g in groups)
-            {
-                var row = Ui.HBox(8);
-                var arrows = Ui.Text(Arrows(Math.Abs(g.Pressure) * 5, g.Pressure > 0), g.Pressure > 0 ? Ui.Good : Ui.Bad, 15);
-                arrows.CustomMinimumSize = new Vector2(48, 0);
-                row.AddChild(arrows);
-                row.AddChild(Ui.Text(t.Name(g.GroupId), null, 15));
-                _body.AddChild(row);
-            }
+                _body.AddChild(EffectRow(g.GroupId, t.Name(g.GroupId), Arrows(Math.Abs(g.Pressure) * 5, g.Pressure > 0), g.Pressure > 0 ? Ui.Good : Ui.Bad, null));
         }
         if (rows.Count == 0 && groups.Count == 0)
             _body.AddChild(Ui.Text(t.T("ui.effects.budget_only"), Ui.Muted, 14, true));
-        _body.AddChild(Ui.Text(t.T("ui.effects.hint"), Ui.Muted, 12, true));
+        _body.AddChild(Ui.Text(t.T("ui.effects.hint"), Ui.Muted, AppTheme.Caption, true));
     }
 }

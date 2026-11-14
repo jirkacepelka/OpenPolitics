@@ -12,7 +12,7 @@ public partial class CompassView : Control
 
     public CompassView()
     {
-        CustomMinimumSize = new Vector2(320, 320);
+        CustomMinimumSize = new Vector2(300, 290);
         MouseFilter = MouseFilterEnum.Stop;
     }
 
@@ -32,7 +32,7 @@ public partial class CompassView : Control
         QueueRedraw();
     }
 
-    private Rect2 Plot => new(10, 10, Math.Max(Size.X - 20, 40), Math.Max(Size.Y - 20, 40));
+    private Rect2 Plot => new(0, 0, Math.Max(Size.X, 40), Math.Max(Size.Y, 40));
     private float _scale = 1f;
 
     private Vector2 ToScreen(Vector2 p)
@@ -44,31 +44,38 @@ public partial class CompassView : Control
 
     public override void _Draw()
     {
-        var font = GetThemeDefaultFont();
+        var font = AppTheme.Medium;
         var r = Plot;
-        DrawStyleBox(AppTheme.Box(AppTheme.Card, 12, AppTheme.Border, 1), new Rect2(Vector2.Zero, Size));
-        DrawRect(r, new Color("0b0f19"));
-                var mid = r.Position + r.Size / 2;
-        DrawLine(new Vector2(r.Position.X, mid.Y), new Vector2(r.End.X, mid.Y), AppTheme.Border, 1.5f);
-        DrawLine(new Vector2(mid.X, r.Position.Y), new Vector2(mid.X, r.End.Y), AppTheme.Border, 1.5f);
-        DrawRect(r, AppTheme.Border, false, 1.5f);
-        DrawString(font, new Vector2(r.Position.X + 6, mid.Y - 5), _left, HorizontalAlignment.Left, 120, 12, AppTheme.Muted);
-        DrawString(font, new Vector2(r.End.X - 126, mid.Y - 5), _right, HorizontalAlignment.Right, 120, 12, AppTheme.Muted);
-        DrawString(font, new Vector2(mid.X - 60, r.Position.Y + 16), _top, HorizontalAlignment.Center, 120, 12, AppTheme.Muted);
-        DrawString(font, new Vector2(mid.X - 60, r.End.Y - 8), _bottom, HorizontalAlignment.Center, 120, 12, AppTheme.Muted);
+        DrawStyleBox(AppTheme.Box(new Color(AppTheme.Bg, 0.7f), 10), r);
+        var mid = r.Position + r.Size / 2;
+        // faint quadrant tints: authoritarian left/right, liberal left/right
+        DrawRect(new Rect2(r.Position, r.Size / 2), new Color(AppTheme.Bad, 0.05f));
+        DrawRect(new Rect2(new Vector2(mid.X, r.Position.Y), r.Size / 2), new Color(AppTheme.ValueNode, 0.05f));
+        DrawRect(new Rect2(new Vector2(r.Position.X, mid.Y), r.Size / 2), new Color(AppTheme.Good, 0.05f));
+        DrawRect(new Rect2(mid, r.Size / 2), new Color(AppTheme.Warn, 0.05f));
+        DrawLine(new Vector2(r.Position.X, mid.Y), new Vector2(r.End.X, mid.Y), AppTheme.Border, 1.2f);
+        DrawLine(new Vector2(mid.X, r.Position.Y), new Vector2(mid.X, r.End.Y), AppTheme.Border, 1.2f);
+        DrawString(font, new Vector2(r.Position.X + 8, mid.Y - 6), _left, HorizontalAlignment.Left, 120, AppTheme.Caption, AppTheme.Muted);
+        DrawString(font, new Vector2(r.End.X - 128, mid.Y - 6), _right, HorizontalAlignment.Right, 120, AppTheme.Caption, AppTheme.Muted);
+        DrawString(font, new Vector2(mid.X - 80, r.Position.Y + 18), _top, HorizontalAlignment.Center, 160, AppTheme.Caption, AppTheme.Muted);
+        DrawString(font, new Vector2(mid.X - 80, r.End.Y - 8), _bottom, HorizontalAlignment.Center, 160, AppTheme.Caption, AppTheme.Muted);
 
         for (int i = 0; i < _dots.Count; i++)
         {
             var d = _dots[i];
             var p = ToScreen(d.Pos);
             bool me = d.Id == _player;
-            DrawCircle(p, me ? 9 : 7, d.Color);
-            if (me) DrawArc(p, 13, 0, Mathf.Tau, 32, Colors.White, 2f, true);
-            if (i == _hover) DrawArc(p, 11, 0, Mathf.Tau, 32, AppTheme.Accent, 2f, true);
+            if (me) DrawCircle(p, 14, new Color(d.Color, 0.25f));
+            DrawCircle(p, me ? 8 : 6, d.Color);
+            if (me) DrawArc(p, 11, 0, Mathf.Tau, 32, Colors.White, 2f, true);
+            if (i == _hover) DrawArc(p, 10, 0, Mathf.Tau, 32, AppTheme.Accent, 2f, true);
             var label = d.Name.Length > 18 ? d.Name[..17] + "…" : d.Name;
-            var color = me ? Colors.White : new Color(AppTheme.Text, 0.85f);
-            if (p.X > Plot.GetCenter().X) DrawString(font, p + new Vector2(-161, 4), label, HorizontalAlignment.Right, 150, 12, color);
-            else DrawString(font, p + new Vector2(11, 4), label, HorizontalAlignment.Left, 150, 12, color);
+            var color = me ? Colors.White : AppTheme.Text2;
+            var f = me ? AppTheme.Bold : AppTheme.Semi;
+            var pos = p.X > Plot.GetCenter().X ? p + new Vector2(-162, 5) : p + new Vector2(12, 5);
+            var align = p.X > Plot.GetCenter().X ? HorizontalAlignment.Right : HorizontalAlignment.Left;
+            DrawStringOutline(f, pos, label, align, 150, AppTheme.Caption, 5, new Color(AppTheme.Bg, 0.9f));
+            DrawString(f, pos, label, align, 150, AppTheme.Caption, color);
         }
     }
 

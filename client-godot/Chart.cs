@@ -24,7 +24,7 @@ public partial class Chart : Control
     public Chart(bool large = false)
     {
         Large = large;
-        CustomMinimumSize = large ? new Vector2(640, 380) : new Vector2(290, 112);
+        CustomMinimumSize = large ? new Vector2(640, 380) : new Vector2(260, 120);
         MouseFilter = MouseFilterEnum.Stop;
         if (!large) { MouseDefaultCursorShape = CursorShape.PointingHand; }
         if (large) { SizeFlagsHorizontal = SizeFlags.ExpandFill; SizeFlagsVertical = SizeFlags.ExpandFill; }
@@ -68,22 +68,38 @@ public partial class Chart : Control
     public override void _Draw()
     {
         var font = GetThemeDefaultFont();
-        DrawStyleBox(AppTheme.Box(AppTheme.Card, 12, _inside && !Large ? AppTheme.Accent : AppTheme.Border, 1), new Rect2(Vector2.Zero, Size));
+        if (!Large) DrawStyleBox(AppTheme.Box(_inside ? AppTheme.CardHover : AppTheme.Card, 12, _inside ? new Color(AppTheme.Accent, 0.6f) : AppTheme.Border, 1), new Rect2(Vector2.Zero, Size));
+        else DrawStyleBox(AppTheme.Box(new Color(AppTheme.Bg, 0.5f), 12, AppTheme.Border, 1), new Rect2(Vector2.Zero, Size));
         if (Large) DrawLarge(font); else DrawSmall(font);
     }
 
     private void DrawSmall(Font font)
     {
-        DrawString(font, new Vector2(12, 22), _title, HorizontalAlignment.Left, Size.X - 90, 13, AppTheme.Muted);
+        DrawString(AppTheme.Medium, new Vector2(14, 24), _title, HorizontalAlignment.Left, Size.X - 110, AppTheme.Caption, AppTheme.Text2);
         double last = double.NaN;
         if (_series.Count > 0) foreach (var v in _series[0].Values) if (double.IsFinite(v)) last = v;
-        DrawString(font, new Vector2(Size.X - 90, 22), Fmt(last, _format), HorizontalAlignment.Right, 78, 15, Colors.White);
+        DrawString(AppTheme.Bold, new Vector2(Size.X - 104, 25), Fmt(last, _format), HorizontalAlignment.Right, 90, 17, Colors.White);
         var (min, max) = Range();
-        var area = new Rect2(12, 34, Size.X - 24, Size.Y - 46);
+        var area = new Rect2(14, 40, Size.X - 28, Size.Y - 52);
+        bool firstSeries = true;
         foreach (var s in _series)
+        {
             foreach (var run in Segments(s.Values, area, min, max))
-                if (run.Count > 1) DrawPolyline(run.ToArray(), s.Color, 2f, true);
+            {
+                if (run.Count > 1)
+                {
+                    if (firstSeries && _series.Count == 1)
+                    {
+                        var poly = new List<Vector2>(run) { new(run[^1].X, area.End.Y), new(run[0].X, area.End.Y) };
+                        var cols = poly.Select((p, i) => i < run.Count ? new Color(s.Color, 0.22f) : new Color(s.Color, 0f)).ToArray();
+                        DrawPolygon(poly.ToArray(), cols);
+                    }
+                    DrawPolyline(run.ToArray(), s.Color, 2.2f, true);
+                }
                 else DrawCircle(run[0], 2.5f, s.Color);
+            }
+            firstSeries = false;
+        }
     }
 
     private void DrawLarge(Font font)
@@ -93,8 +109,8 @@ public partial class Chart : Control
         for (int g = 0; g <= 4; g++)
         {
             float y = area.End.Y - area.Size.Y * g / 4f;
-            DrawLine(new Vector2(area.Position.X, y), new Vector2(area.End.X, y), new Color(AppTheme.Border, 0.7f), 1f);
-            DrawString(font, new Vector2(6, y + 5), Fmt(min + (max - min) * g / 4, _format), HorizontalAlignment.Right, 58, 12, AppTheme.Muted);
+            DrawLine(new Vector2(area.Position.X, y), new Vector2(area.End.X, y), new Color(AppTheme.Border, 0.6f), 1f);
+            DrawString(font, new Vector2(6, y + 5), Fmt(min + (max - min) * g / 4, _format), HorizontalAlignment.Right, 58, AppTheme.Caption, AppTheme.Muted);
         }
         int n = _turns.Count;
         int ticks = Math.Min(6, Math.Max(n, 1));
@@ -103,7 +119,7 @@ public partial class Chart : Control
             int i = ticks == 1 ? 0 : (int)Math.Round((n - 1) * (double)k / (ticks - 1));
             if (i < 0 || i >= n) continue;
             float x = area.Position.X + (n <= 1 ? 0 : area.Size.X * i / (n - 1));
-            DrawString(font, new Vector2(x - 40, area.End.Y + 20), _xLabel(_turns[i]), HorizontalAlignment.Center, 80, 12, AppTheme.Muted);
+            DrawString(font, new Vector2(x - 40, area.End.Y + 20), _xLabel(_turns[i]), HorizontalAlignment.Center, 80, AppTheme.Caption, AppTheme.Muted);
         }
         foreach (var s in _series)
             foreach (var run in Segments(s.Values, area, min, max))

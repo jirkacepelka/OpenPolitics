@@ -33,12 +33,12 @@ public sealed class Session
     /// <summary>Raised after a quarter ends, once the screens have been told (the start-of-quarter briefing hangs on this).</summary>
     public event Action? QuarterEnded;
 
-    public Session(PackSet packs, string scenarioId, ulong seed, string language, GameOptions? options = null)
+    public Session(PackSet packs, string scenarioId, ulong seed, string language)
     {
         Packs = packs; ScenarioId = scenarioId; Seed = seed; Language = language;
         T = new Localizer(packs, language);
         Texts = new Texts(packs, T);
-        Game = Simulation.NewGame(packs, scenarioId, seed, options);
+        Game = Simulation.NewGame(packs, scenarioId, seed);
         StartGdp = Country.Values.GetValueOrDefault("base:gdp");
         History = new History(Game, packs);
         History.Record();

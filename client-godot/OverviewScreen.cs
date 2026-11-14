@@ -3,6 +3,7 @@ using OpenPolitics.Core.Presentation;
 
 namespace OpenPolitics.Client;
 
+/// <summary>The state of the nation at a glance: key figures as tiles, the politics in one card, every chart, and the latest news.</summary>
 public partial class OverviewScreen : Screen
 {
     public override string TitleKey => "ui.client.tab.overview";
@@ -23,41 +24,26 @@ public partial class OverviewScreen : Screen
         var t = s.T;
         var f = s.Figures;
         if (s.Turn == 0)
-        {
-            _body.AddChild(Ui.Text(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Ui.Warn, 0, true));
-            _body.AddChild(Ui.Rule());
-        }
-        _body.AddChild(Ui.Text(t.T("ui.client.hud_hint"), Ui.Muted, 14, true));
+            _body.AddChild(Ui.Callout(Ui.Text(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), AppTheme.Text, 14, true), AppTheme.Accent));
 
-        var grid = new GridContainer { Columns = 2 };
-        grid.AddThemeConstantOverride("h_separation", 24);
-        void Row(string key, string value, Color? color = null)
-        {
-            grid.AddChild(Ui.Text(t.T(key)));
-            grid.AddChild(Ui.Text(value, color, 18));
-        }
-        var values = s.Packs.Values.ToDictionary(v => v.Id);
-        if (f.DebtPercentOfGdp is { } d) Row("ui.line.debt_ratio", Fmt.Number(d, "0") + " %", d > 120 ? Ui.Bad : null);
-        if (f.BudgetPercentOfGdp is { } b) Row("ui.line.budget", Fmt.Signed(b) + " %", b < -3 ? Ui.Bad : null);
-        _body.AddChild(grid);
+        var tiles = new GridContainer { Columns = 3, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        tiles.AddThemeConstantOverride("h_separation", 12); tiles.AddThemeConstantOverride("v_separation", 12);
+        if (f.DebtPercentOfGdp is { } d) tiles.AddChild(Ui.Stat(t.T("ui.line.debt_ratio"), Fmt.Number(d, "0") + " %", d > 120 ? Ui.Bad : null, null, null, IconKind.Bank));
+        if (f.BudgetPercentOfGdp is { } b) tiles.AddChild(Ui.Stat(t.T("ui.line.budget"), Fmt.Signed(b) + " %", b < -3 ? Ui.Bad : b >= 0 ? Ui.Good : null, null, null, IconKind.Gauge));
+        var moodTile = Ui.Stat(t.T("ui.line.mood"), t.T(Moods.Key(f.Mood)), Ui.MoodColor(f.Mood), null, null, IconKind.Voters);
+        ((VBoxContainer)moodTile.GetChild(0)).AddChild(new Meter(f.Mood, -1, 1, Ui.MoodColor(f.Mood), 120, true) { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        tiles.AddChild(moodTile);
+        if (s.HasPolitics) PoliticsTiles(s, tiles);
+        _body.AddChild(tiles);
+        _body.AddChild(Ui.Text(t.T("ui.client.hud_hint"), Ui.Muted, AppTheme.Caption, true));
 
-        var mood = Ui.HBox();
-        mood.AddChild(Ui.Text(t.T("ui.line.mood")));
-        mood.AddChild(Ui.Text(t.T(Moods.Key(f.Mood)), null, 18));
-        mood.AddChild(Ui.Bar(f.Mood, -1, 1, f.Mood < -0.2 ? Ui.Bad : f.Mood > 0.2 ? Ui.Good : Ui.Warn));
-        _body.AddChild(mood);
-
-        if (s.HasPolitics) _body.AddChild(PoliticsSummary(s));
-
-        _body.AddChild(Ui.Rule());
-        _body.AddChild(Ui.Section(t.T("ui.client.charts")));
-        _body.AddChild(Ui.Text(t.T("ui.client.charts_hint"), Ui.Muted, 0, true));
-        var charts = new HFlowContainer();
+        _body.AddChild(Ui.Section(t.T("ui.client.charts"), t.T("ui.client.charts_hint")));
+        var charts = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         charts.AddThemeConstantOverride("h_separation", 12);
         charts.AddThemeConstantOverride("v_separation", 12);
         foreach (var spec in Charts.Available(s))
         {
-            var chart = new Chart();
+            var chart = new Chart { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             var (turns, series) = Charts.Build(s, spec, 0);
             chart.Set(spec.Title(t), turns, series, spec.Format, s.ShortDateAt);
             var captured = spec;
@@ -66,30 +52,34 @@ public partial class OverviewScreen : Screen
         }
         _body.AddChild(charts);
 
-        _body.AddChild(Ui.Rule());
-        _body.AddChild(Ui.Heading(t.T("ui.heading.events")));
+        _body.AddChild(Ui.Section(t.T("ui.heading.events")));
+        var news = Ui.VBox(10);
         bool any = false;
         foreach (var (turn, text) in s.News.Where(n => s.Last != null && n.Turn == s.Last.Turn))
-        { _body.AddChild(Ui.Text("• " + text, null, 0, true)); any = true; }
-        if (!any) _body.AddChild(Ui.Text(t.T("ui.client.no_news"), Ui.Muted));
+        {
+            var row = Ui.HBox(10);
+            row.AddChild(new IconView(IconKind.News, 16, AppTheme.Accent));
+            row.AddChild(Ui.Text(text, AppTheme.Text, 14, true));
+            news.AddChild(row);
+            any = true;
+        }
+        if (!any) news.AddChild(Ui.Text(t.T("ui.client.no_news"), Ui.Muted, 14));
+        _body.AddChild(Ui.Card(news));
     }
 
-    private Control PoliticsSummary(Session s)
+    private static void PoliticsTiles(Session s, GridContainer tiles)
     {
         var t = s.T;
         var pol = s.Politics!;
-        var box = Ui.VBox(4);
-        box.AddChild(Ui.Rule());
-        box.AddChild(Ui.Heading(t.T("ui.heading.politics")));
-        box.AddChild(Ui.Text(t.T("ui.line.next_election") + ": " +
-            (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection))));
+        tiles.AddChild(Ui.Stat(t.T("ui.line.next_election"),
+            pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection), null, null, null, IconKind.Ballot));
         int total = pol.Seats.Values.Sum(), held = pol.GovernmentParties.Sum(p => pol.Seats.GetValueOrDefault(p));
         var rules = s.Packs.Countries.First(c => c.Politics != null).Politics!;
         bool majority = held > total * rules.MajorityFraction;
-        box.AddChild(Ui.Text($"{t.T("ui.politics.government")}: {t.T("ui.politics.seats_of", held, total)} ({t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority")})",
-            majority ? Ui.Good : Ui.Bad));
+        tiles.AddChild(Ui.Stat(t.T("ui.politics.government"), $"{held} / {total}", majority ? Ui.Good : Ui.Bad,
+            t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority"), majority ? Ui.Good : Ui.Bad, IconKind.Politics));
         if (pol.Party != null)
-            box.AddChild(Ui.Text($"{t.T("ui.party.capital")}: {Fmt.Number(pol.Party.PoliticalCapital)}   {t.T("ui.party.organisation")}: {Fmt.Number(pol.Party.Organization * 100, "0")} %"));
-        return box;
+            tiles.AddChild(Ui.Stat(t.T("ui.party.capital"), Fmt.Number(pol.Party.PoliticalCapital), AppTheme.Warn,
+                $"{t.T("ui.party.organisation")}: {Fmt.Number(pol.Party.Organization * 100, "0")} %", null, IconKind.Coin));
     }
 }

@@ -28,3 +28,12 @@ Skylines") led to a redesign: the influence graph became the permanent backdrop 
 - The effects infographic ignores delays and second-order effects by design (the panel says so).
 - The map layout (values by a force layout, policies on a ring at the angle of what they act on) is computed once per pack and is not animated.
 - Panels are laid out for a 1280 x 800 window or larger; below that the top bar overflows.
+
+## Addendum (2026-11-15): second redesign
+
+The map-first first draft was still judged "terribly bad". An Opus subagent researched the Democracy 4 and Cities: Skylines interfaces
+(Positech blog and forum, Paradox dev diaries), wrote a design spec and iterated five critique rounds on windowed screenshots using the
+`design:design-critique` framework. Result: Fira Sans type scale (13/15/17/20/26/32), 8 px grid, policy cards with pictograms and a category filter plus
+an inspector, labelled map nodes that never collide, a parliament hemicycle, shared panel header with fade-in, borderless dialogs. Known weak spots it
+reported: hemicycle wedges, compass labels can touch, the inspector scrolls at 800 px height, the GDP trend is dropped from the top bar, map arrows are
+not animated. Still not a human playtest.
