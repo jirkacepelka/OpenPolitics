@@ -12,7 +12,8 @@ public partial class PartyScreen : Screen
     public override string TitleKey => "ui.client.tab.party";
     private readonly VBoxContainer _body;
     private int _groupIndex, _effort = 1, _valueIndex, _policyIndex;
-    private double _platformTarget = double.NaN;
+    private double _platformTarget = double.NaN, _proposeTarget = double.NaN;
+    private int _proposeIndex;
 
     public PartyScreen()
     {
@@ -38,6 +39,7 @@ public partial class PartyScreen : Screen
         Stat("ui.party.organisation", Fmt.Number(ps.Organization * 100, "0") + " %");
         Stat("ui.party.credibility", Fmt.Number(ps.Credibility * 100, "0") + " %");
         Stat("ui.party.cohesion", Fmt.Number(ps.Cohesion * 100, "0") + " %");
+        Stat("ui.party.income", Fmt.Signed(ps.Income) + " " + t.T("ui.party.per_quarter"));
         _body.AddChild(grid);
 
         Goals(s, pol, ps);
@@ -110,6 +112,39 @@ public partial class PartyScreen : Screen
             leader ? t.T("ui.err.not_opposition") : null, leader));
         _body.AddChild(criticize);
 
+        // Government play: partners propose and may leave, the leader dismisses (see the relations list), the opposition can topple
+        bool partner = pol.PlayerRole == Role.Partner, opposition = pol.PlayerRole == Role.Opposition;
+        var allPolicies = s.Packs.Policies.OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();
+        if (allPolicies.Count > 0)
+        {
+            _proposeIndex = Math.Clamp(_proposeIndex, 0, allPolicies.Count - 1);
+            var pdef = allPolicies[_proposeIndex];
+            double current = s.Country.Policies.GetValueOrDefault(pdef.Id, pdef.Default);
+            if (double.IsNaN(_proposeTarget) || _proposeTarget < pdef.Min || _proposeTarget > pdef.Max) _proposeTarget = current;
+            var propose = Ui.HBox();
+            propose.AddChild(Ui.Text(t.T("ui.client.propose") + ":"));
+            var pBox = new OptionButton { Disabled = !partner };
+            foreach (var p in allPolicies) pBox.AddItem(t.Name(p.Id));
+            pBox.Selected = _proposeIndex;
+            pBox.ItemSelected += i => { _proposeIndex = (int)i; _proposeTarget = double.NaN; s.Touch(); };
+            propose.AddChild(pBox);
+            var pSlider = new HSlider { MinValue = pdef.Min, MaxValue = pdef.Max, Step = Math.Max((pdef.Max - pdef.Min) / 400.0, 0.05), Value = _proposeTarget, CustomMinimumSize = new Vector2(240, 24), SizeFlagsVertical = SizeFlags.ShrinkCenter, Editable = partner };
+            var pLabel = Ui.Text(Fmt.Policy(pdef, _proposeTarget, t));
+            pSlider.ValueChanged += v => { _proposeTarget = v; pLabel.Text = Fmt.Policy(pdef, v, t); };
+            propose.AddChild(pSlider);
+            propose.AddChild(pLabel);
+            propose.AddChild(Ui.Btn($"{t.T("ui.client.go")}  (3)", () => s.Do(new ProposePolicy(pdef.Id, _proposeTarget), t.T("ui.exit.propose_ok", t.Name(pdef.Id))),
+                partner ? null : t.T("ui.err.not_partner"), !partner));
+            _body.AddChild(propose);
+            _body.AddChild(Ui.Text(t.T("ui.client.propose_hint"), Ui.Muted, 0, true));
+        }
+        var exits = Ui.HBox();
+        exits.AddChild(Ui.Btn(t.T("ui.client.leave"), () => s.Do(new LeaveCoalition(), t.T("ui.exit.leave_ok")),
+            partner ? null : t.T("ui.err.not_partner"), !partner));
+        exits.AddChild(Ui.Btn($"{t.T("ui.client.confidence")}  (10)", () => s.Do(new NoConfidence(), t.T("ui.exit.confidence_ok")),
+            opposition ? null : t.T("ui.err.not_opposition"), !opposition));
+        _body.AddChild(exits);
+
         // Platform
         var policies = ps.Platform.Keys.Where(id => s.Packs.Policies.Any(p => p.Id == id)).OrderBy(id => id, StringComparer.Ordinal).ToList();
         if (policies.Count > 0)
@@ -149,6 +184,8 @@ public partial class PartyScreen : Screen
             row.AddChild(Ui.Bar(r, 0, 1, Ui.Good, 200));
             row.AddChild(Ui.Text(Fmt.Number(r, "0.00")));
             row.AddChild(Ui.Btn($"{t.T("ui.client.court")}  (3)", () => s.Do(new Court(party.Id), t.T("ui.party.court_ok", t.Name(party.Id)))));
+            if (pol.PlayerRole == Role.Leader && pol.GovernmentParties.Contains(party.Id))
+                row.AddChild(Ui.Btn($"{t.T("ui.client.dismiss")}  (4)", () => s.Do(new DismissPartner(party.Id), t.T("ui.exit.dismiss_ok", t.Name(party.Id)))));
             _body.AddChild(row);
         }
     }
