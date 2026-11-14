@@ -29,7 +29,8 @@ public sealed record VoterGroupDef(
     IReadOnlyDictionary<string, double> ValueWeights,
     IReadOnlyDictionary<string, double> PolicyPrefs,
     IReadOnlyDictionary<string, double> PolicyWeights,
-    string Source);
+    string Source,
+    IReadOnlyDictionary<string, double>? LevelWeights = null);
 
 public sealed record EffectDef(string ValueId, double Delta);
 

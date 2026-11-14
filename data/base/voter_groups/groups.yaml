@@ -9,18 +9,21 @@
   size: 0.35
   weight: 1.0
   value_weights: {base:gdp: 4.0, base:crime: -1.0, base:inequality: -0.5}
+  level_weights: {base:gdp: 1.0}
   policy_prefs: {base:income_tax: 22, base:education_spending: 5.5}
   policy_weights: {base:income_tax: 0.5, base:education_spending: 0.3}
 - id: base:high_income
   size: 0.10
   weight: 1.2
   value_weights: {base:gdp: 5.0}
+  level_weights: {base:gdp: 1.0}
   policy_prefs: {base:income_tax: 20, base:corporate_tax: 3}
   policy_weights: {base:income_tax: 0.6, base:corporate_tax: 0.4}
 - id: base:pensioners
   size: 0.20
   weight: 1.0
   value_weights: {base:health: 2.0, base:inflation: -1.5, base:crime: -1.0}
+  level_weights: {base:health: 1.0}
   policy_prefs: {base:pensions: 11, base:vat: 11}
   policy_weights: {base:pensions: 1.0, base:vat: 0.2}
 - id: base:young_urban
@@ -33,5 +36,6 @@
   size: 0.15
   weight: 1.0
   value_weights: {base:crime: -2.0, base:gdp: 2.0}
+  level_weights: {base:gdp: 0.5}
   policy_prefs: {base:migration: 1, base:environment_regulation: 3}
   policy_weights: {base:migration: 0.6, base:environment_regulation: 0.2}

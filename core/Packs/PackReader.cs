@@ -379,7 +379,7 @@ public static class PackReader
 
     private static VoterGroupDef? ReadVoterGroup(Fields f, string file) =>
         new(f.Str("id"), f.Num("size", 1), f.Num("weight", 1), f.NumMap("value_weights"),
-            f.NumMap("policy_prefs"), f.NumMap("policy_weights"), file);
+            f.NumMap("policy_prefs"), f.NumMap("policy_weights"), file, f.NumMap("level_weights"));
 
     private static EventDef? ReadEvent(Fields f, string file)
     {

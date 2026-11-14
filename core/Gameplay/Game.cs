@@ -195,7 +195,7 @@ public sealed class Game
             change[id] = (after[id] - before[id]) / denominator / _dt;
         }
         var nextSatisfaction = new SortedDictionary<string, double>(Ord);
-        foreach (var (id, s) in _voters.Step(_satisfaction, change, _policies, _dt)) nextSatisfaction[id] = s;
+        foreach (var (id, s) in _voters.Step(_satisfaction, change, _policies, _dt, after)) nextSatisfaction[id] = s;
         _satisfaction = nextSatisfaction;
 
         // 9. Commit and report.
