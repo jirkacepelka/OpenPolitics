@@ -40,6 +40,9 @@ public sealed class Texts
             : _t.T("ui.event.ultimatum", _t.Name(u.PartyId), u.TurnsLeft),
         PartnerLeft l => _t.T("ui.event.partner_left", _t.Name(l.PartyId)),
         GovernmentFell => _t.T("ui.event.government_fell"),
+        PolicyProposalAccepted a when _packs.Policies.FirstOrDefault(p => p.Id == a.PolicyId) is { } ap =>
+            _t.T("ui.event.proposal_accepted", _t.Name(a.PolicyId), Fmt.Policy(ap, a.Target, _t)),
+        PolicyProposalRejected r => _t.T("ui.event.proposal_rejected_" + r.Reason, _t.Name(r.PolicyId)),
         GovernmentMeasure m when _packs.Policies.FirstOrDefault(p => p.Id == m.PolicyId) is { } mp =>
             _t.T("ui.event.government_measure", _t.Name(m.PolicyId), Fmt.Policy(mp, m.From, _t), Fmt.Policy(mp, m.To, _t)),
         _ => null,

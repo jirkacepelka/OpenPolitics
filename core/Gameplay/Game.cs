@@ -211,6 +211,16 @@ public sealed class Game
             _politics.RecordMeasure(_turn, move.PolicyId, from, move.Value);
             _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
         }
+        foreach (var (policyId, target) in _politics?.TakeApprovedProposals() ?? Array.Empty<(string, double)>())
+        {
+            var def = _policyDefs[policyId];
+            double from = LatestPolicy(policyId), range = def.Max - def.Min;
+            double to = Math.Clamp(from + Math.Clamp(target - from, -0.25 * range, 0.25 * range), def.Min, def.Max);
+            if (to == from) continue;
+            politicalEvents.Add(new GovernmentMeasure(_turn, policyId, from, to));
+            _politics!.RecordMeasure(_turn, policyId, from, to);
+            _pending.Add(new PendingPolicy(policyId, to, _turn + def.DelayTurns));
+        }
         var changes = before.Keys.Select(id => new ValueChange(id, before[id], after[id],
             eval.Contributions.TryGetValue(id, out var c) ? c : Array.Empty<Contribution>())).ToList();
         return new TurnReport(_turn, CurrentYear, changes, fired, warnings, politicalEvents);

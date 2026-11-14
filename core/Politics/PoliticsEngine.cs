@@ -62,6 +62,8 @@ internal sealed class PoliticsEngine
     private readonly HashSet<string> _excluded = new(Ord);
     private CoalitionProposal? _offer;
     private readonly List<PoliticalEvent> _pending = new();
+    private readonly List<(string PolicyId, double Target)> _proposals = new();
+    private readonly List<(string PolicyId, double Target)> _approved = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
         IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear)
@@ -211,6 +213,7 @@ internal sealed class PoliticsEngine
         Campaign c => CampaignGroup(c.GroupId, c.Effort),
         Criticize c => DoCriticize(c.ValueId),
         TakeStance t => DoTakeStance(t.MeasureId, t.Stance),
+        ProposePolicy p => DoProposePolicy(p.PolicyId, p.Target),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
 
@@ -337,6 +340,59 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
+    public const double ProposalCost = 3.0, ProposalMaxMoveOfRange = 0.25, ProposalThreshold = 0.5;
+
+    private ActionResult DoProposePolicy(string policyId, double target)
+    {
+        if (_phase != Phase.Governing || PlayerRole != Role.Partner) return Fail("error.not_partner");
+        if (!_policyDefs.TryGetValue(policyId, out var def)) return Fail("error.unknown_policy", policyId);
+        if (!double.IsFinite(target) || target < def.Min || target > def.Max) return Fail("error.value_out_of_range", policyId);
+        if (!TrySpend(ProposalCost)) return Fail("error.not_enough_capital");
+        _proposals.Add((policyId, target));
+        return ActionResult.Ok;
+    }
+
+    /// <summary>The leader's answer to the player's proposals, from relations, the player's weight in the government and fit with its own platform.</summary>
+    private void DecideProposals(int turn, List<PoliticalEvent> events)
+    {
+        var proposals = _proposals.ToList();
+        _proposals.Clear();
+        if (_phase != Phase.Governing || PlayerRole != Role.Partner) return;
+        string leader = _government.Leader;
+        double govSeats = _government.Parties.Sum(p => _seats.GetValueOrDefault(p));
+        double share = govSeats > 0 ? _seats.GetValueOrDefault(Player) / govSeats : 0.0;
+        foreach (var (policyId, target) in proposals)
+        {
+            var def = _policyDefs[policyId];
+            double range = def.Max - def.Min, current = _lookup("policy", policyId);
+            double next = Math.Clamp(current + Math.Clamp(target - current, -ProposalMaxMoveOfRange * range, ProposalMaxMoveOfRange * range), def.Min, def.Max);
+            bool redLine = _government.Parties.Where(p => p != Player).Any(p => _parties[p].RedLines.Any(r =>
+                r.Policy == policyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current)));
+            double fit = _parties[leader].Platform.TryGetValue(policyId, out var pos) && range > 0
+                ? 1.0 - Math.Min(1.0, Math.Abs(target - pos.Target) / range) : 0.5;
+            double score = 0.4 * Relation(leader, Player) + 0.2 * share + 0.4 * fit;
+            if (!redLine && score >= ProposalThreshold)
+            {
+                events.Add(new PolicyProposalAccepted(turn, policyId, target));
+                _approved.Add((policyId, target));
+                _relations[leader] = Math.Min(1.0, _relations.GetValueOrDefault(leader, DefaultRelation) + 0.05);
+            }
+            else
+            {
+                events.Add(new PolicyProposalRejected(turn, policyId, redLine ? "red_line" : "score"));
+                _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - 0.03);
+            }
+        }
+    }
+
+    /// <summary>Proposals the leader agreed to this turn (policy id, requested target); the game turns them into government measures.</summary>
+    public IReadOnlyList<(string PolicyId, double Target)> TakeApprovedProposals()
+    {
+        var list = _approved.ToList();
+        _approved.Clear();
+        return list;
+    }
+
     private ActionResult DoCallEarlyElection()
     {
         if (_phase != Phase.Governing) return new ActionResult(false, "error.wrong_phase", null);
@@ -367,7 +423,8 @@ internal sealed class PoliticsEngine
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
         if (electionDue) { HoldElection(turn, events); return events; }
         if (_phase == Phase.Formation) StepFormation(turn, events);
-        else if (_phase == Phase.Governing) StepLoyalty(turn, effective, events);
+        else if (_phase == Phase.Governing) { StepLoyalty(turn, effective, events); DecideProposals(turn, events); }
+        else _proposals.Clear();
         return events;
     }
 

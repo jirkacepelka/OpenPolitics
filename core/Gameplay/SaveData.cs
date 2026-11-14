@@ -59,6 +59,8 @@ public sealed record SaveData(
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "set_policy", Policy = sp.PolicyId, Value = sp.Value.ToString("R", CultureInfo.InvariantCulture) });
             else if (action is SetIndexation si)
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "set_indexation", Policy = si.PolicyId, Mode = si.Mode });
+            else if (action is ProposePolicy pp)
+                dto.Actions.Add(new ActionDto { Turn = turn, Type = "propose_policy", Policy = pp.PolicyId, Value = pp.Target.ToString("R", CultureInfo.InvariantCulture) });
             else if (action is ProposeCoalition pc)
                 dto.Actions.Add(new ActionDto
                 {
@@ -90,6 +92,7 @@ public sealed record SaveData(
             {
                 "set_policy" => new SetPolicy(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
                 "set_indexation" => new SetIndexation(a.Policy, a.Mode),
+                "propose_policy" => new ProposePolicy(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
                 "propose_coalition" => new ProposeCoalition(a.Partners.ToList(), a.Agreements.Select(x =>
                 {
                     var parts = x.Split('|');
