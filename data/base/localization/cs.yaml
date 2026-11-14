@@ -317,3 +317,8 @@ ui.event.proposal_accepted: "Vedoucí strana souhlasila s vaším návrhem na {0
 ui.event.proposal_rejected_score: "Vedoucí strana váš návrh na {0} odmítla: nestojí jí to za to."
 ui.event.proposal_rejected_red_line: "Vedoucí strana váš návrh na {0} odmítla: jiný partner by odešel z vlády."
 ui.err.not_partner: "To může udělat jen vládní partner (ne vedoucí strana)."
+ui.event.player_left: "Vaše strana odešla z vlády."
+ui.event.partner_dismissed: "Strana {0} byla z vlády vyloučena."
+ui.event.no_confidence_passed: "Vyslovení nedůvěry prošlo. Vláda padla."
+ui.event.no_confidence_failed: "Vyslovení nedůvěry neprošlo. Ztratili jste důvěryhodnost."
+ui.err.would_lose_majority: "Bez této strany by vláda ztratila většinu."

@@ -16,6 +16,15 @@ public sealed record SetIndexation(string PolicyId, string Mode) : PlayerAction;
 /// <summary>As a governing partner (not the leader): ask the leader to move a policy toward Target. The leader decides next turn.</summary>
 public sealed record ProposePolicy(string PolicyId, double Target) : PoliticsAction;
 
+/// <summary>As a governing partner: leave the government at the end of the turn.</summary>
+public sealed record LeaveCoalition : PoliticsAction;
+
+/// <summary>As government leader: dismiss a partner (allowed while the rest keep a majority). Costs 4 capital.</summary>
+public sealed record DismissPartner(string PartyId) : PoliticsAction;
+
+/// <summary>As opposition: call a vote of no confidence. Costs 10 capital; passes with enough willing parties and unhappy partners.</summary>
+public sealed record NoConfidence : PoliticsAction;
+
 /// <summary>As formateur: offer a coalition. Partners join and the agreements become the government's commitments.</summary>
 public sealed record ProposeCoalition(IReadOnlyList<string> Partners, IReadOnlyList<AgreedDemand> Agreements) : PoliticsAction;
 

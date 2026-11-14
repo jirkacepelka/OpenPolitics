@@ -64,6 +64,8 @@ internal sealed class PoliticsEngine
     private readonly List<PoliticalEvent> _pending = new();
     private readonly List<(string PolicyId, double Target)> _proposals = new();
     private readonly List<(string PolicyId, double Target)> _approved = new();
+    private bool _leaveQueued, _noConfidenceQueued;
+    private readonly List<string> _dismissQueue = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
         IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear)
@@ -214,6 +216,9 @@ internal sealed class PoliticsEngine
         Criticize c => DoCriticize(c.ValueId),
         TakeStance t => DoTakeStance(t.MeasureId, t.Stance),
         ProposePolicy p => DoProposePolicy(p.PolicyId, p.Target),
+        LeaveCoalition => DoLeave(),
+        DismissPartner d => DoDismiss(d.PartyId),
+        NoConfidence => DoNoConfidence(),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
 
@@ -393,6 +398,92 @@ internal sealed class PoliticsEngine
         return list;
     }
 
+    private ActionResult DoLeave()
+    {
+        if (_phase != Phase.Governing) return Fail("error.wrong_phase");
+        if (PlayerRole != Role.Partner) return Fail("error.not_partner");
+        _leaveQueued = true;
+        return ActionResult.Ok;
+    }
+
+    private ActionResult DoDismiss(string partyId)
+    {
+        if (_phase != Phase.Governing) return Fail("error.wrong_phase");
+        if (PlayerRole != Role.Leader) return Fail("error.not_leader");
+        if (partyId == Player || !_government.Parties.Contains(partyId)) return Fail("error.unknown_party", partyId);
+        if (!CoalitionRules.HasMajority(_government.Parties.Where(p => p != partyId), _seats, _rules.MajorityFraction))
+            return Fail("error.would_lose_majority", partyId);
+        if (!TrySpend(4)) return Fail("error.not_enough_capital");
+        _dismissQueue.Add(partyId);
+        return ActionResult.Ok;
+    }
+
+    private ActionResult DoNoConfidence()
+    {
+        if (_phase != Phase.Governing) return Fail("error.wrong_phase");
+        if (PlayerRole != Role.Opposition) return Fail("error.not_opposition");
+        if (!TrySpend(10)) return Fail("error.not_enough_capital");
+        _noConfidenceQueued = true;
+        return ActionResult.Ok;
+    }
+
+    /// <summary>Applies the player's queued exits at the start of the governing step. Returns true when the government fell.</summary>
+    private bool ProcessExits(int turn, List<PoliticalEvent> events)
+    {
+        bool leave = _leaveQueued, confidence = _noConfidenceQueued;
+        var dismissals = _dismissQueue.ToList();
+        _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear();
+
+        if (leave && PlayerRole == Role.Partner)
+        {
+            string leader = _government.Leader;
+            events.Add(new PlayerLeftCoalition(turn));
+            Depart(Player, turn, events, announce: false);
+            _credibility = Math.Max(0.0, _credibility - 0.15);
+            _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - 0.3);
+            if (FallIfNoMajority(turn, events)) return true;
+        }
+        if (PlayerRole == Role.Leader)
+            foreach (var partner in dismissals)
+            {
+                if (!_government.Parties.Contains(partner)
+                    || !CoalitionRules.HasMajority(_government.Parties.Where(p => p != partner), _seats, _rules.MajorityFraction)) continue;
+                events.Add(new PartnerDismissed(turn, partner));
+                Depart(partner, turn, events, announce: false);
+                AddGrudge(partner, _government.Leader, 0.5);
+            }
+        if (confidence && PlayerRole == Role.Opposition)
+        {
+            double total = _seats.Values.Sum();
+            var willing = _seats.Where(kv => kv.Value > 0 && !_government.Parties.Contains(kv.Key)
+                    && (kv.Key == Player || Relation(Player, kv.Key) >= 0.4))
+                .OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, Ord).Select(kv => kv.Key).ToList();
+            double seats = willing.Sum(p => _seats[p])
+                + _government.Parties.Where(p => p != _government.Leader && _loyalty.GetValueOrDefault(p, 100) < 40).Sum(p => _seats.GetValueOrDefault(p));
+            if (seats > _rules.MajorityFraction * total)
+            {
+                events.Add(new NoConfidencePassed(turn));
+                events.Add(new GovernmentFell(turn));
+                foreach (var p in _government.Parties.Where(p => p != _government.Leader)) AddGrudge(p, _government.Leader, 0.2);
+                BeginFormation(turn, events, willing.Count > 0 ? willing[0] : _government.Leader);
+                return true;
+            }
+            events.Add(new NoConfidenceFailed(turn));
+            _credibility = Math.Max(0.0, _credibility - 0.2);
+        }
+        return false;
+    }
+
+    /// <summary>The sitting government fell if it lost its majority: the leader gets the first try at a new one.</summary>
+    private bool FallIfNoMajority(int turn, List<PoliticalEvent> events)
+    {
+        if (CoalitionRules.HasMajority(_government.Parties, _seats, _rules.MajorityFraction)) return false;
+        events.Add(new GovernmentFell(turn));
+        foreach (var p in _government.Parties.Where(p => p != _government.Leader)) AddGrudge(p, _government.Leader, 0.2);
+        BeginFormation(turn, events, _government.Leader);
+        return true;
+    }
+
     private ActionResult DoCallEarlyElection()
     {
         if (_phase != Phase.Governing) return new ActionResult(false, "error.wrong_phase", null);
@@ -423,10 +514,14 @@ internal sealed class PoliticsEngine
 
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
-        if (electionDue) { HoldElection(turn, events); return events; }
+        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); HoldElection(turn, events); return events; }
         if (_phase == Phase.Formation) StepFormation(turn, events);
-        else if (_phase == Phase.Governing) { StepLoyalty(turn, effective, events); DecideProposals(turn, events); }
-        else _proposals.Clear();
+        else if (_phase == Phase.Governing)
+        {
+            if (!ProcessExits(turn, events)) { StepLoyalty(turn, effective, events); DecideProposals(turn, events); }
+            else _proposals.Clear();
+        }
+        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); }
         return events;
     }
 
@@ -594,17 +689,12 @@ internal sealed class PoliticsEngine
         }
 
         // The sitting government fell if it lost its majority: the leader gets the first try at a new one.
-        if (departed && !CoalitionRules.HasMajority(_government.Parties, _seats, _rules.MajorityFraction))
-        {
-            events.Add(new GovernmentFell(turn));
-            foreach (var p in _government.Parties.Where(p => p != _government.Leader)) AddGrudge(p, _government.Leader, 0.2);
-            BeginFormation(turn, events, _government.Leader);
-        }
+        if (departed) FallIfNoMajority(turn, events);
     }
 
-    private void Depart(string partner, int turn, List<PoliticalEvent> events)
+    private void Depart(string partner, int turn, List<PoliticalEvent> events, bool announce = true)
     {
-        events.Add(new PartnerLeft(turn, partner));
+        if (announce) events.Add(new PartnerLeft(turn, partner));
         int unmet = _government.Commitments.Count(c => c.PartyId == partner
             && CommitmentMath.Progress(c, Current(c)) + 1e-9 < CommitmentMath.Expected(c, turn, _government.FormedTurn));
         AddGrudge(partner, _government.Leader, 0.5 + 0.1 * unmet);

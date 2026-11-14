@@ -317,3 +317,8 @@ ui.event.proposal_accepted: "The leader agreed to your proposal on {0} (toward {
 ui.event.proposal_rejected_score: "The leader turned down your proposal on {0}: not worth it to them."
 ui.event.proposal_rejected_red_line: "The leader turned down your proposal on {0}: another partner would walk out."
 ui.err.not_partner: "Only a governing partner (not the leader) can do that."
+ui.event.player_left: "Your party left the government."
+ui.event.partner_dismissed: "{0} was dismissed from the government."
+ui.event.no_confidence_passed: "The vote of no confidence passed. The government has fallen."
+ui.event.no_confidence_failed: "The vote of no confidence failed. You lost credibility."
+ui.err.would_lose_majority: "The government would lose its majority without that party."

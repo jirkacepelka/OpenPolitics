@@ -40,6 +40,10 @@ public sealed class Texts
             : _t.T("ui.event.ultimatum", _t.Name(u.PartyId), u.TurnsLeft),
         PartnerLeft l => _t.T("ui.event.partner_left", _t.Name(l.PartyId)),
         GovernmentFell => _t.T("ui.event.government_fell"),
+        PlayerLeftCoalition => _t.T("ui.event.player_left"),
+        PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
+        NoConfidencePassed => _t.T("ui.event.no_confidence_passed"),
+        NoConfidenceFailed => _t.T("ui.event.no_confidence_failed"),
         PolicyProposalAccepted a when _packs.Policies.FirstOrDefault(p => p.Id == a.PolicyId) is { } ap =>
             _t.T("ui.event.proposal_accepted", _t.Name(a.PolicyId), Fmt.Policy(ap, a.Target, _t)),
         PolicyProposalRejected r => _t.T("ui.event.proposal_rejected_" + r.Reason, _t.Name(r.PolicyId)),

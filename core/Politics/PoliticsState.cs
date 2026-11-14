@@ -40,6 +40,12 @@ public sealed record LoyaltyWarning(int Turn, string PartyId, string? DemandId) 
 public sealed record Ultimatum(int Turn, string PartyId, string? DemandId, int TurnsLeft) : PoliticalEvent(Turn);
 public sealed record PartnerLeft(int Turn, string PartyId) : PoliticalEvent(Turn);
 public sealed record GovernmentFell(int Turn) : PoliticalEvent(Turn);
+/// <summary>The player's party left the government.</summary>
+public sealed record PlayerLeftCoalition(int Turn) : PoliticalEvent(Turn);
+/// <summary>The player, as leader, dismissed a partner.</summary>
+public sealed record PartnerDismissed(int Turn, string PartyId) : PoliticalEvent(Turn);
+public sealed record NoConfidencePassed(int Turn) : PoliticalEvent(Turn);
+public sealed record NoConfidenceFailed(int Turn) : PoliticalEvent(Turn);
 /// <summary>The leader agreed to move a policy toward the player's proposal (the move itself follows as a government measure).</summary>
 public sealed record PolicyProposalAccepted(int Turn, string PolicyId, double Target) : PoliticalEvent(Turn);
 /// <summary>The leader turned the player's proposal down; Reason is "score" or "red_line".</summary>
