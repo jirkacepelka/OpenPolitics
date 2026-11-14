@@ -9,10 +9,11 @@ public sealed record PackManifest(
 public sealed record ValueDef(
     string Id, string Unit, double Initial, double Reference, double Scale, string? Owner, string Source);
 
-/// <summary>A player-controlled lever. Min/Max bound the lever, not any simulated value.</summary>
+/// <summary>A player-controlled lever. AxisX/AxisY (-1..1) say how raising it moves a party on the compass: economic left (-) to right (+), social liberal (-) to authoritarian (+). Min/Max bound the lever, not any simulated value.</summary>
 public sealed record PolicyDef(
     string Id, string Unit, double Min, double Max, double Default,
-    string? CostValueId, double CostPerUnit, int DelayTurns, string? RevenueBaseValueId, string Source);
+    string? CostValueId, double CostPerUnit, int DelayTurns, string? RevenueBaseValueId, string Source,
+    double AxisX = 0.0, double AxisY = 0.0);
 
 public enum EdgeKind { Additive, Relative }
 

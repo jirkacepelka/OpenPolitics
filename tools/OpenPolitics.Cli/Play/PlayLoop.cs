@@ -35,12 +35,12 @@ public sealed class PlayLoop
     private int _nextTip = 2;
 
     public PlayLoop(PackSet packs, string scenarioId, ulong seed, string language, int maxTurns, bool tips,
-        TextReader input, TextWriter output)
+        TextReader input, TextWriter output, double? threshold = null)
     {
         _packs = packs; _scenarioId = scenarioId; _scenario = packs.GetScenario(scenarioId);
         _seed = seed; _maxTurns = maxTurns; _tips = tips; _in = input; _out = output;
         _t = new Localizer(packs, language);
-        _game = Simulation.NewGame(packs, scenarioId, seed);
+        _game = Simulation.NewGame(packs, scenarioId, seed, new GameOptions(threshold));
         _valueById = packs.Values.ToDictionary(v => v.Id);
         _policyById = packs.Policies.ToDictionary(p => p.Id);
         _values = packs.Values
@@ -103,6 +103,8 @@ public sealed class PlayLoop
                 case "dismiss": DoDismiss(cmd.Args); break;
                 case "confidence": Report(_game.Apply(new NoConfidence()), "ui.exit.confidence_ok", quiet: true); break;
                 case "platform": DoPlatform(cmd.Args); break;
+                case "priority": DoPriority(cmd.Args); break;
+                case "promise": DoPromise(cmd.Args); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
         }
@@ -141,6 +143,8 @@ public sealed class PlayLoop
         ["platform"] = "platform", ["program"] = "platform",
         ["index"] = "index", ["valorizace"] = "index",
         ["propose"] = "propose", ["navrhni"] = "propose",
+        ["priority"] = "priority", ["priorita"] = "priority",
+        ["promise"] = "promise", ["slib"] = "promise",
         ["leave"] = "leave", ["odejit"] = "leave",
         ["dismiss"] = "dismiss", ["vyloucit"] = "dismiss",
         ["confidence"] = "confidence", ["nedoveru"] = "confidence", ["nedovera"] = "confidence",
@@ -529,9 +533,20 @@ public sealed class PlayLoop
             double r = ps.Relations.GetValueOrDefault(others[i].Id);
             _out.WriteLine($"   {i + 1,2}. {_t.Name(others[i].Id),-24}{Fmt.Number(r, "0.00")}  {Fmt.Bar(r * 2 - 1, 5)}");
         }
+        if (_game.Compass.TryGetValue(pol.PlayerParty, out var spot))
+            Line(_t.T("ui.party.compass"), $"{Fmt.Number(spot.X, "0.00")} / {Fmt.Number(spot.Y, "0.00")}  ({_t.T("ui.party.compass_hint")})");
         _out.WriteLine("  " + _t.T("ui.party.platform"));
         foreach (var (policy, target) in ps.Platform)
-            if (_policyById.TryGetValue(policy, out var def)) _out.WriteLine($"      {_t.Name(policy),-34}{Fmt.Policy(def, target, _t)}");
+            if (_policyById.TryGetValue(policy, out var def))
+                _out.WriteLine($"      {_t.Name(policy),-34}{Fmt.Policy(def, target, _t),-18}{_t.T("ui.party.priority")} {Fmt.Number(ps.Priorities?.GetValueOrDefault(policy, 1.0) ?? 1.0, "0.0")}");
+        var ownDemands = _packs.Parties.FirstOrDefault(p => p.Id == pol.PlayerParty)?.Demands ?? (IReadOnlyList<DemandDef>)Array.Empty<DemandDef>();
+        if (ownDemands.Count > 0)
+        {
+            _out.WriteLine("  " + _t.T("ui.party.promises"));
+            var texts = new Texts(_packs, _t);
+            for (int i = 0; i < ownDemands.Count; i++)
+                _out.WriteLine($"   {i + 1,2}. {texts.Demand(ownDemands[i])}" + (ps.Promises?.Contains(ownDemands[i].Id) == true ? "  [" + _t.T("ui.party.promised") + "]" : ""));
+        }
         _out.WriteLine("  " + _t.T("ui.party.measures"));
         if (ps.Measures.Count == 0) _out.WriteLine("      " + _t.T("ui.party.no_measures"));
         for (int i = 0; i < ps.Measures.Count; i++)
@@ -616,6 +631,26 @@ public sealed class PlayLoop
         if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
         { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
         Report(_game.Apply(new ShiftPlatform(policy.Id, target)), "ui.party.platform_ok", quiet: true, _t.Name(policy.Id));
+    }
+
+    private void DoPriority(string[] args)
+    {
+        if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_priority")); return; }
+        var policy = Resolve(string.Join(" ", args[..^1]), _policies, p => p.Id, numbers: true);
+        if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args[..^1]))); return; }
+        if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var weight))
+        { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
+        Report(_game.Apply(new SetPriority(policy.Id, weight)), "ui.party.priority_ok", quiet: true, _t.Name(policy.Id));
+    }
+
+    private void DoPromise(string[] args)
+    {
+        var own = _packs.Parties.FirstOrDefault(p => p.Id == Current.Politics?.PlayerParty)?.Demands ?? (IReadOnlyList<DemandDef>)Array.Empty<DemandDef>();
+        if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.usage_promise")); return; }
+        var demand = int.TryParse(args[0], NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= own.Count
+            ? own[n - 1] : own.FirstOrDefault(d => d.Id == args[0]);
+        if (demand == null) { _out.WriteLine(_t.T("ui.err.unknown_item", args[0])); return; }
+        Report(_game.Apply(new MakePromise(demand.Id)), "ui.party.promise_ok", quiet: true, new Texts(_packs, _t).Demand(demand));
     }
 
     private PartyDef? ResolveParty(string token)

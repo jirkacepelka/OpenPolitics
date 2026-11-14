@@ -120,6 +120,10 @@ internal sealed class PoliticsEngine
 
     public double Threshold { get; }
 
+    /// <summary>Every party's position on the compass with its current platform (the player's moves when they shift it).</summary>
+    public IReadOnlyDictionary<string, (double X, double Y)> Compass() =>
+        _parties.ToDictionary(kv => kv.Key, kv => Politics.Compass.Position(kv.Value, _policyDefs), Ord);
+
     private string Player => _scenario.PlayerParty;
 
     /// <summary>Turns until the next election actually happens: the early election during caretaker, else the regular term.</summary>
@@ -173,7 +177,9 @@ internal sealed class PoliticsEngine
             new SortedDictionary<string, double>(_relations, Ord), new SortedDictionary<string, double>(_momentum, Ord),
             new SortedDictionary<string, double>(_pressure, Ord),
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
-            _measures.ToList(), _income),
+            _measures.ToList(), _income,
+            _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Weight),
+            _promises.ToList()),
         new SortedDictionary<string, double>(_grudge, Ord));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
@@ -250,6 +256,8 @@ internal sealed class PoliticsEngine
         BuildOrganization => DoBuild(),
         Court c => CourtParty(c.PartyId),
         ShiftPlatform s => Shift(s.PolicyId, s.Target),
+        SetPriority s => DoSetPriority(s.PolicyId, s.Weight),
+        MakePromise m => DoPromise(m.DemandId),
         Campaign c => CampaignGroup(c.GroupId, c.Effort),
         Criticize c => DoCriticize(c.ValueId),
         TakeStance t => DoTakeStance(t.MeasureId, t.Stance),
@@ -294,6 +302,62 @@ internal sealed class PoliticsEngine
             _credibility = Math.Max(0.0, _credibility - 0.5 * Math.Abs(delta) / range);
         }
         return ActionResult.Ok;
+    }
+
+    public const int PromiseWindowTurns = 8, MaxPromises = 2;
+    private readonly List<string> _promises = new();
+
+    private ActionResult DoSetPriority(string policyId, double weight)
+    {
+        var party = _parties[Player];
+        if (!party.Platform.TryGetValue(policyId, out var pos)) return Fail("error.not_in_platform", policyId);
+        if (!double.IsFinite(weight) || weight < 0.0 || weight > 1.0) return Fail("error.value_out_of_range", policyId);
+        if (!TrySpend(1)) return Fail("error.not_enough_capital");
+        double delta = Math.Clamp(weight - pos.Weight, -0.2, 0.2);
+        if (delta != 0.0)
+        {
+            var platform = party.Platform.ToDictionary(k => k.Key, k => k.Value, Ord);
+            platform[policyId] = pos with { Weight = Math.Clamp(pos.Weight + delta, 0.0, 1.0) };
+            var updated = party with { Platform = platform };
+            _parties[Player] = updated;
+            _support.UpdateParty(updated);
+            _credibility = Math.Max(0.0, _credibility - 0.1 * Math.Abs(delta));
+        }
+        return ActionResult.Ok;
+    }
+
+    private ActionResult DoPromise(string demandId)
+    {
+        if (_phase == Phase.Formation) return Fail("error.wrong_phase");
+        var demand = _parties[Player].Demands.FirstOrDefault(d => d.Id == demandId);
+        if (demand == null) return Fail("error.unknown_demand", demandId);
+        if (ElectionIn > PromiseWindowTurns) return Fail("error.too_early");
+        if (_promises.Contains(demandId)) return Fail("error.already_promised", demandId);
+        if (_promises.Count >= MaxPromises) return Fail("error.too_many_promises");
+        if (!TrySpend(2)) return Fail("error.not_enough_capital");
+        _promises.Add(demandId);
+        var affinity = _parties[Player].Affinity;
+        double top = affinity.Count == 0 ? 0.0 : affinity.Values.Max();
+        if (top > 0)
+            foreach (var g in _groups.OrderBy(g => g.Id, Ord))
+                if (affinity.GetValueOrDefault(g.Id) is var a && a > 0) _momentum[g.Id] += 0.03 * a / top;
+        return ActionResult.Ok;
+    }
+
+    /// <summary>At the election the voters check the promises: kept ones earn trust and goodwill, broken ones cost both.</summary>
+    private void SettlePromises(int turn, List<PoliticalEvent> events)
+    {
+        var affinity = _parties[Player].Affinity;
+        foreach (var id in _promises.ToList())
+        {
+            var d = _parties[Player].Demands.First(x => x.Id == id);
+            bool kept = CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject));
+            events.Add(kept ? new PromiseKept(turn, Player, id) : new PromiseBroken(turn, Player, id));
+            _credibility = kept ? Math.Min(1.0, _credibility + 0.1) : Math.Max(0.0, _credibility - 0.2);
+            foreach (var g in _groups.OrderBy(g => g.Id, Ord))
+                if (affinity.GetValueOrDefault(g.Id) > 0) _momentum[g.Id] += kept ? 0.05 : -0.08;
+        }
+        _promises.Clear();
     }
 
     /// <summary>Called by the game whenever the AI governor changes a policy, so the opposition can take a stance on it.</summary>
@@ -565,6 +629,7 @@ internal sealed class PoliticsEngine
 
     private void HoldElection(int turn, List<PoliticalEvent> events)
     {
+        SettlePromises(turn, events);
         var votes = new SortedDictionary<string, double>(Ord);
         foreach (var (id, share) in _poll)
         {

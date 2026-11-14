@@ -49,6 +49,8 @@ public static class PackValidator
             if (p.Min > p.Max) Err("E007", "policy", p.Id, $"Policy '{p.Id}' has min greater than max.");
             else if (p.Default < p.Min || p.Default > p.Max)
                 Err("E007", "policy", p.Id, $"Policy '{p.Id}' default {p.Default} is outside [{p.Min}, {p.Max}].");
+            if (!(Math.Abs(p.AxisX) <= 1.0) || !(Math.Abs(p.AxisY) <= 1.0))
+                Err("E007", "policy", p.Id, $"Policy '{p.Id}' has an axis loading outside [-1, 1].");
             if (p.DelayTurns < 0) Err("E007", "policy", p.Id, $"Policy '{p.Id}' has negative delay_turns.");
             if (p.RevenueBaseValueId != null) Ref("policy", p.Id, $"Policy '{p.Id}' revenue_base", p.RevenueBaseValueId, valueIds, "value");
             if (p.CostValueId != null) Ref("policy", p.Id, $"Policy '{p.Id}' cost_value", p.CostValueId, valueIds, "value");

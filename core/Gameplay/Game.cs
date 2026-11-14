@@ -145,6 +145,10 @@ public sealed class Game
     public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn, _thresholdOverride);
 
     /// <summary>The share of the vote a party needs for seats: the game's own choice, else the country's rule (null without politics).</summary>
+    /// <summary>Where each party stands on the economic (X) and social (Y) axes, -1..1 (empty without politics).</summary>
+    public IReadOnlyDictionary<string, (double X, double Y)> Compass =>
+        _politics?.Compass() ?? new Dictionary<string, (double X, double Y)>();
+
     public double? ElectoralThreshold => _thresholdOverride ?? _politics?.Threshold;
 
     public TurnReport EndTurn()

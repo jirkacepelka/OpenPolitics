@@ -96,4 +96,22 @@ public class PlayCoalitionActionsTests
         var o = Play("test:partner", "propose vat 14\nquit\n", "cs");
         Assert.Contains("předán vedoucí straně", o);
     }
+
+    [Fact]
+    public void PriorityAndPromiseCommandsWork()
+    {
+        var o = Play("test:leads", "priority income_tax 0.5\nparty\nquit\n");
+        Assert.Contains("stresses", o);
+        Assert.Contains("Compass", o);
+        var late = Play("test:leads", "promise 1\nquit\n");
+        Assert.Contains("two years", late); // 20 turns to the election: too early
+        Assert.Contains("priority", Play("test:leads", "help\nquit\n"));
+    }
+
+    [Fact]
+    public void ThresholdOptionIsPassedToTheGame()
+    {
+        var output = new StringWriter();
+        Assert.Equal(0, new PlayLoop(Packs(), "test:leads", 1, "en", 2, false, new StringReader("quit\n"), output, threshold: 0.0).Run());
+    }
 }

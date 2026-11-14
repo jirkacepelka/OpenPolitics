@@ -61,6 +61,10 @@ public static class CoalitionBuilder
         return 0.9 * coherence + 0.1 * share;
     }
 
+    /// <summary>How much the party stresses what a demand is about: its platform weight for that policy, 0.5 when it has none.</summary>
+    public static double Priority(PartyDef party, DemandDef demand) =>
+        demand.Kind == "policy" && party.Platform.TryGetValue(demand.Subject, out var pos) ? pos.Weight : 0.5;
+
     private static List<AgreedDemand>? Allocate(
         string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, int slots,
         Func<string, string, double> relation, Func<string, string, double> grudge)
@@ -71,7 +75,7 @@ public static class CoalitionBuilder
         foreach (var partner in partners) // ordinal order
         {
             double need = CoalitionRules.RequiredWeight(parties[partner], relation(formateur, partner), grudge(partner, formateur)), got = 0;
-            foreach (var d in parties[partner].Demands.OrderByDescending(d => d.Weight).ThenBy(d => d.Id, StringComparer.Ordinal))
+            foreach (var d in parties[partner].Demands.OrderByDescending(d => d.Weight * (0.5 + Priority(parties[partner], d))).ThenBy(d => d.Id, StringComparer.Ordinal))
             {
                 if (got + 1e-12 >= need) break;
                 if (chosen.Count >= slots) return null;

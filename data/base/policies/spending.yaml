@@ -6,6 +6,8 @@
   default: 9
   delay_turns: 2
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.6
+  axis_y: 0.2
 - id: base:health_spending
   unit: percent_of_gdp
   min: 3
@@ -13,6 +15,7 @@
   default: 7
   delay_turns: 2
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.6
 - id: base:education_spending
   unit: percent_of_gdp
   min: 2
@@ -20,6 +23,8 @@
   default: 4.5
   delay_turns: 2
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.3
+  axis_y: -0.3
 - id: base:police
   unit: percent_of_gdp
   min: 0.5
@@ -27,6 +32,7 @@
   default: 1.5
   delay_turns: 1
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_y: 1
 - id: base:research
   unit: percent_of_gdp
   min: 0
@@ -34,6 +40,7 @@
   default: 1
   delay_turns: 2
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_y: -0.4
 - id: base:social_benefits
   unit: percent_of_gdp
   min: 3
@@ -41,6 +48,7 @@
   default: 8
   delay_turns: 1
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -1
 - id: base:infrastructure
   unit: percent_of_gdp
   min: 1
@@ -48,6 +56,7 @@
   default: 3.5
   delay_turns: 4
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.2
 - id: base:administration
   unit: percent_of_gdp
   min: 3
@@ -55,3 +64,4 @@
   default: 4.0
   delay_turns: 2
   cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.5

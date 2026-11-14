@@ -9,4 +9,6 @@ public sealed record PartyStatus(
     IReadOnlyDictionary<string, double> Relations, IReadOnlyDictionary<string, double> Momentum,
     IReadOnlyDictionary<string, double> Pressure, IReadOnlyDictionary<string, double> Platform,
     IReadOnlyList<MeasureInfo> Measures,
-    double Income = 0.0);
+    double Income = 0.0,
+    IReadOnlyDictionary<string, double>? Priorities = null,
+    IReadOnlyList<string>? Promises = null);

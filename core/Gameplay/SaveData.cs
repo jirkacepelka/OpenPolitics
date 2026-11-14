@@ -64,6 +64,9 @@ public sealed record SaveData(
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "set_indexation", Policy = si.PolicyId, Mode = si.Mode });
             else if (action is ProposePolicy pp)
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "propose_policy", Policy = pp.PolicyId, Value = pp.Target.ToString("R", CultureInfo.InvariantCulture) });
+            else if (action is SetPriority sr)
+                dto.Actions.Add(new ActionDto { Turn = turn, Type = "set_priority", Policy = sr.PolicyId, Value = sr.Weight.ToString("R", CultureInfo.InvariantCulture) });
+            else if (action is MakePromise mp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "make_promise", Policy = mp.DemandId });
             else if (action is LeaveCoalition) dto.Actions.Add(new ActionDto { Turn = turn, Type = "leave_coalition" });
             else if (action is DismissPartner dp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "dismiss_partner", Party = dp.PartyId });
             else if (action is NoConfidence) dto.Actions.Add(new ActionDto { Turn = turn, Type = "no_confidence" });
@@ -99,6 +102,8 @@ public sealed record SaveData(
                 "set_policy" => new SetPolicy(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
                 "set_indexation" => new SetIndexation(a.Policy, a.Mode),
                 "propose_policy" => new ProposePolicy(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "set_priority" => new SetPriority(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "make_promise" => new MakePromise(a.Policy),
                 "leave_coalition" => new LeaveCoalition(),
                 "dismiss_partner" => new DismissPartner(a.Party),
                 "no_confidence" => new NoConfidence(),

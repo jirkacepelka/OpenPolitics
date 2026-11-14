@@ -44,6 +44,8 @@ public sealed class Texts
             _t.T("ui.event.demand_raised", _t.Name(r.PartyId), Demand(rd), r.DueTurns),
         DemandMet m when DemandOf(m.PartyId, m.DemandId) is { } md => _t.T("ui.event.demand_met", _t.Name(m.PartyId), Demand(md)),
         DemandFailed f when DemandOf(f.PartyId, f.DemandId) is { } fd => _t.T("ui.event.demand_failed", _t.Name(f.PartyId), Demand(fd)),
+        PromiseKept k when DemandOf(k.PartyId, k.DemandId) is { } kd => _t.T("ui.event.promise_kept", Demand(kd)),
+        PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T("ui.event.promise_broken", Demand(bd)),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         NoConfidencePassed => _t.T("ui.event.no_confidence_passed"),

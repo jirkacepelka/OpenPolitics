@@ -49,6 +49,12 @@ public sealed record ShiftPlatform(string PolicyId, double Target) : PoliticsAct
 /// <summary>Win over a voter group; Effort is 1 to 3 and costs 3 per level.</summary>
 public sealed record Campaign(string GroupId, int Effort) : PoliticsAction;
 
+/// <summary>Change how much the party stresses a policy of its platform (weight 0 to 1, by at most 0.2 at a time; costs 1 capital).</summary>
+public sealed record SetPriority(string PolicyId, double Weight) : PoliticsAction;
+
+/// <summary>Promise voters one of the party's own demands before an election (within 8 turns of it; at most two; costs 2 capital).</summary>
+public sealed record MakePromise(string DemandId) : PoliticsAction;
+
 public enum Stance { Support, Oppose }
 
 /// <summary>As opposition: publicly criticise how a value developed over the last four turns.</summary>
