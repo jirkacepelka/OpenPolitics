@@ -36,11 +36,13 @@ public sealed class Game
     private readonly List<(EventDef Def, Expr Condition)> _events = new();
     private int _turn;
 
+    private readonly double? _thresholdOverride;
     private readonly PoliticsEngine? _politics;
     private readonly SortedDictionary<string, IndexSetting> _indexation = new(Ord);
 
-    internal Game(PackSet packs, string scenarioId, ulong seed)
+    internal Game(PackSet packs, string scenarioId, ulong seed, GameOptions? options = null)
     {
+        _thresholdOverride = options?.ElectoralThreshold is { } t ? GameOptions.Validated(t) : null;
         _packs = packs;
         _scenario = packs.GetScenario(scenarioId);
         _country = packs.Countries.FirstOrDefault(c => c.Id == _scenario.CountryId)
@@ -72,7 +74,7 @@ public sealed class Game
         if (_scenario.Politics != null && _country.Politics != null)
             _politics = new PoliticsEngine(packs, _scenario, _country, seed, _satisfaction,
                 (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
-                _scenario.TurnsPerYear);
+                _scenario.TurnsPerYear, _thresholdOverride);
         _politics?.UseLatestPolicy(LatestPolicy);
     }
 
@@ -140,7 +142,10 @@ public sealed class Game
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 
-    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn);
+    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn, _thresholdOverride);
+
+    /// <summary>The share of the vote a party needs for seats: the game's own choice, else the country's rule (null without politics).</summary>
+    public double? ElectoralThreshold => _thresholdOverride ?? _politics?.Threshold;
 
     public TurnReport EndTurn()
     {

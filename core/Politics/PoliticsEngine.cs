@@ -80,7 +80,8 @@ internal sealed class PoliticsEngine
     private readonly List<string> _dismissQueue = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
-        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear)
+        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear,
+        double? thresholdOverride = null)
     {
         _scenario = scenario.Politics!;
         _rules = country.Politics!;
@@ -105,7 +106,10 @@ internal sealed class PoliticsEngine
         foreach (var id in _parties.Keys) _attribution[id] = AttributionTarget(id);
         _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
         _support.Calibrate(_scenario.Support, Input(satisfaction));
-        _electoral = ElectoralSystems.Create(packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem));
+        var electoralDef = packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem);
+        if (thresholdOverride is { } t) electoralDef = electoralDef with { Threshold = t };
+        Threshold = electoralDef.Threshold;
+        _electoral = ElectoralSystems.Create(electoralDef);
         _rng = new Pcg32(seed, 99);
         _poll = _support.Compute(Input(satisfaction), null);
         _seats = _electoral.Allocate(_poll);
@@ -113,6 +117,8 @@ internal sealed class PoliticsEngine
         _turnsToElection = _scenario.TurnsToElection;
         ResetLoyalty();
     }
+
+    public double Threshold { get; }
 
     private string Player => _scenario.PlayerParty;
 
@@ -580,17 +586,34 @@ internal sealed class PoliticsEngine
     /// <summary>Starts a formation round. The queue is by seats, votes and id; <paramref name="first"/> (if seated) tries first.</summary>
     private void BeginFormation(int turn, List<PoliticalEvent> events, string? first)
     {
-        _queue = _seats.Where(kv => kv.Value > 0)
-            .OrderBy(kv => kv.Key == first ? 0 : 1)
-            .ThenByDescending(kv => kv.Value).ThenByDescending(kv => _votes.GetValueOrDefault(kv.Key)).ThenBy(kv => kv.Key, Ord)
-            .Select(kv => kv.Key).ToList();
+        _excluded.Clear();
+        _queue = FormationMarket(first);
         _phase = Phase.Formation;
         _attempt = 1;
         _turnsLeft = _rules.MaxFormationTurns;
         _caretakerLeft = 0;
-        _excluded.Clear();
         _offer = null;
         events.Add(new FormationStarted(turn, _queue[0]));
+    }
+
+    /// <summary>
+    /// Who tries to form the government, in order. Every seated party works out the coalition it could build; the ones that
+    /// can build one are ranked by <see cref="CoalitionBuilder.MarketScore"/> (so the largest party does not always lead),
+    /// the ones that cannot follow by seats. <paramref name="first"/> (if seated) always goes first.
+    /// </summary>
+    private List<string> FormationMarket(string? first)
+    {
+        var seated = _seats.Where(kv => kv.Value > 0).Select(kv => kv.Key).ToList();
+        var scored = new Dictionary<string, double>(Ord);
+        foreach (var id in seated)
+            if (BuildFor(id) is { } proposal)
+                scored[id] = CoalitionBuilder.MarketScore(proposal, _parties, _seats, _ranges);
+        return seated
+            .OrderBy(id => id == first ? 0 : 1)
+            .ThenBy(id => scored.ContainsKey(id) ? 0 : 1)
+            .ThenByDescending(id => scored.GetValueOrDefault(id))
+            .ThenByDescending(id => _seats[id]).ThenByDescending(id => _votes.GetValueOrDefault(id)).ThenBy(id => id, Ord)
+            .ToList();
     }
 
     private void StepFormation(int turn, List<PoliticalEvent> events)

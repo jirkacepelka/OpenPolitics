@@ -73,4 +73,35 @@ public class FormationGateTests(ITestOutputHelper output)
         output.WriteLine("coalition sizes (parties): " + string.Join(", ", sizes.Select(kv => $"{kv.Key}: {kv.Value}")));
         Assert.True(formed > 0);
     }
+
+    [Fact]
+    public void TheLargestPartyDoesNotAlwaysLead()
+    {
+        int governments = 0, largestLed = 0;
+        for (ulong seed = 1; seed <= 300; seed++)
+        {
+            var g = Simulation.NewGame(Packs, "base:cz_2015", seed);
+            IReadOnlyDictionary<string, int>? seats = null;
+            for (int i = 0; i < Turns; i++)
+            {
+                var pol = g.State.Countries.Values.Single().Politics!;
+                if (pol.Formation is { PlayerIsFormateur: true } && g.SuggestCoalition() is { } s)
+                    g.Apply(new ProposeCoalition(s.Partners, s.Agreements));
+                else if (pol.Formation?.Offer != null) g.Apply(new AcceptOffer());
+                foreach (var e in g.EndTurn().PoliticalEvents)
+                {
+                    if (e is ElectionHeld h) seats = h.Seats;
+                    if (e is GovernmentFormed f && seats != null)
+                    {
+                        governments++;
+                        string largest = seats.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).First().Key;
+                        if (f.Government.Leader == largest) largestLed++;
+                    }
+                }
+            }
+        }
+        double share = (double)largestLed / governments;
+        output.WriteLine($"governments {governments}, led by the largest party {share:P0}");
+        Assert.InRange(share, 0.40, 0.95);
+    }
 }

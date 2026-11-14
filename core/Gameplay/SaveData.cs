@@ -12,13 +12,15 @@ public sealed record SaveData(
     string ScenarioId, ulong Seed,
     IReadOnlyDictionary<string, string> PackHashes,
     IReadOnlyList<(int Turn, PlayerAction Action)> Actions,
-    int Turn)
+    int Turn,
+    double? Threshold = null)
 {
     private sealed class Dto
     {
         public string Scenario { get; set; } = "";
         public string Seed { get; set; } = "0";
         public int Turn { get; set; }
+        public string Threshold { get; set; } = "";
         public SortedDictionary<string, string> PackHashes { get; set; } = new(StringComparer.Ordinal);
         public List<ActionDto> Actions { get; set; } = new();
     }
@@ -51,6 +53,7 @@ public sealed record SaveData(
             Scenario = ScenarioId,
             Seed = Seed.ToString(CultureInfo.InvariantCulture),
             Turn = Turn,
+            Threshold = Threshold?.ToString("R", CultureInfo.InvariantCulture) ?? "",
             PackHashes = new SortedDictionary<string, string>(PackHashes.ToDictionary(k => k.Key, k => k.Value), StringComparer.Ordinal),
         };
         foreach (var (turn, action) in Actions)
@@ -119,6 +122,7 @@ public sealed record SaveData(
             actions.Add((a.Turn, action));
         }
         return new SaveData(dto.Scenario, ulong.Parse(dto.Seed, CultureInfo.InvariantCulture),
-            new Dictionary<string, string>(dto.PackHashes), actions, dto.Turn);
+            new Dictionary<string, string>(dto.PackHashes), actions, dto.Turn,
+            dto.Threshold == "" ? null : double.Parse(dto.Threshold, NumberStyles.Float, CultureInfo.InvariantCulture));
     }
 }

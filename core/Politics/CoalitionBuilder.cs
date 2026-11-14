@@ -44,6 +44,23 @@ public static class CoalitionBuilder
         return null;
     }
 
+    /// <summary>
+    /// How attractive a formateur's coalition is on the formation market, 0..1:
+    /// 0.9 * coherence (1 - mean distance to the partners) + 0.1 * the formateur's share of the coalition's seats.
+    /// (The first guess of 0.6 / 0.4 plus 0.1 for the largest party made the largest party lead every single time.)
+    /// </summary>
+    public static double MarketScore(
+        CoalitionProposal proposal, IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats,
+        IReadOnlyDictionary<string, double> policyRange)
+    {
+        var lead = parties[proposal.Formateur];
+        double coherence = proposal.Partners.Count == 0 ? 1.0
+            : 1.0 - proposal.Partners.Average(p => PartyMath.Distance(lead, parties[p], policyRange));
+        double coalitionSeats = seats.GetValueOrDefault(proposal.Formateur) + proposal.Partners.Sum(p => seats.GetValueOrDefault(p));
+        double share = coalitionSeats > 0 ? seats.GetValueOrDefault(proposal.Formateur) / coalitionSeats : 0.0;
+        return 0.9 * coherence + 0.1 * share;
+    }
+
     private static List<AgreedDemand>? Allocate(
         string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, int slots,
         Func<string, string, double> relation, Func<string, string, double> grudge)
