@@ -26,6 +26,10 @@ public sealed class MacroModelV1 : IEconomyModel
         public const string InterestRate = "base:interest_rate";
         public const string Revenue = "base:revenue";
         public const string Spending = "base:spending";
+        public const string PriceLevel = "base:price_level";
+        public const string GdpNominal = "base:gdp_nominal";
+        public const string RealGrowth = "base:real_growth";
+        public const string DeficitPct = "base:deficit_pct";
     }
 
     /// <summary>Parameter defaults; override per country in data (<c>parameters:</c>).</summary>
@@ -79,6 +83,7 @@ public sealed class MacroModelV1 : IEconomyModel
     {
         Ids.Gdp, Ids.Capital, Ids.Productivity, Ids.LabourForce, Ids.Unemployment,
         Ids.Inflation, Ids.Debt, Ids.InterestRate, Ids.Revenue, Ids.Spending,
+        Ids.PriceLevel, Ids.GdpNominal, Ids.RealGrowth, Ids.DeficitPct,
     };
 
     public static double Production(double a, double k, double l, double alpha) =>
@@ -105,6 +110,8 @@ public sealed class MacroModelV1 : IEconomyModel
         double u = Math.Clamp(V(Ids.Unemployment), 0, 99), pi = V(Ids.Inflation), debt = V(Ids.Debt), rate = V(Ids.InterestRate);
 
         double yOld = Production(a, k, lf * (1 - u / 100), alpha);
+        double gdpBefore = V(Ids.Gdp) > 0 ? V(Ids.Gdp) : yOld;
+        double price = V(Ids.PriceLevel) > 0 ? V(Ids.PriceLevel) : 100.0;
 
         // Productivity and labour force.
         var ra = R(Ids.Productivity);
@@ -163,6 +170,7 @@ public sealed class MacroModelV1 : IEconomyModel
         double dpi = -P("inflation_reversion") * (pi - piTarget) + P("kappa") * gap * 100
             + P("fiscal_inflation") * deficitPct + rp.Additive + pi * rp.Relative;
         double pi2 = pi + dt * dpi;
+        double price2 = Math.Max(price * (1 + dt * pi2 / 100), 1e-6);
 
         // Debt and interest rate.
         var rd = R(Ids.Debt);
@@ -182,6 +190,10 @@ public sealed class MacroModelV1 : IEconomyModel
             [Ids.InterestRate] = Safe(rate2, rate),
             [Ids.Revenue] = Safe(revenue, V(Ids.Revenue)),
             [Ids.Spending] = Safe(spending, V(Ids.Spending)),
+            [Ids.PriceLevel] = Safe(price2, price),
+            [Ids.GdpNominal] = Safe(y2 * price2 / 100, V(Ids.GdpNominal)),
+            [Ids.RealGrowth] = Safe(gdpBefore > 0 ? (y2 / gdpBefore - 1) / dt * 100 : 0.0, V(Ids.RealGrowth)),
+            [Ids.DeficitPct] = Safe(deficitPct, V(Ids.DeficitPct)),
         };
     }
 

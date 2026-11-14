@@ -9,6 +9,10 @@ name.base:debt: Veřejný dluh
 name.base:interest_rate: Úroková sazba
 name.base:revenue: Příjmy státu
 name.base:spending: Výdaje státu
+name.base:price_level: Cenová hladina
+name.base:gdp_nominal: Nominální HDP
+name.base:real_growth: Reálný růst HDP
+name.base:deficit_pct: Schodek rozpočtu (% HDP)
 name.base:health: Zdraví populace
 name.base:education_level: Úroveň vzdělání
 name.base:crime: Kriminalita
@@ -105,6 +109,10 @@ desc.base:debt: "Kolik stát dluží. Úroky ukrajují z rozpočtu a při vysok�
 desc.base:interest_rate: "Kolik stát platí za půjčky. S dluhem roste."
 desc.base:revenue: "Daně a odvody, které stát za rok vybere."
 desc.base:spending: "Co stát za rok utratí za důchody, zdraví, školy a další."
+desc.base:price_level: "Index spotřebitelských cen, na začátku 100. Roste s inflací."
+desc.base:gdp_nominal: "HDP v běžných cenách: reálné HDP krát cenová hladina."
+desc.base:real_growth: "Jak rychle roste ekonomika za rok po odečtení inflace."
+desc.base:deficit_pct: "Výdaje plus úroky minus příjmy jako podíl HDP. Záporné číslo je přebytek."
 desc.base:health: "Celkové zdraví obyvatel."
 desc.base:education_level: "Jak vzdělaní lidé jsou. Roste pomalu."
 desc.base:crime: "Evidované trestné činy na 100 tisíc obyvatel za rok."

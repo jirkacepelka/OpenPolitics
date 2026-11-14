@@ -59,3 +59,27 @@
   reference: 1771000000000.0
   scale: 460000000000.0
   owner: macro_v1
+- id: base:price_level
+  unit: index
+  initial: 100.0
+  reference: 100.0
+  scale: 10.0
+  owner: macro_v1
+- id: base:gdp_nominal
+  unit: CZK
+  initial: 4600000000000.0
+  reference: 4600000000000.0
+  scale: 460000000000.0
+  owner: macro_v1
+- id: base:real_growth
+  unit: percent_flow
+  initial: 0.0
+  reference: 0.0
+  scale: 1.0
+  owner: macro_v1
+- id: base:deficit_pct
+  unit: percent_flow
+  initial: -0.28
+  reference: 0.0
+  scale: 1.0
+  owner: macro_v1

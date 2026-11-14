@@ -14,7 +14,7 @@ public static class Fmt
                : Math.Abs(v) >= 1e9 ? $"{(v / 1e9).ToString("0.0", Inv)} bn CZK"
                : $"{(v / 1e6).ToString("0.0", Inv)} m CZK",
         "persons" => $"{(v / 1e6).ToString("0.00", Inv)} m",
-        "percent" => $"{v.ToString("0.0", Inv)} %",
+        "percent" or "percent_flow" => $"{v.ToString("0.0", Inv)} %",
         "per_100k" => v.ToString("#,##0", Inv).Replace(',', ' '),
         _ => v.ToString("0.0", Inv),
     };

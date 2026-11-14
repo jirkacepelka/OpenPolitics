@@ -9,6 +9,10 @@ name.base:debt: Public debt
 name.base:interest_rate: Interest rate
 name.base:revenue: Government revenue
 name.base:spending: Government spending
+name.base:price_level: Price level
+name.base:gdp_nominal: Nominal GDP
+name.base:real_growth: Real GDP growth
+name.base:deficit_pct: Budget deficit (% of GDP)
 name.base:health: Public health
 name.base:education_level: Education level
 name.base:crime: Crime
@@ -105,6 +109,10 @@ desc.base:debt: "What the state owes. Interest on it eats the budget, and lender
 desc.base:interest_rate: "What the state pays to borrow. Rises with debt."
 desc.base:revenue: "Taxes and contributions the state collects per year."
 desc.base:spending: "What the state spends per year on pensions, health, schools and more."
+desc.base:price_level: "Index of consumer prices, 100 at the start. Rises with inflation."
+desc.base:gdp_nominal: "GDP in current prices: real GDP times the price level."
+desc.base:real_growth: "How fast the economy grows per year after removing inflation."
+desc.base:deficit_pct: "Spending plus interest minus revenue as a share of GDP. Negative means a surplus."
 desc.base:health: "Overall health of the population."
 desc.base:education_level: "How well educated people are. Builds up slowly."
 desc.base:crime: "Registered crimes per 100,000 people per year."

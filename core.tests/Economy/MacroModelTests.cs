@@ -45,11 +45,11 @@ public class MacroModelTests
         new(new[] { Tax(tax), Spend(spend) });
 
     [Fact]
-    public void OwnsExactlyTheTenMacroValues()
+    public void OwnsExactlyTheFourteenMacroValues()
     {
         var m = Model();
         Assert.Equal("macro_v1", m.Id);
-        Assert.Equal(10, m.OwnedValueIds.Count);
+        Assert.Equal(14, m.OwnedValueIds.Count);
         Assert.Contains(MacroModelV1.Ids.Gdp, m.OwnedValueIds);
     }
 
