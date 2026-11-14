@@ -22,29 +22,26 @@ public sealed class Session
     public List<(int Turn, string Text)> News { get; } = new();
     public string Message { get; private set; } = "";
     public double StartGdp { get; }
-    public List<double> GdpHistory { get; } = new();
-    public List<double> MoodHistory { get; } = new();
-    public List<double> UnemploymentHistory { get; } = new();
-    public List<double> InflationHistory { get; } = new();
+    public History History { get; }
+    public IReadOnlyList<double> GdpHistory => History.Series(History.ValueKey("base:gdp"));
+    /// <summary>News and decisions collected since the last start-of-turn popup was closed.</summary>
+    public List<string> Digest { get; } = new();
 
     /// <summary>Raised after every change of the game (end of quarter, action, load).</summary>
     public event Action? Changed;
 
-    public Session(PackSet packs, string scenarioId, ulong seed, string language)
+    /// <summary>Raised after a quarter ends, once the screens have been told (the start-of-quarter briefing hangs on this).</summary>
+    public event Action? QuarterEnded;
+
+    public Session(PackSet packs, string scenarioId, ulong seed, string language, GameOptions? options = null)
     {
         Packs = packs; ScenarioId = scenarioId; Seed = seed; Language = language;
         T = new Localizer(packs, language);
         Texts = new Texts(packs, T);
-        Game = Simulation.NewGame(packs, scenarioId, seed);
+        Game = Simulation.NewGame(packs, scenarioId, seed, options);
         StartGdp = Country.Values.GetValueOrDefault("base:gdp");
-        RecordHistory();
-    }
-
-    private void RecordHistory()
-    {
-        var f = Figures;
-        GdpHistory.Add(f.Gdp ?? 0); MoodHistory.Add(f.Mood);
-        UnemploymentHistory.Add(f.Unemployment ?? 0); InflationHistory.Add(f.Inflation ?? 0);
+        History = new History(Game, packs);
+        History.Record();
     }
 
     public Figures Figures => Figures.From(Country, GdpHistory, Packs.VoterGroups);
@@ -65,26 +62,44 @@ public sealed class Session
     public int Turn => Game.State.Turn;
     public bool Finished => Turn >= HorizonTurns;
 
-    public string DateText()
+    public string DateText() => DateAt(Turn);
+
+    /// <summary>A short date for chart axes, e.g. "2016 Q2".</summary>
+    public string ShortDateAt(int turn)
     {
         var sc = Packs.GetScenario(ScenarioId);
         int tpy = sc.TurnsPerYear;
-        return T.T("ui.date", sc.StartYear + Turn / tpy, Turn % tpy + 1);
+        return $"{sc.StartYear + turn / tpy} Q{turn % tpy + 1}";
+    }
+
+    /// <summary>The calendar date of a turn, e.g. "Year 2016, quarter 2".</summary>
+    public string DateAt(int turn)
+    {
+        var sc = Packs.GetScenario(ScenarioId);
+        int tpy = sc.TurnsPerYear;
+        return T.T("ui.date", sc.StartYear + turn / tpy, turn % tpy + 1);
     }
 
     public void EndQuarter()
     {
         Last = Game.EndTurn();
-        RecordHistory();
+        History.Record();
         foreach (var id in Last.FiredEventIds)
-            if (Packs.Events.FirstOrDefault(e => e.Id == id) is { } ev) News.Add((Last.Turn, T.T(ev.TextKey)));
+            if (Packs.Events.FirstOrDefault(e => e.Id == id) is { } ev) AddNews(T.T(ev.TextKey));
         foreach (var e in Last.PoliticalEvents)
         {
-            if (e is ElectionHeld held) News.Add((Last.Turn, ElectionText(held)));
-            else if (Texts.Event(e) is { } text) News.Add((Last.Turn, text));
+            if (e is ElectionHeld held) AddNews(ElectionText(held));
+            else if (Texts.Event(e) is { } text) AddNews(text);
         }
         Message = "";
         Changed?.Invoke();
+        QuarterEnded?.Invoke();
+    }
+
+    private void AddNews(string text)
+    {
+        News.Add((Last!.Turn, text));
+        Digest.Add(text);
     }
 
     private string ElectionText(ElectionHeld e)
@@ -126,8 +141,8 @@ public sealed class Session
         {
             Game = Simulation.Load(Packs, SaveData.FromYaml(System.IO.File.ReadAllText(file)));
             Last = null;
-            GdpHistory.Clear(); MoodHistory.Clear(); UnemploymentHistory.Clear(); InflationHistory.Clear();
-            RecordHistory();
+            History.Reset(Game);
+            Digest.Clear();
             Message = T.T("ui.loaded", file);
             Changed?.Invoke();
             return true;

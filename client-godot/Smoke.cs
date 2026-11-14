@@ -15,7 +15,13 @@ public static class Smoke
         int code = 0;
         try
         {
-            if (screenshots != null) System.IO.Directory.CreateDirectory(screenshots);
+            if (screenshots != null)
+            {
+                System.IO.Directory.CreateDirectory(screenshots);
+                main.ShowStart();
+                await Frame(main); await Frame(main);
+                main.GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(screenshots, "start.png"));
+            }
             foreach (var scenario in main.Packs!.Scenarios.OrderBy(s => s.Id, StringComparer.Ordinal))
             {
                 foreach (var language in new[] { "en", "cs" })
@@ -60,6 +66,32 @@ public static class Smoke
         }
         foreach (var screen in main.Screens)
             if (screen.GetChildCount() == 0) throw new Exception($"{screen.GetType().Name} is empty");
+        foreach (var policies in main.Screens.OfType<PoliciesScreen>()) policies.Focus(s, "base:pensions", 13);
+        foreach (var chart in Charts.Available(s)) _ = Charts.Build(s, chart, 8);
+        if (shots != null)
+        {
+            if (s.Packs.Policies.Count > 0) foreach (var policies in main.Screens.OfType<PoliciesScreen>()) policies.Focus(s, "base:minimum_wage", 7);
+            await Frame(main);
+            main.Tabs!.CurrentTab = main.Screens.FindIndex(x => x is PoliciesScreen);
+            await Frame(main); await Frame(main);
+            main.GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(shots, $"{scenarioId.Replace(':', '_')}-{language}-effects.png"));
+            if (Charts.Available(s).FirstOrDefault(c => c.Id == (s.HasPolitics ? "polls" : "gdp")) is { } spec)
+            {
+                ChartDialog.Open(main, s, spec);
+                await Frame(main); await Frame(main);
+                main.GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(shots, $"{scenarioId.Replace(':', '_')}-{language}-chart.png"));
+                foreach (var d in main.GetTree().Root.GetChildren().OfType<ChartDialog>()) d.QueueFree();
+                await Frame(main);
+            }
+            main.PopupsEnabled = true;
+            if (s.Digest.Count == 0) s.Digest.Add("Smoke: a sample line of news.");
+            main.ShowBriefing();
+            await Frame(main); await Frame(main);
+            main.GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(shots, $"{scenarioId.Replace(':', '_')}-{language}-popup.png"));
+            main.PopupsEnabled = false;
+            foreach (var w in main.GetChildren().OfType<TurnPopup>()) w.QueueFree();
+            await Frame(main);
+        }
         if (shots != null)
             for (int i = 0; i < main.Screens.Count; i++)
             {

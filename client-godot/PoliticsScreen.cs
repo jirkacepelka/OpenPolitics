@@ -37,17 +37,24 @@ public partial class PoliticsScreen : Screen
         _body.AddChild(Ui.Heading(t.T("ui.heading.politics")));
         _body.AddChild(Ui.Text(t.T("ui.line.next_election") + ": " +
             (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection))));
-        Polls(s, pol);
+        var top = Ui.HBox(16);
+        var pollBox = Ui.VBox(6);
+        Polls(s, pol, pollBox);
+        top.AddChild(Ui.Card(pollBox));
+        var compass = new CompassView();
+        compass.Set(s, pol.PlayerParty);
+        top.AddChild(compass);
+        _body.AddChild(top);
         _body.AddChild(Ui.Rule());
         Government(s, pol);
         Formation(s, pol);
         Coalition(s, pol);
     }
 
-    private void Polls(Session s, CountryPolitics pol)
+    private void Polls(Session s, CountryPolitics pol, VBoxContainer parent)
     {
         var t = s.T;
-        _body.AddChild(Ui.Text(t.T("ui.politics.polls"), Ui.Accent, 17));
+        parent.AddChild(Ui.Text(t.T("ui.politics.polls"), Ui.Accent, 17));
         double max = Math.Max(0.35, pol.Support.Values.Max());
         foreach (var (id, share) in pol.Support.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
         {
@@ -62,7 +69,7 @@ public partial class PoliticsScreen : Screen
             pct.CustomMinimumSize = new Vector2(70, 0);
             row.AddChild(pct);
             row.AddChild(Ui.Text(t.T("ui.politics.seats_of", pol.Seats.GetValueOrDefault(id), pol.Seats.Values.Sum()), Ui.Muted));
-            _body.AddChild(row);
+            parent.AddChild(row);
         }
     }
 

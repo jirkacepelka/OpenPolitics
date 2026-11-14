@@ -5,11 +5,11 @@ namespace OpenPolitics.Client;
 /// <summary>Small helpers that build the UI in code, so the scenes stay tiny.</summary>
 public static class Ui
 {
-    public static readonly Color Good = new(0.35f, 0.75f, 0.45f);
-    public static readonly Color Bad = new(0.9f, 0.4f, 0.35f);
-    public static readonly Color Warn = new(0.95f, 0.75f, 0.3f);
-    public static readonly Color Muted = new(0.65f, 0.67f, 0.72f);
-    public static readonly Color Accent = new(0.45f, 0.65f, 0.95f);
+    public static readonly Color Good = AppTheme.Good;
+    public static readonly Color Bad = AppTheme.Bad;
+    public static readonly Color Warn = AppTheme.Warn;
+    public static readonly Color Muted = AppTheme.Muted;
+    public static readonly Color Accent = AppTheme.Accent;
 
     public static Label Text(string text, Color? color = null, int size = 0, bool wrap = false)
     {
@@ -20,7 +20,32 @@ public static class Ui
         return l;
     }
 
-    public static Label Heading(string text) => Text(text, Accent, 20);
+    public static Label Heading(string text) => Text(text, Colors.White, 22);
+
+    /// <summary>A smaller section title inside a page or card.</summary>
+    public static Label Section(string text) => Text(text, Accent, 17);
+
+    /// <summary>A rounded card around some content. The card is a PanelContainer: the child fills it.</summary>
+    public static PanelContainer Card(Control child, Color? fill = null, bool expand = true)
+    {
+        var card = new PanelContainer();
+        if (fill != null) card.AddThemeStyleboxOverride("panel", AppTheme.Box(fill.Value, 12, AppTheme.Border, 1, 14));
+        if (expand) card.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        card.AddChild(child);
+        return card;
+    }
+
+    /// <summary>A small coloured label such as a role or a status.</summary>
+    public static Control Pill(string text, Color color)
+    {
+        var p = new PanelContainer();
+        var box = AppTheme.Box(new Color(color, 0.18f), 10, new Color(color, 0.6f), 1);
+        box.ContentMarginLeft = 10; box.ContentMarginRight = 10; box.ContentMarginTop = 2; box.ContentMarginBottom = 2;
+        p.AddThemeStyleboxOverride("panel", box);
+        p.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
+        p.AddChild(Text(text, color, 13));
+        return p;
+    }
 
     public static Button Btn(string text, Action onPress, string? tooltip = null, bool disabled = false)
     {
@@ -79,7 +104,20 @@ public static class Ui
         foreach (var c in n.GetChildren()) { n.RemoveChild(c); c.QueueFree(); }
     }
 
+    /// <summary>Puts content into a window on a solid, themed surface (a bare Window is transparent grey and does not lay out its child).</summary>
+    public static void FillWindow(Window window, Control content, int margin = 16)
+    {
+        var panel = new PanelContainer();
+        panel.AddThemeStyleboxOverride("panel", AppTheme.Box(AppTheme.Surface, 0));
+        panel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        panel.AddChild(Margin(content, margin));
+        window.AddChild(panel);
+    }
+
     public static Control Spacer() => new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 
     public static HSeparator Rule() => new();
+
+    /// <summary>Colour for a signed effect: good, bad or neutral.</summary>
+    public static Color Signed(double v, double eps = 1e-9) => v > eps ? Good : v < -eps ? Bad : Muted;
 }

@@ -304,7 +304,6 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    public const int PromiseWindowTurns = 8, MaxPromises = 2;
     private readonly List<string> _promises = new();
 
     private ActionResult DoSetPriority(string policyId, double weight)
@@ -331,9 +330,9 @@ internal sealed class PoliticsEngine
         if (_phase == Phase.Formation) return Fail("error.wrong_phase");
         var demand = _parties[Player].Demands.FirstOrDefault(d => d.Id == demandId);
         if (demand == null) return Fail("error.unknown_demand", demandId);
-        if (ElectionIn > PromiseWindowTurns) return Fail("error.too_early");
+        if (ElectionIn > PoliticsLimits.PromiseWindowTurns) return Fail("error.too_early");
         if (_promises.Contains(demandId)) return Fail("error.already_promised", demandId);
-        if (_promises.Count >= MaxPromises) return Fail("error.too_many_promises");
+        if (_promises.Count >= PoliticsLimits.MaxPromises) return Fail("error.too_many_promises");
         if (!TrySpend(2)) return Fail("error.not_enough_capital");
         _promises.Add(demandId);
         var affinity = _parties[Player].Affinity;

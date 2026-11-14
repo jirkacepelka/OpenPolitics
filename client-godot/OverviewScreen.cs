@@ -53,19 +53,20 @@ public partial class OverviewScreen : Screen
         if (s.HasPolitics) _body.AddChild(PoliticsSummary(s));
 
         _body.AddChild(Ui.Rule());
+        _body.AddChild(Ui.Section(t.T("ui.client.charts")));
+        _body.AddChild(Ui.Text(t.T("ui.client.charts_hint"), Ui.Muted, 0, true));
         var charts = new HFlowContainer();
         charts.AddThemeConstantOverride("h_separation", 12);
         charts.AddThemeConstantOverride("v_separation", 12);
-        void Chart(string key, IReadOnlyList<double> series, string fmt, Color color)
+        foreach (var spec in Charts.Available(s))
         {
-            var sp = new Sparkline { LineColor = color };
-            sp.Set(t.T(key), series, fmt);
-            charts.AddChild(sp);
+            var chart = new Chart();
+            var (turns, series) = Charts.Build(s, spec, 0);
+            chart.Set(spec.Title(t), turns, series, spec.Format, s.ShortDateAt);
+            var captured = spec;
+            chart.Clicked += () => ChartDialog.Open(this, s, captured);
+            charts.AddChild(chart);
         }
-        Chart("ui.line.gdp", s.GdpHistory.Select(x => x / 1e12).ToList(), "0.00", Ui.Accent);
-        Chart("ui.line.unemployment", s.UnemploymentHistory, "0.0", Ui.Warn);
-        Chart("ui.line.inflation", s.InflationHistory, "0.0", Ui.Bad);
-        Chart("ui.line.mood", s.MoodHistory, "0.00", Ui.Good);
         _body.AddChild(charts);
 
         _body.AddChild(Ui.Rule());
