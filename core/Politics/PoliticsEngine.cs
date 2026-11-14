@@ -158,7 +158,7 @@ internal sealed class PoliticsEngine
             new SortedDictionary<string, double>(_relations, Ord), new SortedDictionary<string, double>(_momentum, Ord),
             new SortedDictionary<string, double>(_pressure, Ord),
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
-            _measures.ToList()),
+            _measures.ToList(), _income),
         new SortedDictionary<string, double>(_grudge, Ord));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
@@ -194,7 +194,27 @@ internal sealed class PoliticsEngine
             double g = _grudge[key] * GrudgeDecay;
             if (g < 0.005) _grudge.Remove(key); else _grudge[key] = g;
         }
-        _pc = Math.Min(MaxCapital, _pc + 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0));
+        _income = 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0) + CoalitionCapitalBonus();
+        _pc = Math.Clamp(_pc + _income, 0.0, MaxCapital);
+    }
+
+    private double _income;
+
+    /// <summary>A happy coalition is worth political capital, an unhappy one costs it (up to 3 per turn either way).</summary>
+    private double CoalitionCapitalBonus()
+    {
+        if (_phase != Phase.Governing) return 0.0;
+        switch (PlayerRole)
+        {
+            case Role.Leader:
+                var partners = _government.Parties.Where(p => p != Player).ToList();
+                return partners.Count == 0 ? 0.0
+                    : 3.0 * Math.Clamp((partners.Average(p => _loyalty.GetValueOrDefault(p, _loyaltyParams.Start)) - 50.0) / 50.0, -1.0, 1.0);
+            case Role.Partner:
+                return 3.0 * Math.Clamp((Relation(Player, _government.Leader) - DefaultRelation) / (1.0 - DefaultRelation), -1.0, 1.0);
+            default:
+                return 0.0;
+        }
     }
 
     private bool TrySpend(double cost)

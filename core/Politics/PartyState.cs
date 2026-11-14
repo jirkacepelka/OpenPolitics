@@ -8,4 +8,5 @@ public sealed record PartyStatus(
     double PoliticalCapital, double Organization, double Credibility, double Cohesion,
     IReadOnlyDictionary<string, double> Relations, IReadOnlyDictionary<string, double> Momentum,
     IReadOnlyDictionary<string, double> Pressure, IReadOnlyDictionary<string, double> Platform,
-    IReadOnlyList<MeasureInfo> Measures);
+    IReadOnlyList<MeasureInfo> Measures,
+    double Income = 0.0);
