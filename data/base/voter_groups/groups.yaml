@@ -8,14 +8,14 @@
 - id: base:middle_class
   size: 0.35
   weight: 1.0
-  value_weights: {base:gdp: 4.0, base:crime: -1.0, base:inequality: -0.5}
+  value_weights: {base:gdp: 4.0, base:crime: -1.0, base:inequality: -0.5, base:deficit_pct: -0.1}
   level_weights: {base:gdp: 1.0}
   policy_prefs: {base:income_tax: 22, base:education_spending: 5.5}
   policy_weights: {base:income_tax: 0.5, base:education_spending: 0.3}
 - id: base:high_income
   size: 0.10
   weight: 1.2
-  value_weights: {base:gdp: 5.0}
+  value_weights: {base:gdp: 5.0, base:deficit_pct: -0.1}
   level_weights: {base:gdp: 1.0}
   policy_prefs: {base:income_tax: 20, base:corporate_tax: 3}
   policy_weights: {base:income_tax: 0.6, base:corporate_tax: 0.4}

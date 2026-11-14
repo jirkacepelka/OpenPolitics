@@ -29,7 +29,7 @@ public class PoliticsContentTests
         {
             Assert.InRange(p.Platform.Count, 3, 6);
             Assert.Equal(Packs.VoterGroups.Count, p.Affinity.Count);
-            Assert.InRange(p.Demands.Count, 3, 4);
+            Assert.InRange(p.Demands.Count, 3, 5);
             Assert.InRange(p.RedLines.Count, 1, 2);
         }
     }

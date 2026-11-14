@@ -18,7 +18,7 @@ public static class CommitmentMath
 
     /// <summary>Delivery is expected gradually: 0 at formation, 1 at the demand's due time.</summary>
     public static double Expected(Commitment c, int turn, int formedTurn) =>
-        Math.Min(1.0, Math.Max(0, turn - formedTurn) / (double)Math.Max(1, c.Demand.DueTurns));
+        Math.Min(1.0, Math.Max(0, turn - (c.StartTurn >= 0 ? c.StartTurn : formedTurn)) / (double)Math.Max(1, c.Demand.DueTurns));
 
     public static double Fulfil(IReadOnlyList<Commitment> mine, Func<Commitment, double> current, int turn, int formedTurn)
     {

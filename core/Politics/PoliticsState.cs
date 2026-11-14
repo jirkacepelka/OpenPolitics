@@ -40,6 +40,10 @@ public sealed record LoyaltyWarning(int Turn, string PartyId, string? DemandId) 
 public sealed record Ultimatum(int Turn, string PartyId, string? DemandId, int TurnsLeft) : PoliticalEvent(Turn);
 public sealed record PartnerLeft(int Turn, string PartyId) : PoliticalEvent(Turn);
 public sealed record GovernmentFell(int Turn) : PoliticalEvent(Turn);
+/// <summary>A partner raised a new demand during the term; it must be delivered within DueTurns or loyalty suffers.</summary>
+public sealed record DemandRaised(int Turn, string PartyId, string DemandId, int DueTurns) : PoliticalEvent(Turn);
+public sealed record DemandMet(int Turn, string PartyId, string DemandId) : PoliticalEvent(Turn);
+public sealed record DemandFailed(int Turn, string PartyId, string DemandId) : PoliticalEvent(Turn);
 /// <summary>The player's party left the government.</summary>
 public sealed record PlayerLeftCoalition(int Turn) : PoliticalEvent(Turn);
 /// <summary>The player, as leader, dismissed a partner.</summary>

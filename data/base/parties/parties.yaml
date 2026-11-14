@@ -14,6 +14,7 @@
     - {id: lean_state, kind: policy, policy: base:administration, op: "<=", target: 4, weight: 2, due_turns: 12}
     - {id: infrastructure, kind: policy, policy: base:infrastructure, op: ">=", target: 4, weight: 2, due_turns: 12}
     - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 6, weight: 2, due_turns: 16}
+    - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:corporate_tax, op: ">=", threshold: 8}
     - {policy: base:income_tax, op: ">=", threshold: 32}
@@ -34,6 +35,7 @@
     - {id: pensions, kind: policy, policy: base:pensions, op: ">=", target: 10, weight: 3, due_turns: 8}
     - {id: social_benefits, kind: policy, policy: base:social_benefits, op: ">=", target: 9, weight: 2, due_turns: 12}
     - {id: health, kind: policy, policy: base:health_spending, op: ">=", target: 7.5, weight: 2, due_turns: 12}
+    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 5.5, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:pensions, op: "<=", threshold: 7}
     - {policy: base:social_benefits, op: "<=", threshold: 5}
@@ -54,6 +56,7 @@
     - {id: income_tax_cut, kind: policy, policy: base:income_tax, op: "<=", target: 21, weight: 3, due_turns: 8}
     - {id: corporate_tax_cut, kind: policy, policy: base:corporate_tax, op: "<=", target: 3, weight: 2, due_turns: 12}
     - {id: lean_benefits, kind: policy, policy: base:social_benefits, op: "<=", target: 7, weight: 2, due_turns: 12}
+    - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:income_tax, op: ">=", threshold: 30}
     - {policy: base:corporate_tax, op: ">=", threshold: 7}
@@ -74,6 +77,7 @@
     - {id: pensions, kind: policy, policy: base:pensions, op: ">=", target: 10, weight: 3, due_turns: 8}
     - {id: lower_vat, kind: policy, policy: base:vat, op: "<=", target: 12, weight: 2, due_turns: 12}
     - {id: police, kind: policy, policy: base:police, op: ">=", target: 1.8, weight: 1, due_turns: 12}
+    - {id: low_inflation, kind: value, value: base:inflation, op: "<=", target: 3, weight: 1.5, due_turns: 12}
   red_lines:
     - {policy: base:vat, op: ">=", threshold: 18}
     - {policy: base:pensions, op: "<=", threshold: 7}
@@ -94,6 +98,7 @@
     - {id: corporate_tax_up, kind: policy, policy: base:corporate_tax, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: social_benefits, kind: policy, policy: base:social_benefits, op: ">=", target: 10, weight: 3, due_turns: 8}
     - {id: health, kind: policy, policy: base:health_spending, op: ">=", target: 8.5, weight: 2, due_turns: 12}
+    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 5, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:social_benefits, op: "<=", threshold: 6}
     - {policy: base:corporate_tax, op: "<=", threshold: 2}
@@ -113,6 +118,7 @@
     - {id: closed_borders, kind: policy, policy: base:migration, op: "<=", target: 1.5, weight: 3, due_turns: 8}
     - {id: police, kind: policy, policy: base:police, op: ">=", target: 2.2, weight: 2, due_turns: 12}
     - {id: relaxed_green_rules, kind: policy, policy: base:environment_regulation, op: "<=", target: 3, weight: 1, due_turns: 12}
+    - {id: low_inflation, kind: value, value: base:inflation, op: "<=", target: 3, weight: 1.5, due_turns: 12}
   red_lines:
     - {policy: base:migration, op: ">=", threshold: 5}
   factions:
@@ -132,6 +138,7 @@
     - {id: environment, kind: policy, policy: base:environment_regulation, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: research, kind: policy, policy: base:research, op: ">=", target: 2, weight: 2, due_turns: 12}
     - {id: education, kind: policy, policy: base:education_spending, op: ">=", target: 5.5, weight: 2, due_turns: 12}
+    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 6, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:environment_regulation, op: "<=", threshold: 2.5}
   factions:
@@ -151,6 +158,7 @@
     - {id: research, kind: policy, policy: base:research, op: ">=", target: 2, weight: 3, due_turns: 8}
     - {id: lean_state, kind: policy, policy: base:administration, op: "<=", target: 4, weight: 2, due_turns: 12}
     - {id: education, kind: policy, policy: base:education_spending, op: ">=", target: 5.5, weight: 2, due_turns: 12}
+    - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:research, op: "<=", threshold: 0.5}
   factions:

@@ -27,15 +27,18 @@ public static class Governor
         if (fromCommitments != null || leader == null) return fromCommitments;
 
         var candidates = new List<(double Score, string Id, double Next)>();
-        double deficit = value("base:deficit_pct"), unemployment = value("base:unemployment");
-        if (deficit > DeficitCrisisPct)
+        double deficit = value("base:deficit_pct"), unemployment = value("base:unemployment"), inflation = value("base:inflation");
+        bool Unmet(string valueId) => g.Commitments.Any(c => c.Demand.Kind == "value" && c.Demand.Subject == valueId
+            && !CommitmentMath.Satisfied(c.Demand, value(valueId)));
+        if (deficit > DeficitCrisisPct || Unmet("base:deficit_pct") || Unmet("base:inflation"))
         {
             var biggest = policies.Values.Where(p => p.CostPerUnit != 0 && policy(p.Id) > p.Min + 1e-9)
                 .OrderByDescending(p => policy(p.Id) * p.CostPerUnit).ThenBy(p => p.Id, StringComparer.Ordinal).FirstOrDefault();
             if (biggest != null)
                 candidates.Add((10 + deficit, biggest.Id, Math.Max(biggest.Min, policy(biggest.Id) - CrisisStepOfRange * (biggest.Max - biggest.Min))));
+        _ = inflation; // reserved: a hot economy is cooled by the same tightening when a partner demands low inflation
         }
-        if (unemployment >= UnemploymentCrisisPct)
+        if (unemployment >= UnemploymentCrisisPct || Unmet("base:unemployment"))
         {
             foreach (var p in policies.Values.Where(p => p.CostPerUnit != 0).OrderBy(p => p.Id, StringComparer.Ordinal))
             {

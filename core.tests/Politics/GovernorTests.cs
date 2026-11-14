@@ -141,6 +141,21 @@ public class GovernorTests
         }
     }
 
+    [Fact]
+    public void AnUnmetDeficitDemandTightensSpendingEvenBelowTheCrisisLevel()
+    {
+        var g = G(C("balanced", "base:deficit_pct", "<=", 0, 1, 2, kind: "value"));
+        var move = Move(g, At, id => id == "base:deficit_pct" ? 2.0 : 0.0, 5, Leader(taxTarget: 30, spendTarget: 10))!.Value;
+        Assert.Equal(("t:spend", 8.0), move);
+    }
+
+    [Fact]
+    public void ASatisfiedDeficitDemandLeavesThingsAlone()
+    {
+        var g = G(C("balanced", "base:deficit_pct", "<=", 0, 1, 2, kind: "value"));
+        Assert.Null(Move(g, At, id => id == "base:deficit_pct" ? -1.0 : 0.0, 5, Leader(taxTarget: 30, spendTarget: 10)));
+    }
+
     // ---- inside a game: player z (never in government) watches the AI run it -----------------------------------
 
     private static Spec[] Parties() => new[]

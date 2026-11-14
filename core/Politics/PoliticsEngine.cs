@@ -65,6 +65,9 @@ internal sealed class PoliticsEngine
     private readonly List<(string PolicyId, double Target)> _proposals = new();
     private readonly List<(string PolicyId, double Target)> _approved = new();
     private bool _leaveQueued, _noConfidenceQueued;
+    private readonly SortedDictionary<string, int> _nextDemand = new(Ord);
+    private readonly SortedDictionary<string, (string DemandId, int Due)> _midterm = new(Ord);
+    public const int MidTermDueTurns = 6;
     private readonly List<string> _dismissQueue = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
@@ -630,9 +633,10 @@ internal sealed class PoliticsEngine
     /// <summary>Every partner (government parties but the leader) starts at the same loyalty; current red-line violations are not "crossings".</summary>
     private void ResetLoyalty()
     {
-        _loyalty.Clear(); _warned.Clear(); _ultimatums.Clear(); _redLinesActive.Clear();
+        _loyalty.Clear(); _warned.Clear(); _ultimatums.Clear(); _redLinesActive.Clear(); _midterm.Clear(); _nextDemand.Clear();
         foreach (var p in _government.Parties.Where(p => p != _government.Leader))
         {
+            _nextDemand[p] = 6 + _rng.NextInt(5);
             _loyalty[p] = LoyaltyModel.StartLoyalty(_loyaltyParams.Start, Relation(_government.Leader, p), Resent(p, _government.Leader));
             foreach (var r in _parties[p].RedLines)
                 if (LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy))) _redLinesActive.Add(RedKey(p, r));
@@ -646,7 +650,8 @@ internal sealed class PoliticsEngine
         foreach (var partner in _government.Parties.Where(p => p != _government.Leader).ToList())
         {
             var party = _parties[partner];
-            var mine = _government.Commitments.Where(c => c.PartyId == partner).ToList();
+            // mid-term demands have their own reward and penalty (see StepMidTermDemands), not the gradual shortfall
+            var mine = _government.Commitments.Where(c => c.PartyId == partner && c.StartTurn < 0).ToList();
             double fulfil = CommitmentMath.Fulfil(mine, Current, turn, _government.FormedTurn);
             double shortfall = CommitmentMath.Shortfall(mine, Current, turn, _government.FormedTurn);
             double mood = LoyaltyModel.BaseMood(party, _groups, satisfaction);
@@ -689,7 +694,53 @@ internal sealed class PoliticsEngine
         }
 
         // The sitting government fell if it lost its majority: the leader gets the first try at a new one.
+        StepMidTermDemands(turn, events);
         if (departed) FallIfNoMajority(turn, events);
+    }
+
+    /// <summary>Partners whose voters are unhappy (poll below their election result) raise new demands during the term.</summary>
+    private void StepMidTermDemands(int turn, List<PoliticalEvent> events)
+    {
+        foreach (var partner in _government.Parties.Where(p => p != _government.Leader).ToList())
+        {
+            double loyalty = _loyalty.GetValueOrDefault(partner, _loyaltyParams.Start);
+            if (_midterm.TryGetValue(partner, out var open))
+            {
+                var c = _government.Commitments.FirstOrDefault(x => x.PartyId == partner && x.Demand.Id == open.DemandId);
+                if (c == null) { _midterm.Remove(partner); continue; }
+                if (CommitmentMath.Satisfied(c.Demand, Current(c)))
+                {
+                    _loyalty[partner] = Math.Min(100.0, loyalty + 10.0);
+                    events.Add(new DemandMet(turn, partner, open.DemandId));
+                    _midterm.Remove(partner);
+                }
+                else if (turn >= open.Due)
+                {
+                    _loyalty[partner] = Math.Max(0.0, loyalty - 25.0);
+                    events.Add(new DemandFailed(turn, partner, open.DemandId));
+                    _midterm.Remove(partner);
+                    _government = _government with { Commitments = _government.Commitments.Where(x => x != c).ToList() };
+                }
+                continue;
+            }
+            if (!_nextDemand.ContainsKey(partner)) _nextDemand[partner] = 6 + _rng.NextInt(5);
+            if (--_nextDemand[partner] > 0) continue;
+            if (!(_poll.GetValueOrDefault(partner) < _votes.GetValueOrDefault(partner))) { _nextDemand[partner] = 2; continue; }
+
+            var members = _government.Parties.SelectMany(m => _parties[m].RedLines).ToList();
+            var pick = _parties[partner].Demands
+                .Where(d => !_government.Commitments.Any(c => c.PartyId == partner && c.Demand.Id == d.Id))
+                .Where(d => !CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject)))
+                .Where(d => !members.Any(r => CoalitionRules.DemandConflictsWithRedLine(d, r)))
+                .OrderByDescending(d => d.Weight).ThenBy(d => d.Id, Ord).FirstOrDefault();
+            _nextDemand[partner] = 8 + _rng.NextInt(5);
+            if (pick == null) continue;
+            var demand = pick with { DueTurns = MidTermDueTurns };
+            var commitment = new Commitment(partner, demand, _lookup(pick.Kind, pick.Subject), turn + MidTermDueTurns, turn);
+            _government = _government with { Commitments = _government.Commitments.Concat(new[] { commitment }).ToList() };
+            _midterm[partner] = (pick.Id, turn + MidTermDueTurns);
+            events.Add(new DemandRaised(turn, partner, pick.Id, MidTermDueTurns));
+        }
     }
 
     private void Depart(string partner, int turn, List<PoliticalEvent> events, bool announce = true)
@@ -701,6 +752,6 @@ internal sealed class PoliticsEngine
         AddGrudge(_government.Leader, partner, 0.3);
         _government = new Government(_government.Leader, _government.Parties.Where(p => p != partner).ToList(),
             _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn);
-        _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner);
+        _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner); _midterm.Remove(partner); _nextDemand.Remove(partner);
     }
 }

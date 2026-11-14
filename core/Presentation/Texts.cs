@@ -40,6 +40,10 @@ public sealed class Texts
             : _t.T("ui.event.ultimatum", _t.Name(u.PartyId), u.TurnsLeft),
         PartnerLeft l => _t.T("ui.event.partner_left", _t.Name(l.PartyId)),
         GovernmentFell => _t.T("ui.event.government_fell"),
+        DemandRaised r when DemandOf(r.PartyId, r.DemandId) is { } rd =>
+            _t.T("ui.event.demand_raised", _t.Name(r.PartyId), Demand(rd), r.DueTurns),
+        DemandMet m when DemandOf(m.PartyId, m.DemandId) is { } md => _t.T("ui.event.demand_met", _t.Name(m.PartyId), Demand(md)),
+        DemandFailed f when DemandOf(f.PartyId, f.DemandId) is { } fd => _t.T("ui.event.demand_failed", _t.Name(f.PartyId), Demand(fd)),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         NoConfidencePassed => _t.T("ui.event.no_confidence_passed"),
