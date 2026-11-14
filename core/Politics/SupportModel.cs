@@ -9,7 +9,8 @@ public sealed record SupportInput(
     ISet<string> GovernmentParties,
     IReadOnlyDictionary<string, double> Credibility,
     IReadOnlyDictionary<string, double>? Momentum = null, string? MomentumParty = null,
-    IReadOnlyDictionary<string, double>? TurnoutBoost = null);
+    IReadOnlyDictionary<string, double>? TurnoutBoost = null,
+    IReadOnlyDictionary<string, double>? Attribution = null);
 
 /// <summary>
 /// Turns voter-group satisfaction and party platforms into vote shares (spec M2, section 3):
@@ -99,7 +100,11 @@ public sealed class SupportModel
             {
                 var party = _parties[p];
                 double cred = input.Credibility.GetValueOrDefault(party.Id, 1.0);
-                double blame = input.GovernmentParties.Contains(party.Id) ? _kGov * sat : -0.5 * _kGov * sat;
+                // How much voters hold the party responsible: 1 = fully (governing leader), 0 = not at all (opposition).
+                double a = input.Attribution != null && input.Attribution.TryGetValue(party.Id, out var attr)
+                    ? Math.Clamp(attr, 0.0, 1.0)
+                    : (input.GovernmentParties.Contains(party.Id) ? 1.0 : 0.0);
+                double blame = _kGov * sat * (a - 0.5 * (1.0 - a));
                 double momentum = input.MomentumParty == party.Id && input.Momentum != null
                     ? input.Momentum.GetValueOrDefault(grp.Id, 0.0) : 0.0;
                 double v = _offset[p] + party.Affinity.GetValueOrDefault(grp.Id, 0.0)

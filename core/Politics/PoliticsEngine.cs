@@ -36,6 +36,8 @@ internal sealed class PoliticsEngine
     private readonly SortedDictionary<string, double> _relations = new(Ord);
     private readonly SortedDictionary<string, double> _momentum = new(Ord);
     private readonly SortedDictionary<string, double> _pressure = new(Ord);
+    /// <summary>How responsible voters hold each party for the state of the country, 0..1; moves slowly toward the government role.</summary>
+    private readonly SortedDictionary<string, double> _attribution = new(Ord);
     private readonly List<MeasureInfo> _measures = new();
     private readonly List<string> _valueIds;
     private readonly List<Dictionary<string, double>> _history = new(); // value snapshots of the last 5 turns
@@ -77,6 +79,7 @@ internal sealed class PoliticsEngine
         _government = new Government(_scenario.Leader ?? govParties.FirstOrDefault() ?? "", govParties, initial, 0);
         foreach (var id in _parties.Keys) if (id != _scenario.PlayerParty) _relations[id] = DefaultRelation;
         foreach (var g in _groups) { _momentum[g.Id] = 0.0; _pressure[g.Id] = 0.0; }
+        foreach (var id in _parties.Keys) _attribution[id] = AttributionTarget(id);
         _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
         _support.Calibrate(_scenario.Support, Input(satisfaction));
         _electoral = ElectoralSystems.Create(packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem));
@@ -107,7 +110,11 @@ internal sealed class PoliticsEngine
         Effective(satisfaction), new HashSet<string>(_government.Parties, Ord),
         new Dictionary<string, double> { [Player] = _credibility * Cohesion() },
         new Dictionary<string, double>(_momentum), Player,
-        new Dictionary<string, double> { [Player] = 1.0 + 0.2 * _org });
+        new Dictionary<string, double> { [Player] = 1.0 + 0.2 * _org },
+        new Dictionary<string, double>(_attribution));
+
+    private double AttributionTarget(string id) =>
+        id == _government.Leader ? 1.0 : _government.Parties.Contains(id) ? 0.7 : 0.0;
 
     private double Relation(string a, string b) =>
         a == Player ? _relations.GetValueOrDefault(b, DefaultRelation)
@@ -165,6 +172,8 @@ internal sealed class PoliticsEngine
         }
         foreach (var id in _momentum.Keys.ToList()) _momentum[id] *= HalfLifeFactor;
         foreach (var id in _pressure.Keys.ToList()) _pressure[id] *= HalfLifeFactor;
+        foreach (var id in _attribution.Keys.ToList())
+            _attribution[id] = AttributionTarget(id) + (_attribution[id] - AttributionTarget(id)) * HalfLifeFactor;
         _pc = Math.Min(MaxCapital, _pc + 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0));
     }
 
