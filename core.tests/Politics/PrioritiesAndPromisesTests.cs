@@ -97,4 +97,53 @@ public class PrioritiesAndPromisesTests
         Assert.Equal(Pol(live).Party!.Priorities, Pol(loaded).Party!.Priorities);
         Assert.Equal(Pol(live).Party!.Promises, Pol(loaded).Party!.Promises);
     }
+
+    private static double VoteOf(Game g, string party)
+    {
+        var e = Events<ElectionHeld>(Run(g, 5)).Single();
+        return e.Votes[party];
+    }
+
+    [Fact]
+    public void ABrokenPromiseCostsVotesAtTheElectionThatSettlesIt()
+    {
+        var packs = Load(Three, "a", government: new[] { "a" }, turnsToElection: 5, extraGroups: true);
+        var none = New(packs);
+        var broken = New(packs);
+        Assert.True(broken.Apply(new MakePromise("d1")).Accepted); // spend stays at 40: never delivered
+        Assert.True(VoteOf(broken, "base:a") < VoteOf(none, "base:a"));
+    }
+
+    [Fact]
+    public void AKeptPromiseBeatsABrokenOneAtTheElectionThatSettlesIt()
+    {
+        var packs = Load(Three, "a", government: new[] { "a" }, turnsToElection: 5, extraGroups: true);
+        var broken = New(packs);
+        broken.Apply(new MakePromise("d1"));
+        var kept = New(packs);
+        kept.Apply(new MakePromise("d1"));
+        kept.Apply(new SetPolicy("base:spend", 60));
+        Assert.True(VoteOf(kept, "base:a") > VoteOf(broken, "base:a"));
+    }
+
+    [Fact]
+    public void ADemandAlreadyMetCannotBePromised()
+    {
+        var g = Governing(turnsToElection: 6);
+        g.Apply(new SetPolicy("base:spend", 60));
+        g.EndTurn();
+        var r = g.Apply(new MakePromise("d1"));
+        Assert.Equal("error.already_met", r.ErrorKey);
+        Assert.Empty(Pol(g).Party!.Promises!);
+    }
+
+    [Fact]
+    public void AnUnchangedPriorityIsRefusedAndCostsNothing()
+    {
+        var g = Governing();
+        double before = Pol(g).Party!.PoliticalCapital;
+        Assert.Equal("error.no_change", g.Apply(new SetPriority("base:tax", 1.0)).ErrorKey);
+        Assert.Equal(before, Pol(g).Party!.PoliticalCapital);
+        Assert.Empty(g.Save().Actions);
+    }
 }

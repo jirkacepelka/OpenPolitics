@@ -36,13 +36,11 @@ public sealed class Game
     private readonly List<(EventDef Def, Expr Condition)> _events = new();
     private int _turn;
 
-    private readonly double? _thresholdOverride;
     private readonly PoliticsEngine? _politics;
     private readonly SortedDictionary<string, IndexSetting> _indexation = new(Ord);
 
-    internal Game(PackSet packs, string scenarioId, ulong seed, GameOptions? options = null)
+    internal Game(PackSet packs, string scenarioId, ulong seed)
     {
-        _thresholdOverride = options?.ElectoralThreshold is { } t ? GameOptions.Validated(t) : null;
         _packs = packs;
         _scenario = packs.GetScenario(scenarioId);
         _country = packs.Countries.FirstOrDefault(c => c.Id == _scenario.CountryId)
@@ -74,7 +72,7 @@ public sealed class Game
         if (_scenario.Politics != null && _country.Politics != null)
             _politics = new PoliticsEngine(packs, _scenario, _country, seed, _satisfaction,
                 (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
-                _scenario.TurnsPerYear, _thresholdOverride);
+                _scenario.TurnsPerYear);
         _politics?.UseLatestPolicy(LatestPolicy);
     }
 
@@ -157,8 +155,8 @@ public sealed class Game
         double range = Math.Max(policy.Max - policy.Min, 1e-12);
         var groups = new List<GroupEffect>();
         foreach (var g in _packs.VoterGroups.OrderBy(g => g.Id, Ord))
-            if (g.PolicyPrefs.TryGetValue(policyId, out var pref))
-                groups.Add(new GroupEffect(g.Id, -g.PolicyWeights.GetValueOrDefault(policyId, 1.0) * (Math.Abs(value - pref) - Math.Abs(from - pref)) / range));
+            if (g.PolicyPrefs.TryGetValue(policyId, out var pref) && g.PolicyWeights.TryGetValue(policyId, out var weight))
+                groups.Add(new GroupEffect(g.Id, -weight * (Math.Abs(value - pref) - Math.Abs(from - pref)) / range));
         double delta = value - from;
         double budget = delta * policy.CostPerUnit - (policy.RevenueBaseValueId != null ? delta : 0.0);
         return new PolicyPreview(policyId, from, value,
@@ -168,14 +166,14 @@ public sealed class Game
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 
-    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn, _thresholdOverride);
+    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn);
 
-    /// <summary>The share of the vote a party needs for seats: the game's own choice, else the country's rule (null without politics).</summary>
+    /// <summary>The share of the vote a party needs for seats right now: the threshold policy if the pack has one, else the country's rule (null without politics).</summary>
     /// <summary>Where each party stands on the economic (X) and social (Y) axes, -1..1 (empty without politics).</summary>
     public IReadOnlyDictionary<string, (double X, double Y)> Compass =>
         _politics?.Compass() ?? new Dictionary<string, (double X, double Y)>();
 
-    public double? ElectoralThreshold => _thresholdOverride ?? _politics?.Threshold;
+    public double? ElectoralThreshold => _politics?.CurrentThreshold;
 
     public TurnReport EndTurn()
     {

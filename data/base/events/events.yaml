@@ -46,7 +46,7 @@
   probability: 0.01
   text_key: event.export_boom
   effects:
-    - {value: base:gdp, delta: 46000000000}
+    - {value: base:capital, delta: 120000000000}
     - {value: base:unemployment, delta: -0.3}
 - id: base:pandemic
   condition: "base:gdp > 0"
@@ -55,7 +55,7 @@
   effects:
     - {value: base:health, delta: -8}
     - {value: base:unemployment, delta: 1.5}
-    - {value: base:gdp, delta: -92000000000}
+    - {value: base:capital, delta: -300000000000}
 - id: base:flood
   condition: "base:gdp > 0"
   probability: 0.008
@@ -63,7 +63,6 @@
   effects:
     - {value: base:capital, delta: -70000000000}
     - {value: base:environment, delta: -3}
-    - {value: base:gdp, delta: -23000000000}
 - id: base:drought
   condition: "base:environment < 90"
   probability: 0.01
@@ -91,8 +90,8 @@
   probability: 0.015
   text_key: event.general_strike
   effects:
-    - {value: base:gdp, delta: -23000000000}
-    - {value: base:unemployment, delta: 0.3}
+    - {value: base:unemployment, delta: 0.5}
+    - {value: base:inflation, delta: 0.2}
 - id: base:tech_hub
   condition: "base:education_level > 55"
   probability: 0.008
@@ -112,20 +111,20 @@
   probability: 0.01
   text_key: event.oil_price_drop
   effects:
-    - {value: base:inflation, delta: -1}
-    - {value: base:gdp, delta: 14000000000}
+    - {value: base:inflation, delta: -1.0}
+    - {value: base:capital, delta: 10000000000}
 - id: base:interest_spike
   condition: "base:debt > 2500000000000"
   probability: 0.01
   text_key: event.interest_spike
   effects:
-    - {value: base:interest_rate, delta: 1}
+    - {value: base:debt, delta: 60000000000}
 - id: base:cyber_attack
   condition: "base:gdp > 0"
   probability: 0.006
   text_key: event.cyber_attack
   effects:
-    - {value: base:gdp, delta: -14000000000}
+    - {value: base:capital, delta: -40000000000}
     - {value: base:crime, delta: 100}
 - id: base:flu_season
   condition: "base:health < 95"
@@ -145,8 +144,8 @@
   probability: 0.05
   text_key: event.deflation_scare
   effects:
-    - {value: base:unemployment, delta: 0.4}
-    - {value: base:gdp, delta: -14000000000}
+    - {value: base:unemployment, delta: 0.6}
+    - {value: base:capital, delta: -20000000000}
 - id: base:green_breakthrough
   condition: "base:environment > 60"
   probability: 0.01
@@ -171,7 +170,7 @@
   probability: 0.006
   text_key: event.trade_war
   effects:
-    - {value: base:gdp, delta: -46000000000}
+    - {value: base:capital, delta: -150000000000}
     - {value: base:inflation, delta: 0.4}
 - id: base:startup_wave
   condition: "base:unemployment < 6"

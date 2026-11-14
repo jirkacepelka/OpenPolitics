@@ -11,6 +11,8 @@
     base:labour_flexibility: {target: 6, weight: 0.3}
     base:business_regulation: {target: 3.5, weight: 0.4}
     base:defence: {target: 0.5, weight: 0.2}
+    base:electoral_threshold: {target: 7, weight: 0.4}
+    base:electoral_method: {target: 0, weight: 0.3}
   affinity: {base:low_income: 0.10, base:middle_class: 0.20, base:high_income: 0.30, base:pensioners: 0.20, base:young_urban: -0.10, base:rural_conservatives: 0.20}
   price: 4
   demands:
@@ -21,6 +23,7 @@
     - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 1.5, due_turns: 16}
     - {id: deregulation, kind: policy, policy: base:business_regulation, op: "<=", target: 4, weight: 2, due_turns: 12}
     - {id: digital, kind: policy, policy: base:digital_infrastructure, op: ">=", target: 0.8, weight: 2, due_turns: 12}
+    - {id: high_threshold, kind: policy, policy: base:electoral_threshold, op: ">=", target: 6, weight: 2, due_turns: 12}
   red_lines:
     - {policy: base:corporate_tax, op: ">=", threshold: 8}
     - {policy: base:income_tax, op: ">=", threshold: 32}
@@ -70,6 +73,7 @@
     base:retirement_age: {target: 65, weight: 0.4}
     base:wealth_tax: {target: 0, weight: 0.4}
     base:property_tax: {target: 0, weight: 0.3}
+    base:electoral_threshold: {target: 6, weight: 0.3}
   affinity: {base:low_income: -0.25, base:middle_class: 0.15, base:high_income: 0.35, base:pensioners: 0.00, base:young_urban: 0.05, base:rural_conservatives: 0.10}
   price: 4
   demands:
@@ -79,7 +83,7 @@
     - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 1.5, due_turns: 16}
     - {id: flexible_labour, kind: policy, policy: base:labour_flexibility, op: ">=", target: 6, weight: 2, due_turns: 12}
     - {id: later_retirement, kind: policy, policy: base:retirement_age, op: ">=", target: 64, weight: 2, due_turns: 12}
-    - {id: no_wealth_tax, kind: policy, policy: base:wealth_tax, op: "<=", target: 0.2, weight: 1, due_turns: 12}
+    - {id: high_threshold, kind: policy, policy: base:electoral_threshold, op: ">=", target: 6, weight: 1, due_turns: 12}
   red_lines:
     - {policy: base:income_tax, op: ">=", threshold: 30}
     - {policy: base:corporate_tax, op: ">=", threshold: 7}
@@ -108,7 +112,7 @@
     - {id: low_inflation, kind: value, value: base:inflation, op: "<=", target: 3, weight: 1.5, due_turns: 12}
     - {id: family, kind: policy, policy: base:family_allowances, op: ">=", target: 1.2, weight: 2, due_turns: 12}
     - {id: rural, kind: policy, policy: base:rural_development, op: ">=", target: 0.8, weight: 2, due_turns: 12}
-    - {id: early_retirement, kind: policy, policy: base:retirement_age, op: "<=", target: 63, weight: 2, due_turns: 12}
+    - {id: early_retirement, kind: policy, policy: base:retirement_age, op: "<=", target: 62, weight: 2, due_turns: 12}
   red_lines:
     - {policy: base:vat, op: ">=", threshold: 18}
     - {policy: base:pensions, op: "<=", threshold: 7}
@@ -128,6 +132,8 @@
     base:wealth_tax: {target: 1.5, weight: 0.5}
     base:housing_support: {target: 2, weight: 0.4}
     base:labour_flexibility: {target: 3, weight: 0.4}
+    base:electoral_threshold: {target: 3, weight: 0.3}
+    base:electoral_method: {target: 1, weight: 0.3}
   affinity: {base:low_income: 0.35, base:middle_class: -0.10, base:high_income: -0.40, base:pensioners: 0.10, base:young_urban: 0.10, base:rural_conservatives: -0.20}
   price: 6
   demands:
@@ -138,6 +144,7 @@
     - {id: wealth_tax, kind: policy, policy: base:wealth_tax, op: ">=", target: 1, weight: 2, due_turns: 12}
     - {id: minimum_wage_up, kind: policy, policy: base:minimum_wage, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: rent_control, kind: policy, policy: base:rent_control, op: ">=", target: 5, weight: 1, due_turns: 12}
+    - {id: fair_seats, kind: policy, policy: base:electoral_method, op: ">=", target: 1, weight: 1, due_turns: 12}
   red_lines:
     - {policy: base:social_benefits, op: "<=", threshold: 6}
     - {policy: base:corporate_tax, op: "<=", threshold: 2}
@@ -184,6 +191,7 @@
     base:public_transport: {target: 2, weight: 0.5}
     base:energy_mix: {target: 8, weight: 0.5}
     base:drug_policy: {target: 6, weight: 0.2}
+    base:electoral_threshold: {target: 3, weight: 0.4}
   affinity: {base:low_income: 0.00, base:middle_class: 0.05, base:high_income: -0.15, base:pensioners: -0.30, base:young_urban: 0.55, base:rural_conservatives: -0.45}
   price: 5
   demands:
@@ -195,6 +203,8 @@
     - {id: green_subsidies, kind: policy, policy: base:green_subsidies, op: ">=", target: 1.5, weight: 2, due_turns: 12}
     - {id: transport, kind: policy, policy: base:public_transport, op: ">=", target: 1.5, weight: 1, due_turns: 12}
     - {id: energy_mix, kind: policy, policy: base:energy_mix, op: ">=", target: 7, weight: 2, due_turns: 12}
+    - {id: low_threshold, kind: policy, policy: base:electoral_threshold, op: "<=", target: 3.5, weight: 2, due_turns: 12}
+    - {id: fair_seats, kind: policy, policy: base:electoral_method, op: ">=", target: 1, weight: 1, due_turns: 12}
   red_lines:
     - {policy: base:environment_regulation, op: "<=", threshold: 2.5}
     - {policy: base:energy_mix, op: "<=", threshold: 2}
@@ -213,6 +223,8 @@
     base:digital_infrastructure: {target: 1.5, weight: 0.5}
     base:surveillance: {target: 1, weight: 0.5}
     base:university_fees: {target: 0, weight: 0.3}
+    base:electoral_threshold: {target: 2, weight: 0.4}
+    base:electoral_method: {target: 1, weight: 0.3}
   affinity: {base:low_income: -0.10, base:middle_class: 0.15, base:high_income: 0.10, base:pensioners: -0.40, base:young_urban: 0.55, base:rural_conservatives: -0.30}
   price: 3
   demands:
@@ -223,6 +235,7 @@
     - {id: digital, kind: policy, policy: base:digital_infrastructure, op: ">=", target: 1, weight: 2, due_turns: 12}
     - {id: liberties, kind: policy, policy: base:surveillance, op: "<=", target: 2, weight: 2, due_turns: 12}
     - {id: free_university, kind: policy, policy: base:university_fees, op: "<=", target: 1, weight: 1, due_turns: 12}
+    - {id: low_threshold, kind: policy, policy: base:electoral_threshold, op: "<=", target: 3, weight: 2, due_turns: 12}
   red_lines:
     - {policy: base:research, op: "<=", threshold: 0.5}
     - {policy: base:surveillance, op: ">=", threshold: 7}

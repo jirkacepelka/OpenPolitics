@@ -35,12 +35,12 @@ public sealed class PlayLoop
     private int _nextTip = 2;
 
     public PlayLoop(PackSet packs, string scenarioId, ulong seed, string language, int maxTurns, bool tips,
-        TextReader input, TextWriter output, double? threshold = null)
+        TextReader input, TextWriter output)
     {
         _packs = packs; _scenarioId = scenarioId; _scenario = packs.GetScenario(scenarioId);
         _seed = seed; _maxTurns = maxTurns; _tips = tips; _in = input; _out = output;
         _t = new Localizer(packs, language);
-        _game = Simulation.NewGame(packs, scenarioId, seed, new GameOptions(threshold));
+        _game = Simulation.NewGame(packs, scenarioId, seed);
         _valueById = packs.Values.ToDictionary(v => v.Id);
         _policyById = packs.Policies.ToDictionary(p => p.Id);
         _values = packs.Values

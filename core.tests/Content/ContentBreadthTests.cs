@@ -19,7 +19,7 @@ public class ContentBreadthTests
     {
         var fromEdges = Packs.Edges.Select(e => e.From).ToHashSet();
         foreach (var p in Packs.Policies)
-            Assert.True(fromEdges.Contains(p.Id) || p.CostPerUnit != 0 || p.RevenueBaseValueId != null, $"{p.Id} does nothing");
+            Assert.True(fromEdges.Contains(p.Id) || p.CostPerUnit != 0 || p.RevenueBaseValueId != null || p.Unit is "electoral_method" || p.Id == "base:electoral_threshold", $"{p.Id} does nothing");
     }
 
     [Fact]
@@ -48,5 +48,28 @@ public class ContentBreadthTests
             foreach (var e in Packs.Events) Assert.NotEqual(e.TextKey, t.T(e.TextKey));
             foreach (var p in Packs.Policies) Assert.NotEqual("name." + p.Id, t.Name(p.Id));
         }
+    }
+
+    [Fact]
+    public void NoNewDemandIsMetByTheStartingSettings()
+    {
+        var original = new HashSet<string>(new[] { "pensions", "health_spending", "education_spending", "police", "research", "social_benefits",
+            "infrastructure", "administration", "income_tax", "vat", "corporate_tax", "migration", "environment_regulation" }.Select(x => "base:" + x));
+        var defaults = Packs.Policies.ToDictionary(p => p.Id, p => p.Default);
+        foreach (var party in Packs.Parties)
+            foreach (var d in party.Demands.Where(d => d.Kind == "policy" && !original.Contains(d.Subject)))
+            {
+                bool met = d.Op == ">=" ? defaults[d.Subject] >= d.Target : defaults[d.Subject] <= d.Target;
+                Assert.False(met, $"{party.Id}:{d.Id} is met by the default setting");
+            }
+    }
+
+    [Fact]
+    public void EventsOnlyShockStateThatPersists()
+    {
+        // These values are recomputed by the economy model every turn, so a one-off change would be wiped out and then rebound.
+        var recomputed = new[] { "base:gdp", "base:interest_rate", "base:revenue", "base:spending", "base:price_level", "base:gdp_nominal" };
+        foreach (var e in Packs.Events.Where(e => e.Id != "base:recession"))
+            foreach (var effect in e.Effects) Assert.DoesNotContain(effect.ValueId, recomputed);
     }
 }

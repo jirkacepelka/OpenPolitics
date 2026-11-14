@@ -19,7 +19,7 @@ internal sealed class PoliticsEngine
     private readonly Dictionary<string, PartyDef> _parties;
     private readonly Dictionary<string, double> _ranges;
     private readonly SupportModel _support;
-    private readonly IElectoralSystem _electoral;
+    private readonly ElectoralSystemDef _electoralDef;
     private readonly Pcg32 _rng;
     private readonly Func<string, string, double> _lookup; // current value of (kind, subject): "policy" or "value"
     private readonly double _dt;
@@ -80,8 +80,7 @@ internal sealed class PoliticsEngine
     private readonly List<string> _dismissQueue = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
-        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear,
-        double? thresholdOverride = null)
+        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear)
     {
         _scenario = scenario.Politics!;
         _rules = country.Politics!;
@@ -106,19 +105,32 @@ internal sealed class PoliticsEngine
         foreach (var id in _parties.Keys) _attribution[id] = AttributionTarget(id);
         _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
         _support.Calibrate(_scenario.Support, Input(satisfaction));
-        var electoralDef = packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem);
-        if (thresholdOverride is { } t) electoralDef = electoralDef with { Threshold = t };
-        Threshold = electoralDef.Threshold;
-        _electoral = ElectoralSystems.Create(electoralDef);
+        _electoralDef = packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem);
         _rng = new Pcg32(seed, 99);
         _poll = _support.Compute(Input(satisfaction), null);
-        _seats = _electoral.Allocate(_poll);
+        _seats = CurrentSystem().Allocate(_poll);
         _votes = _poll;
         _turnsToElection = _scenario.TurnsToElection;
         ResetLoyalty();
     }
 
-    public double Threshold { get; }
+    /// <summary>The electoral rules in force: the country's system, with threshold and method taken from the policies when the pack has them.</summary>
+    private ElectoralSystemDef CurrentRules()
+    {
+        var def = _electoralDef;
+        if (_policyDefs.ContainsKey(PoliticsLimits.ThresholdPolicy))
+            def = def with { Threshold = Math.Clamp(_lookup("policy", PoliticsLimits.ThresholdPolicy) / 100.0, 0.0, 0.10) };
+        if (_policyDefs.ContainsKey(PoliticsLimits.MethodPolicy))
+        {
+            int i = (int)Math.Round(_lookup("policy", PoliticsLimits.MethodPolicy), MidpointRounding.AwayFromZero);
+            def = def with { Method = PoliticsLimits.Methods[Math.Clamp(i, 0, PoliticsLimits.Methods.Length - 1)] };
+        }
+        return def;
+    }
+
+    private IElectoralSystem CurrentSystem() => ElectoralSystems.Create(CurrentRules());
+
+    public double CurrentThreshold => CurrentRules().Threshold;
 
     /// <summary>Every party's position on the compass with its current platform (the player's moves when they shift it).</summary>
     public IReadOnlyDictionary<string, (double X, double Y)> Compass() =>
@@ -311,6 +323,7 @@ internal sealed class PoliticsEngine
         var party = _parties[Player];
         if (!party.Platform.TryGetValue(policyId, out var pos)) return Fail("error.not_in_platform", policyId);
         if (!double.IsFinite(weight) || weight < 0.0 || weight > 1.0) return Fail("error.value_out_of_range", policyId);
+        if (Math.Abs(weight - pos.Weight) < 1e-9) return Fail("error.no_change", policyId);
         if (!TrySpend(1)) return Fail("error.not_enough_capital");
         double delta = Math.Clamp(weight - pos.Weight, -0.2, 0.2);
         if (delta != 0.0)
@@ -331,6 +344,7 @@ internal sealed class PoliticsEngine
         var demand = _parties[Player].Demands.FirstOrDefault(d => d.Id == demandId);
         if (demand == null) return Fail("error.unknown_demand", demandId);
         if (ElectionIn > PoliticsLimits.PromiseWindowTurns) return Fail("error.too_early");
+        if (CommitmentMath.Satisfied(demand, _lookup(demand.Kind, demand.Subject))) return Fail("error.already_met", demandId);
         if (_promises.Contains(demandId)) return Fail("error.already_promised", demandId);
         if (_promises.Count >= PoliticsLimits.MaxPromises) return Fail("error.too_many_promises");
         if (!TrySpend(2)) return Fail("error.not_enough_capital");
@@ -610,6 +624,8 @@ internal sealed class PoliticsEngine
         var events = new List<PoliticalEvent>(_pending);
         _pending.Clear();
         TickParty();
+        // Voters judge the promises before they vote, so settle them ahead of this turn's poll when it is election day.
+        if (_turnsToElection <= 1 || (_phase == Phase.Caretaker && _caretakerLeft <= 1)) SettlePromises(turn, events);
         var effective = Effective(satisfaction);
         _poll = _support.Compute(Input(satisfaction), _rng);
 
@@ -628,7 +644,6 @@ internal sealed class PoliticsEngine
 
     private void HoldElection(int turn, List<PoliticalEvent> events)
     {
-        SettlePromises(turn, events);
         var votes = new SortedDictionary<string, double>(Ord);
         foreach (var (id, share) in _poll)
         {
@@ -640,7 +655,7 @@ internal sealed class PoliticsEngine
         if (!(total > 0)) foreach (var id in votes.Keys.ToList()) votes[id] = _poll[id];
         else foreach (var id in votes.Keys.ToList()) votes[id] /= total;
         _votes = votes;
-        _seats = _electoral.Allocate(votes);
+        _seats = CurrentSystem().Allocate(votes);
         events.Add(new ElectionHeld(turn, Sorted(votes), Sorted(_seats)));
         _turnsToElection = _rules.ElectionIntervalTurns;
 

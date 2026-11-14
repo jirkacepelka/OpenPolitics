@@ -5,7 +5,7 @@ namespace OpenPolitics.Cli.Commands;
 public static class PlayCommand
 {
     public const string Usage =
-        "Usage: play --packs <dir>... [--scenario <id>] [--seed <n>] [--lang cs|en] [--turns <n>] [--threshold <0-10 %>] [--no-tips]";
+        "Usage: play --packs <dir>... [--scenario <id>] [--seed <n>] [--lang cs|en] [--turns <n>] [--no-tips]";
 
     public static int Execute(string[] args, TextReader input, TextWriter output)
     {
@@ -13,13 +13,6 @@ public static class PlayCommand
         int turns = p.Int("--turns", 80);
         ulong seed = p.ULong("--seed", 1);
         string lang = p.One("--lang") ?? DefaultLanguage();
-        double? threshold = null;
-        if (p.One("--threshold") is { } thresholdText)
-        {
-            if (double.TryParse(thresholdText.Replace(',', '.'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var pct) && pct >= 0 && pct <= 10)
-                threshold = pct / 100.0;
-            else { output.WriteLine("--threshold must be a percentage from 0 to 10."); return 2; }
-        }
         if (p.Errors.Count > 0 || p.Has("--help"))
         {
             foreach (var e in p.Errors) output.WriteLine(e);
@@ -34,7 +27,7 @@ public static class PlayCommand
             output.WriteLine($"Unknown scenario '{scenario}'.");
             return 2;
         }
-        return new PlayLoop(loaded.Packs, scenario, seed, lang, turns, !p.Has("--no-tips"), input, output, threshold).Run();
+        return new PlayLoop(loaded.Packs, scenario, seed, lang, turns, !p.Has("--no-tips"), input, output).Run();
     }
 
     private static string DefaultLanguage()

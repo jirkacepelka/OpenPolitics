@@ -107,11 +107,4 @@ public class PlayCoalitionActionsTests
         Assert.Contains("two years", late); // 20 turns to the election: too early
         Assert.Contains("priority", Play("test:leads", "help\nquit\n"));
     }
-
-    [Fact]
-    public void ThresholdOptionIsPassedToTheGame()
-    {
-        var output = new StringWriter();
-        Assert.Equal(0, new PlayLoop(Packs(), "test:leads", 1, "en", 2, false, new StringReader("quit\n"), output, threshold: 0.0).Run());
-    }
 }

@@ -65,4 +65,15 @@ public class PolicyPreviewTests
         Assert.Equal(GameTests.Fingerprint(a), GameTests.Fingerprint(b));
         Assert.Empty(a.Save().Actions);
     }
+
+    [Fact]
+    public void AGroupWithAPreferenceButNoWeightIsNotListed()
+    {
+        var g = Simulation.NewGame(GameFixture.Load(f =>
+        {
+            f["voter_groups/g.yaml"] += "- id: base:silent\n  size: 1\n  weight: 1\n  policy_prefs: {base:tax: 10}\n";
+            foreach (var lang in new[] { "cs", "en" }) f[$"localization/{lang}.yaml"] += "name.base:silent: s\n";
+        }), "base:test", 1);
+        Assert.DoesNotContain(g.PreviewPolicy("base:tax", 50)!.Groups, x => x.GroupId == "base:silent");
+    }
 }

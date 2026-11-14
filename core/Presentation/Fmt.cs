@@ -22,6 +22,8 @@ public static class Fmt
     public static string Policy(PolicyDef def, double v, Localizer l) => def.Unit switch
     {
         "percent_of_gdp" => $"{v.ToString("0.0", Inv)} {l.T("ui.unit.gdp_share")}",
+        "percent" => $"{v.ToString("0.0", Inv)} %",
+        "electoral_method" => l.T("ui.method." + Math.Clamp((int)Math.Round(v, MidpointRounding.AwayFromZero), 0, 2)),
         _ => v.ToString("0.0", Inv),
     };
 

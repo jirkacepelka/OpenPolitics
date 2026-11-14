@@ -5,8 +5,7 @@ namespace OpenPolitics.Core.Gameplay;
 /// <summary>Entry point of the core API: start a new game or restore one from a save.</summary>
 public static class Simulation
 {
-    public static Game NewGame(PackSet packs, string scenarioId, ulong seed, GameOptions? options = null) =>
-        new(packs, scenarioId, seed, options);
+    public static Game NewGame(PackSet packs, string scenarioId, ulong seed) => new(packs, scenarioId, seed);
 
     /// <summary>Replays the saved actions on a fresh game. Throws <see cref="SaveMismatchException"/> if the packs differ.</summary>
     public static Game Load(PackSet packs, SaveData save)
@@ -22,7 +21,7 @@ public static class Simulation
             if (!save.PackHashes.ContainsKey(id))
                 throw new SaveMismatchException($"Pack '{id}' is loaded but was not part of the saved game.");
 
-        var game = new Game(packs, save.ScenarioId, save.Seed, new GameOptions(save.Threshold));
+        var game = new Game(packs, save.ScenarioId, save.Seed);
         int i = 0;
         void ApplyTurnActions(int turn)
         {
