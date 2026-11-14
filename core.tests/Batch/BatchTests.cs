@@ -85,6 +85,15 @@ public class BatchTests
     }
 
     [Fact]
+    public void RandomBatchOfTwoHundredIsStable()
+    {
+        // seed 187 sends prices through the roof; price level and nominal GDP are nominal indices whose runaway is
+        // already caught by the inflation range check, so they must not count as an explosion of their own
+        var r = BatchRunner.Run(Base, Scenario, 200, 80, new RandomStrategy());
+        Assert.True(r.Stable, Describe(r));
+    }
+
+    [Fact]
     public void DebtSpiralInPassivePlayMakesTheReportUnstable()
     {
         BatchReport R(string strategy, int spiral) =>

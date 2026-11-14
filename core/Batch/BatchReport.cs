@@ -14,6 +14,9 @@ public sealed record StabilityThresholds(
     /// They are exempt from the collapse check, and their explosion check compares |value| to GDP instead of
     /// to the initial value. Debt above <see cref="DebtSpiralRatio"/> x GDP is counted as a debt spiral.
     /// </summary>
+    public IReadOnlySet<string> NominalIndices { get; init; } = new HashSet<string>(StringComparer.Ordinal)
+        { "base:price_level", "base:gdp_nominal" };
+
     public IReadOnlySet<string> NetPositions { get; init; } = new HashSet<string>(StringComparer.Ordinal) { "base:debt" };
 }
 

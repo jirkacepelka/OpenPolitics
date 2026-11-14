@@ -99,6 +99,7 @@ public static class BatchRunner
                     if (v < th.PercentMin) collapsed.Add(id);
                     if (v > th.PercentMax) exploded.Add(id);
                 }
+                else if (th.NominalIndices.Contains(id)) { /* cumulative nominal index: runaway inflation is flagged via the percent range */ }
                 else if (th.NetPositions.Contains(id))
                 {
                     if (values.TryGetValue(MacroModelV1.Ids.Gdp, out var gdpNow) && gdpNow > 0)
