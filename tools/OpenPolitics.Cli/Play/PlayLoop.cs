@@ -78,6 +78,7 @@ public sealed class PlayLoop
                 case "voters": ShowVoters(); break;
                 case "values": ShowValues(); break;
                 case "set": DoSet(cmd.Args); break;
+                case "index": DoIndex(cmd.Args); break;
                 case "why": DoWhy(cmd.Args); break;
                 case "info": DoInfo(cmd.Args); break;
                 case "save": DoSave(cmd.Args); break;
@@ -204,6 +205,17 @@ public sealed class PlayLoop
             if (result.ErrorKey == "error.value_out_of_range")
                 _out.WriteLine("  " + _t.T("ui.range", Fmt.Policy(policy, policy.Min, _t), Fmt.Policy(policy, policy.Max, _t)));
         }
+    }
+
+    private void DoIndex(string[] args)
+    {
+        if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_index")); return; }
+        var policy = Resolve(args[0], _policies, p => p.Id, numbers: true);
+        if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", args[0])); return; }
+        string mode = args[1].ToLowerInvariant();
+        var result = _game.Apply(new SetIndexation(policy.Id, mode));
+        if (result.Accepted) _out.WriteLine(_t.T("ui.index.ok", _t.Name(policy.Id), _t.T("ui.index.mode." + mode)));
+        else _out.WriteLine(_t.T("ui." + (result.ErrorKey ?? "error.unknown_action").Replace("error.", "err.")));
     }
 
     private (ValueDef? Value, PolicyDef? Policy) FindItem(string[] args)

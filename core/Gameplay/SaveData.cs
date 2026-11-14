@@ -33,6 +33,7 @@ public sealed record SaveData(
         public string Group { get; set; } = "";
         public int Effort { get; set; }
         public string Stance { get; set; } = "";
+        public string Mode { get; set; } = "";
         public List<string> Partners { get; set; } = new();
         public List<string> Agreements { get; set; } = new(); // "party|demand"
     }
@@ -56,6 +57,8 @@ public sealed record SaveData(
         {
             if (action is SetPolicy sp)
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "set_policy", Policy = sp.PolicyId, Value = sp.Value.ToString("R", CultureInfo.InvariantCulture) });
+            else if (action is SetIndexation si)
+                dto.Actions.Add(new ActionDto { Turn = turn, Type = "set_indexation", Policy = si.PolicyId, Mode = si.Mode });
             else if (action is ProposeCoalition pc)
                 dto.Actions.Add(new ActionDto
                 {
@@ -86,6 +89,7 @@ public sealed record SaveData(
             PlayerAction action = a.Type switch
             {
                 "set_policy" => new SetPolicy(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "set_indexation" => new SetIndexation(a.Policy, a.Mode),
                 "propose_coalition" => new ProposeCoalition(a.Partners.ToList(), a.Agreements.Select(x =>
                 {
                     var parts = x.Split('|');

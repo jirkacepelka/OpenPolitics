@@ -10,6 +10,9 @@ public abstract record PoliticsAction : PlayerAction;
 /// <summary>Set a policy to a value in its own unit. Takes effect after the policy's delay.</summary>
 public sealed record SetPolicy(string PolicyId, double Value) : PlayerAction;
 
+/// <summary>Choose how a spending policy follows the economy: "gdp" (share of GDP, default), "inflation" (fixed real amount) or "none" (fixed nominal amount).</summary>
+public sealed record SetIndexation(string PolicyId, string Mode) : PlayerAction;
+
 /// <summary>As formateur: offer a coalition. Partners join and the agreements become the government's commitments.</summary>
 public sealed record ProposeCoalition(IReadOnlyList<string> Partners, IReadOnlyList<AgreedDemand> Agreements) : PoliticsAction;
 

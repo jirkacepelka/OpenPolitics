@@ -150,7 +150,13 @@ public sealed class MacroModelV1 : IEconomyModel
             double pv = input.PolicyParams.TryGetValue(p.Id, out var given) ? given : p.Default;
             if (p.RevenueBaseValueId != null)
                 revenue += pv / 100.0 * (p.RevenueBaseValueId == Ids.Gdp ? y2 : V(p.RevenueBaseValueId));
-            if (p.CostPerUnit != 0) spending += pv * p.CostPerUnit * y2 / 100.0;
+            if (p.CostPerUnit != 0)
+            {
+                double share = pv * p.CostPerUnit / 100.0;
+                if (input.Indexation != null && input.Indexation.TryGetValue(p.Id, out var ix) && ix.BaseGdp > 0)
+                    spending += ix.Mode == "inflation" ? share * ix.BaseGdp : share * ix.BaseGdp * (ix.BasePrice / price);
+                else spending += share * y2;
+            }
         }
         var rr = R(Ids.Revenue);
         revenue = revenue * (1 + dt * rr.Relative) + dt * rr.Additive;

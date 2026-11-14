@@ -37,6 +37,7 @@ public sealed class Game
     private int _turn;
 
     private readonly PoliticsEngine? _politics;
+    private readonly SortedDictionary<string, IndexSetting> _indexation = new(Ord);
 
     internal Game(PackSet packs, string scenarioId, ulong seed)
     {
@@ -98,6 +99,7 @@ public sealed class Game
             if (result.Accepted) _log.Add((_turn, action));
             return result;
         }
+        if (action is SetIndexation ix) return ApplyIndexation(ix);
         if (action is not SetPolicy set)
             return new ActionResult(false, "error.unknown_action", action.GetType().Name);
         if (_politics?.PolicyBlock() is { } blocked) return new ActionResult(false, blocked, null);
@@ -108,6 +110,26 @@ public sealed class Game
 
         _pending.Add(new PendingPolicy(set.PolicyId, set.Value, _turn + policy.DelayTurns));
         _log.Add((_turn, action));
+        return ActionResult.Ok;
+    }
+
+    /// <summary>Spending policies that are not tied to GDP, with their mode ("inflation" or "none").</summary>
+    public IReadOnlyDictionary<string, string> Indexation =>
+        _indexation.ToDictionary(kv => kv.Key, kv => kv.Value.Mode, Ord);
+
+    private ActionResult ApplyIndexation(SetIndexation ix)
+    {
+        if (_politics?.PolicyBlock() is { } blocked) return new ActionResult(false, blocked, null);
+        if (!_policyDefs.TryGetValue(ix.PolicyId, out var policy))
+            return new ActionResult(false, "error.unknown_policy", ix.PolicyId);
+        if (ix.Mode is not ("gdp" or "inflation" or "none"))
+            return new ActionResult(false, "error.bad_indexation", ix.Mode);
+        if (policy.CostPerUnit == 0) return new ActionResult(false, "error.not_indexable", ix.PolicyId);
+        if (ix.Mode == "gdp") _indexation.Remove(ix.PolicyId);
+        else
+            _indexation[ix.PolicyId] = new IndexSetting(ix.Mode, _values.GetValueOrDefault(MacroModelV1.Ids.Gdp),
+                _values.TryGetValue(MacroModelV1.Ids.PriceLevel, out var pl) && pl > 0 ? pl : 100.0);
+        _log.Add((_turn, ix));
         return ActionResult.Ok;
     }
 
@@ -140,7 +162,7 @@ public sealed class Game
         var owned = new HashSet<string>(Ord);
         foreach (var model in _models)
         {
-            var next = model.Step(new EconomyInput(before, eval.Rates, _policies, _country.Parameters), _dt);
+            var next = model.Step(new EconomyInput(before, eval.Rates, _policies, _country.Parameters, _indexation), _dt);
             foreach (var id in model.OwnedValueIds)
                 if (after.ContainsKey(id) && next.TryGetValue(id, out var nv)) { after[id] = nv; owned.Add(id); }
         }
