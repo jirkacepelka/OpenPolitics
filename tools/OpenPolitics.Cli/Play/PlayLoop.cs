@@ -98,6 +98,10 @@ public sealed class PlayLoop
                 case "campaign": DoCampaign(cmd.Args); break;
                 case "organize": Report(_game.Apply(new BuildOrganization()), "ui.party.organized", quiet: true); break;
                 case "court": DoCourt(cmd.Args); break;
+                case "propose": DoProposePolicy(cmd.Args); break;
+                case "leave": Report(_game.Apply(new LeaveCoalition()), "ui.exit.leave_ok", quiet: true); break;
+                case "dismiss": DoDismiss(cmd.Args); break;
+                case "confidence": Report(_game.Apply(new NoConfidence()), "ui.exit.confidence_ok", quiet: true); break;
                 case "platform": DoPlatform(cmd.Args); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
@@ -135,6 +139,11 @@ public sealed class PlayLoop
         ["organize"] = "organize", ["organizuj"] = "organize",
         ["court"] = "court", ["nabidka"] = "court", ["sbliz"] = "court",
         ["platform"] = "platform", ["program"] = "platform",
+        ["index"] = "index", ["valorizace"] = "index",
+        ["propose"] = "propose", ["navrhni"] = "propose",
+        ["leave"] = "leave", ["odejit"] = "leave",
+        ["dismiss"] = "dismiss", ["vyloucit"] = "dismiss",
+        ["confidence"] = "confidence", ["nedoveru"] = "confidence", ["nedovera"] = "confidence",
     };
 
     private static (string Verb, string[] Args) Parse(string line)
@@ -399,29 +408,11 @@ public sealed class PlayLoop
     private void ShowPoliticalEvents(IReadOnlyList<PoliticalEvent> events)
     {
         bool header = false;
+        var texts = new Texts(_packs, _t);
         foreach (var e in events)
         {
             if (e is ElectionHeld held) { ShowElectionResult(held); continue; }
-            string? text = e switch
-            {
-                FormationStarted f => _t.T("ui.event.formation_started", _t.Name(f.Formateur)),
-                FormationFailed f => _t.T("ui.event.formation_failed", _t.Name(f.Formateur)),
-                OfferMade o => _t.T("ui.event.offer_made", _t.Name(o.Proposal.Formateur)),
-                OfferLapsed => _t.T("ui.event.offer_lapsed"),
-                GovernmentFormed g => _t.T("ui.event.government_formed", string.Join(", ", g.Government.Parties.Select(_t.Name)), _t.Name(g.Government.Leader)),
-                EarlyElectionsCalled => _t.T("ui.event.early_elections"),
-                LoyaltyWarning w => w.DemandId is { } wd && DemandOf(w.PartyId, wd) is { } wdef
-                    ? _t.T("ui.event.loyalty_warning_demand", _t.Name(w.PartyId), DemandText(wdef))
-                    : _t.T("ui.event.loyalty_warning", _t.Name(w.PartyId)),
-                Ultimatum u => u.DemandId is { } ud && DemandOf(u.PartyId, ud) is { } udef
-                    ? _t.T("ui.event.ultimatum_demand", _t.Name(u.PartyId), u.TurnsLeft, DemandText(udef))
-                    : _t.T("ui.event.ultimatum", _t.Name(u.PartyId), u.TurnsLeft),
-                PartnerLeft l => _t.T("ui.event.partner_left", _t.Name(l.PartyId)),
-                GovernmentFell => _t.T("ui.event.government_fell"),
-                GovernmentMeasure m when _policyById.TryGetValue(m.PolicyId, out var mp) =>
-                    _t.T("ui.event.government_measure", _t.Name(m.PolicyId), Fmt.Policy(mp, m.From, _t), Fmt.Policy(mp, m.To, _t)),
-                _ => null,
-            };
+            string? text = texts.Event(e); // one place for event wording, shared with the Godot client
             if (text == null) continue;
             if (!header) { _out.WriteLine($"\n{_t.T("ui.heading.political_events")}"); header = true; }
             _out.WriteLine("  * " + text);
@@ -589,6 +580,24 @@ public sealed class PlayLoop
         var group = Resolve(string.Join(" ", nameArgs), _packs.VoterGroups, g => g.Id, numbers: false);
         if (group == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", nameArgs))); return; }
         Report(_game.Apply(new Campaign(group.Id, effort)), "ui.party.campaign_ok", quiet: true, _t.Name(group.Id));
+    }
+
+    private void DoProposePolicy(string[] args)
+    {
+        if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_propose")); return; }
+        var policy = Resolve(string.Join(" ", args[..^1]), _policies, p => p.Id, numbers: true);
+        if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args[..^1]))); return; }
+        if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
+        { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
+        Report(_game.Apply(new ProposePolicy(policy.Id, target)), "ui.exit.propose_ok", quiet: true, _t.Name(policy.Id));
+    }
+
+    private void DoDismiss(string[] args)
+    {
+        if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.usage_dismiss")); return; }
+        var party = Resolve(JoinArgs(args, 0), OtherParties(), p => p.Id, numbers: true);
+        if (party == null) { _out.WriteLine(_t.T("ui.err.unknown_item", JoinArgs(args, 0))); return; }
+        Report(_game.Apply(new DismissPartner(party.Id)), "ui.exit.dismiss_ok", quiet: true, _t.Name(party.Id));
     }
 
     private void DoCourt(string[] args)
