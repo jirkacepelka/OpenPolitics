@@ -94,4 +94,15 @@ public class GrudgeTests
         for (int i = 0; i < 16; i++) g.EndTurn();
         Assert.True(Pol(g).Grudge!.GetValueOrDefault("base:b|base:a") <= 0.25 * first);
     }
+
+    [Fact]
+    public void ThePlayersOwnResentmentNeverBlocksTheirOwnChoices()
+    {
+        // the player (b) leaves a+b; a loses its majority, and a may still invite b right away
+        var g = New(Load(Parties(), "b", government: new[] { "a", "b" }, leader: "a", turnsToElection: 60, interval: 60, maxFormation: 12), 1);
+        Assert.True(g.Apply(new LeaveCoalition()).Accepted);
+        var reports = new List<TurnReport> { g.EndTurn() };
+        for (int i = 0; i < 8 && !Events<OfferMade>(reports).Any() && !Events<GovernmentFormed>(reports).Any(); i++) reports.Add(g.EndTurn());
+        Assert.Contains(Events<OfferMade>(reports), o => o.Proposal.Partners.Contains("base:b"));
+    }
 }

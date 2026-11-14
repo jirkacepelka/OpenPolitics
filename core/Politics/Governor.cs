@@ -27,7 +27,7 @@ public static class Governor
         if (fromCommitments != null || leader == null) return fromCommitments;
 
         var candidates = new List<(double Score, string Id, double Next)>();
-        double deficit = value("base:deficit_pct"), unemployment = value("base:unemployment"), inflation = value("base:inflation");
+        double deficit = value("base:deficit_pct"), unemployment = value("base:unemployment");
         bool Unmet(string valueId) => g.Commitments.Any(c => c.Demand.Kind == "value" && c.Demand.Subject == valueId
             && !CommitmentMath.Satisfied(c.Demand, value(valueId)));
         if (deficit > DeficitCrisisPct || Unmet("base:deficit_pct") || Unmet("base:inflation"))
@@ -36,7 +36,6 @@ public static class Governor
                 .OrderByDescending(p => policy(p.Id) * p.CostPerUnit).ThenBy(p => p.Id, StringComparer.Ordinal).FirstOrDefault();
             if (biggest != null)
                 candidates.Add((10 + deficit, biggest.Id, Math.Max(biggest.Min, policy(biggest.Id) - CrisisStepOfRange * (biggest.Max - biggest.Min))));
-        _ = inflation; // reserved: a hot economy is cooled by the same tightening when a partner demands low inflation
         }
         if (unemployment >= UnemploymentCrisisPct || Unmet("base:unemployment"))
         {
@@ -60,7 +59,10 @@ public static class Governor
                 candidates.Add((0.5 * pos.Weight * gap, p.Id, Math.Clamp(x + step, p.Min, p.Max)));
             }
 
-        var ordered = candidates.Where(c => c.Next != policy(c.Id)).OrderByDescending(c => c.Score).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
+        // a commitment that is met stays met: drift and crisis moves never undo what the coalition agreement already got
+        bool Breaks((double Score, string Id, double Next) c) => g.Commitments.Any(cm => cm.Demand.Kind == "policy" && cm.Demand.Subject == c.Id
+            && CommitmentMath.Satisfied(cm.Demand, policy(c.Id)) && !CommitmentMath.Satisfied(cm.Demand, c.Next));
+        var ordered = candidates.Where(c => c.Next != policy(c.Id) && !Breaks(c)).OrderByDescending(c => c.Score).ThenBy(c => c.Id, StringComparer.Ordinal).ToList();
         bool Crosses((double Score, string Id, double Next) c) => (partnerRedLines ?? Array.Empty<RedLineDef>()).Any(r =>
             r.Policy == c.Id && LoyaltyModel.RedLineViolated(r, c.Next) && !LoyaltyModel.RedLineViolated(r, policy(c.Id)));
         foreach (var c in ordered) if (!Crosses(c)) return (c.Id, c.Next);

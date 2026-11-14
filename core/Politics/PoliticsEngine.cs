@@ -63,11 +63,20 @@ internal sealed class PoliticsEngine
     private CoalitionProposal? _offer;
     private readonly List<PoliticalEvent> _pending = new();
     private readonly List<(string PolicyId, double Target)> _proposals = new();
-    private readonly List<(string PolicyId, double Target)> _approved = new();
+    private readonly List<(string PolicyId, double Next)> _approved = new();
     private bool _leaveQueued, _noConfidenceQueued;
     private readonly SortedDictionary<string, int> _nextDemand = new(Ord);
     private readonly SortedDictionary<string, (string DemandId, int Due)> _midterm = new(Ord);
-    public const int MidTermDueTurns = 6;
+    public const int MidTermDueTurns = 8;
+    private Func<string, double>? _latest;
+
+    /// <summary>Lets the engine see policy changes that are queued but not yet in effect (the game supplies them).</summary>
+    public void UseLatestPolicy(Func<string, double> latest) => _latest = latest;
+
+    private double Latest(string policyId) => _latest != null ? _latest(policyId) : _lookup("policy", policyId);
+
+    /// <summary>Delivered once the value is in effect, or - for a policy - once the change that satisfies it is queued.</summary>
+    private bool Delivered(Commitment c) => CommitmentMath.Satisfied(c.Demand, c.Demand.Kind == "policy" ? Latest(c.Demand.Subject) : Current(c));
     private readonly List<string> _dismissQueue = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
@@ -392,7 +401,7 @@ internal sealed class PoliticsEngine
         foreach (var (policyId, target) in proposals)
         {
             var def = _policyDefs[policyId];
-            double range = def.Max - def.Min, current = _lookup("policy", policyId);
+            double range = def.Max - def.Min, current = Latest(policyId);
             double next = Math.Clamp(current + Math.Clamp(target - current, -ProposalMaxMoveOfRange * range, ProposalMaxMoveOfRange * range), def.Min, def.Max);
             bool redLine = _government.Parties.Where(p => p != Player).Any(p => _parties[p].RedLines.Any(r =>
                 r.Policy == policyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current)));
@@ -402,7 +411,7 @@ internal sealed class PoliticsEngine
             if (!redLine && score >= ProposalThreshold)
             {
                 events.Add(new PolicyProposalAccepted(turn, policyId, target));
-                _approved.Add((policyId, target));
+                _approved.Add((policyId, next));
                 _relations[leader] = Math.Min(1.0, _relations.GetValueOrDefault(leader, DefaultRelation) + 0.05);
             }
             else
@@ -414,7 +423,7 @@ internal sealed class PoliticsEngine
     }
 
     /// <summary>Proposals the leader agreed to this turn (policy id, requested target); the game turns them into government measures.</summary>
-    public IReadOnlyList<(string PolicyId, double Target)> TakeApprovedProposals()
+    public IReadOnlyList<(string PolicyId, double Next)> TakeApprovedProposals()
     {
         var list = _approved.ToList();
         _approved.Clear();
@@ -721,14 +730,14 @@ internal sealed class PoliticsEngine
     /// <summary>Partners whose voters are unhappy (poll below their election result) raise new demands during the term.</summary>
     private void StepMidTermDemands(int turn, List<PoliticalEvent> events)
     {
-        foreach (var partner in _government.Parties.Where(p => p != _government.Leader).ToList())
+        foreach (var partner in _government.Parties.Where(p => p != _government.Leader && p != Player).ToList())
         {
             double loyalty = _loyalty.GetValueOrDefault(partner, _loyaltyParams.Start);
             if (_midterm.TryGetValue(partner, out var open))
             {
                 var c = _government.Commitments.FirstOrDefault(x => x.PartyId == partner && x.Demand.Id == open.DemandId);
                 if (c == null) { _midterm.Remove(partner); continue; }
-                if (CommitmentMath.Satisfied(c.Demand, Current(c)))
+                if (Delivered(c))
                 {
                     _loyalty[partner] = Math.Min(100.0, loyalty + 10.0);
                     events.Add(new DemandMet(turn, partner, open.DemandId));

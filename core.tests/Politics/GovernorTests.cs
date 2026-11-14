@@ -156,6 +156,25 @@ public class GovernorTests
         Assert.Null(Move(g, At, id => id == "base:deficit_pct" ? -1.0 : 0.0, 5, Leader(taxTarget: 30, spendTarget: 10)));
     }
 
+    [Fact]
+    public void AMetCommitmentIsNeverUndoneByDriftOrCrisis()
+    {
+        // the partner wants spend >= 12, the leader's own platform says 8 and the deficit is in crisis
+        var g = G(C("keep", "t:spend", ">=", 12, 10, 3));
+        double spend = 10;
+        double Policy(string id) => id == "t:spend" ? spend : At(id);
+        var seen = new List<double>();
+        for (int turn = 4; turn < 60; turn++)
+        {
+            if (Governor.Move(g, Policy, id => id == "base:deficit_pct" ? 6.0 : 0.0, Costly, turn, Leader(taxTarget: 30, spendTarget: 8), Array.Empty<RedLineDef>()) is { PolicyId: "t:spend" } m)
+                spend = m.Value;
+            seen.Add(spend);
+        }
+        int reached = seen.FindIndex(x => x >= 12);
+        Assert.True(reached >= 0);
+        Assert.All(seen.Skip(reached), x => Assert.True(x >= 12, $"fell back to {x}"));
+    }
+
     // ---- inside a game: player z (never in government) watches the AI run it -----------------------------------
 
     private static Spec[] Parties() => new[]

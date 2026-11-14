@@ -73,6 +73,7 @@ public sealed class Game
             _politics = new PoliticsEngine(packs, _scenario, _country, seed, _satisfaction,
                 (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
                 _scenario.TurnsPerYear);
+        _politics?.UseLatestPolicy(LatestPolicy);
     }
 
     /// <summary>The value a policy will have once its queued changes are in (the last queued one, else the current one).</summary>
@@ -211,11 +212,10 @@ public sealed class Game
             _politics.RecordMeasure(_turn, move.PolicyId, from, move.Value);
             _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
         }
-        foreach (var (policyId, target) in _politics?.TakeApprovedProposals() ?? Array.Empty<(string, double)>())
+        foreach (var (policyId, to) in _politics?.TakeApprovedProposals() ?? Array.Empty<(string, double)>())
         {
             var def = _policyDefs[policyId];
-            double from = LatestPolicy(policyId), range = def.Max - def.Min;
-            double to = Math.Clamp(from + Math.Clamp(target - from, -0.25 * range, 0.25 * range), def.Min, def.Max);
+            double from = LatestPolicy(policyId); // the engine vetted exactly this move, from the same queued value
             if (to == from) continue;
             politicalEvents.Add(new GovernmentMeasure(_turn, policyId, from, to));
             _politics!.RecordMeasure(_turn, policyId, from, to);

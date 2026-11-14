@@ -13,12 +13,13 @@ internal static class FormationFixture
 
     public static PackSet Load(Spec[] parties, string player, string[]? government = null, string? leader = null,
         int interval = 16, int turnsToElection = 1, int maxFormation = 4, int caretaker = 2, int slots = 6,
-        string? redLines = null, string? agreements = null, bool extraGroups = false, bool grumpy = false)
+        string? redLines = null, string? agreements = null, bool extraGroups = false, bool grumpy = false,
+        double? slowTarget = null, Action<Dictionary<string, string>>? mutate = null)
     {
         return GameFixture.Load(f =>
         {
             f["parties/p.yaml"] = string.Join("", parties.Select(p =>
-                $"- id: base:{p.Id}\n  swing: {(p.Swing ? "true" : "false")}\n  price: {p.Price}\n  platform:\n    base:tax: {{target: {p.Tax}, weight: 1}}\n" +
+                $"- id: base:{p.Id}\n  swing: {(p.Swing ? "true" : "false")}\n  price: {p.Price}\n  platform:\n    base:tax: {{target: {p.Tax}, weight: 1}}\n" + (slowTarget == null ? "" : $"    base:slow: {{target: {slowTarget}, weight: 1}}\n") +
                 $"  demands:\n    - {{id: d1, kind: policy, policy: {p.DemandPolicy}, op: \">=\", target: 41, weight: 3}}\n" +
                 $"    - {{id: d2, kind: policy, policy: {p.DemandPolicy}, op: \">=\", target: 42, weight: 2}}\n" +
                 $"    - {{id: d3, kind: policy, policy: {p.DemandPolicy}, op: \">=\", target: 43, weight: 1}}\n" +
@@ -36,6 +37,7 @@ internal static class FormationFixture
                     "- id: base:grumpy\n  size: 3\n  weight: 1\n  policy_prefs: {base:spend: 80}\n  policy_weights: {base:spend: 8}\n";
                 foreach (var lang in new[] { "cs", "en" }) f[$"localization/{lang}.yaml"] += $"name.base:grumpy: {lang}-g\n";
             }
+            mutate?.Invoke(f);
             f["electoral_systems/pr.yaml"] = "- id: base:pr\n  type: proportional\n  seats: 200\n  method: dhondt\n  threshold: 0.05\n";
             f["countries/c.yaml"] = "- id: base:czechia\n  name_key: country.czechia\n  politics:\n    electoral_system: base:pr\n" +
                 $"    election_interval_turns: {interval}\n    majority_fraction: 0.5\n    max_formation_turns: {maxFormation}\n    caretaker_turns: {caretaker}\n    program_slots: {slots}\n";

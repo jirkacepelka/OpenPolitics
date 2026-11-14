@@ -26,10 +26,10 @@ public class MidTermDemandTests
         while (!Ev<DemandRaised>(reports).Any() && reports.Count < 20) reports.Add(g.EndTurn());
         var first = Assert.Single(Ev<DemandRaised>(reports));
         Assert.Equal("base:b", first.PartyId);
-        Assert.Equal(6, first.DueTurns);
+        Assert.Equal(8, first.DueTurns);
         Assert.Contains(Pol(g).Commitments!, c => c.PartyId == "base:b" && c.DemandId == first.DemandId);
         // nothing else is raised while this one is open
-        var open = Run(g, 5);
+        var open = Run(g, 6);
         Assert.Empty(Ev<DemandRaised>(open));
         Assert.Empty(Ev<PartnerLeft>(open));
     }
@@ -58,13 +58,13 @@ public class MidTermDemandTests
         double last = Pol(g).Loyalty!["base:b"];
         var later = new List<TurnReport>();
         double beforeDeadline = last;
-        for (int i = 0; i < 6 && !Ev<DemandFailed>(later).Any(); i++)
+        for (int i = 0; i < 8 && !Ev<DemandFailed>(later).Any(); i++)
         {
             beforeDeadline = Pol(g).Loyalty!.GetValueOrDefault("base:b", 0);
             later.Add(g.EndTurn());
         }
         var failed = Assert.Single(Ev<DemandFailed>(later));
-        Assert.Equal(raisedAt + 6, failed.Turn);
+        Assert.Equal(raisedAt + 8, failed.Turn);
         Assert.True(Pol(g).Loyalty!.GetValueOrDefault("base:b", 0) <= beforeDeadline - 20);
     }
 
@@ -82,5 +82,29 @@ public class MidTermDemandTests
         var g = Make(agreements: "      - {party: base:b, demand: d1}\n");
         var reports = Run(g, 10);
         Assert.DoesNotContain(Ev<DemandRaised>(reports), r => r.DemandId == "d1");
+    }
+
+    [Fact]
+    public void ThePlayersOwnPartyIsNeverGivenAMidTermDemand()
+    {
+        // the player is the unhappy partner b: only the player decides what b demands
+        var g = New(Load(Parties(), "b", government: new[] { "a", "b" }, leader: "a", turnsToElection: 60, interval: 60, grumpy: true), 1);
+        var reports = Run(g, 20);
+        Assert.DoesNotContain(Ev<DemandRaised>(reports), r => r.PartyId == "base:b");
+        Assert.DoesNotContain(Ev<DemandFailed>(reports), r => r.PartyId == "base:b");
+    }
+
+    [Fact]
+    public void AChangeAlreadyQueuedCountsAsDelivered()
+    {
+        // here spending takes two turns to act; the demand (spend >= 41) is met once the change is queued, not once it has landed
+        var g = New(Load(Parties(), "a", government: new[] { "a", "b" }, leader: "a", turnsToElection: 60, interval: 60, grumpy: true,
+            mutate: f => f["policies/p.yaml"] = f["policies/p.yaml"].Replace("default: 40\n  cost_per_unit: 1\n", "default: 40\n  cost_per_unit: 1\n  delay_turns: 2\n")), 1);
+        var reports = new List<TurnReport>();
+        while (!Ev<DemandRaised>(reports).Any() && reports.Count < 20) reports.Add(g.EndTurn());
+        Assert.NotEmpty(Ev<DemandRaised>(reports));
+        Assert.True(g.Apply(new SetPolicy("base:spend", 43)).Accepted);
+        Assert.Equal(40.0, g.State.Countries.Values.Single().Policies["base:spend"]); // queued, not in effect
+        Assert.Single(g.EndTurn().PoliticalEvents.OfType<DemandMet>());
     }
 }

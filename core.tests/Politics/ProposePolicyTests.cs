@@ -119,4 +119,18 @@ public class ProposePolicyTests
         Assert.Equal(Tax(live), Tax(loaded));
         Assert.Equal(Pol(live).Party!.Relations["base:a"], Pol(loaded).Party!.Relations["base:a"]);
     }
+
+    [Fact]
+    public void TheRedLineCheckSeesChangesStillWaitingToTakeEffect()
+    {
+        // base:slow (delay 2, range 0..10, default 1); everybody wants 9, nobody accepts slow >= 6
+        var g = New(Load(Parties(), "b", government: new[] { "a", "b", "c" }, leader: "a", turnsToElection: 60, interval: 60,
+            redLines: "  red_lines:\n    - {policy: base:slow, op: \">=\", threshold: 6}\n", slowTarget: 9), 1);
+        Assert.True(g.Apply(new ProposePolicy("base:slow", 9)).Accepted);
+        Assert.Single(g.EndTurn().PoliticalEvents.OfType<PolicyProposalAccepted>()); // 1 -> 3.5, queued for two turns
+        Assert.True(g.Apply(new ProposePolicy("base:slow", 9)).Accepted);
+        // judged from the queued 3.5, the next step would reach 6 and cross the line, although 1 is still in effect
+        var second = g.EndTurn();
+        Assert.Equal("red_line", Assert.Single(second.PoliticalEvents.OfType<PolicyProposalRejected>()).Reason);
+    }
 }
