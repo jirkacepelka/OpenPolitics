@@ -406,7 +406,9 @@ internal sealed class PoliticsEngine
     /// <summary>The governor's move for this turn; none unless the government is sitting and the player does not lead it.</summary>
     public (string PolicyId, double Value)? GovernorMove(int turn, Func<string, double> latestPolicy) =>
         _phase == Phase.Governing && PlayerRole != Role.Leader
-            ? Governor.Move(_government, latestPolicy, id => _lookup("value", id), _policyDefs, turn)
+            ? Governor.Move(_government, latestPolicy, id => _lookup("value", id), _policyDefs, turn,
+                _parties.GetValueOrDefault(_government.Leader),
+                _government.Parties.Where(p => p != _government.Leader).SelectMany(p => _parties[p].RedLines).ToList())
             : null;
 
     /// <summary>One turn of politics. <paramref name="turn"/> is the turn number the report will carry.</summary>

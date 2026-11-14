@@ -59,6 +59,88 @@ public class GovernorTests
         Assert.True(x >= 11);
     }
 
+    // ---- the leader's own agenda and crisis response (wave 2) ----------------------------------------------------
+
+    private static readonly Dictionary<string, PolicyDef> Costly = new()
+    {
+        ["t:tax"] = new("t:tax", "percent", 0, 40, 30, null, 0, 0, null, "x"),
+        ["t:spend"] = new("t:spend", "percent", 0, 20, 10, null, 1.0, 0, null, "x"),
+        ["t:other"] = new("t:other", "percent", 0, 10, 6, null, 1.0, 0, null, "x"),
+    };
+
+    private static PartyDef Leader(double taxTarget = 20, double spendTarget = 15) => new(
+        "l", "name.l",
+        new Dictionary<string, PlatformPosition> { ["t:tax"] = new(taxTarget, 1), ["t:spend"] = new(spendTarget, 1) },
+        new Dictionary<string, double>(), false, new List<DemandDef>(), new List<RedLineDef>(), 0, new List<FactionDef>(), "x");
+
+    private static (string PolicyId, double Value)? Move(Government g, Func<string, double> policy, Func<string, double> value,
+        int turn, PartyDef? leader = null, params RedLineDef[] redLines) =>
+        Governor.Move(g, policy, value, Costly, turn, leader ?? Leader(), redLines);
+
+    private static double At(string id) => id switch { "t:tax" => 30, "t:spend" => 10, _ => 6 };
+
+    [Fact]
+    public void CommitmentsStillComeFirst()
+    {
+        var g = G(C("a", "t:other", ">=", 9, 6, 3));
+        Assert.Equal("t:other", Move(g, At, _ => 0, 4)!.Value.PolicyId);
+    }
+
+    [Fact]
+    public void WithoutCommitmentsTheLeaderMovesTowardItsOwnPlatformEverySecondTurn()
+    {
+        var g = G();
+        var taxFirst = Leader(taxTarget: 15, spendTarget: 10); // tax gap 15/40 = 0.375 is the biggest
+        Assert.Equal(("t:tax", 26.25), Move(g, At, _ => 0, 4, taxFirst)!.Value); // 30 + 0.25 * (15 - 30)
+        Assert.Null(Move(g, At, _ => 0, 5, taxFirst));
+    }
+
+    [Fact]
+    public void NothingToDoWhenAlignedAndCalm()
+    {
+        var aligned = Leader(taxTarget: 30, spendTarget: 10);
+        Assert.Null(Move(G(), At, _ => 0, 4, aligned));
+    }
+
+    [Fact]
+    public void DeficitCrisisLowersTheBiggestSpendingLine()
+    {
+        var calmLeader = Leader(taxTarget: 30, spendTarget: 10);
+        var move = Move(G(), At, id => id == "base:deficit_pct" ? 6.0 : 0.0, 5, calmLeader)!.Value;
+        Assert.Equal(("t:spend", 8.0), move); // 10 - 10 % of its range of 20
+    }
+
+    [Fact]
+    public void UnemploymentCrisisRaisesSpendingTowardTheLeadersTarget()
+    {
+        var move = Move(G(), At, id => id == "base:unemployment" ? 9.0 : 0.0, 5, Leader(taxTarget: 30, spendTarget: 11))!.Value;
+        Assert.Equal(("t:spend", 11.0), move); // +10 % of range would be 12, capped at the leader's own target
+    }
+
+    [Fact]
+    public void ARedLineMoveIsSkippedWhenThereIsAnAlternativeAndTakenWhenThereIsNot()
+    {
+        var onlyTax = Leader(taxTarget: 20, spendTarget: 10);
+        var red = new RedLineDef("t:tax", "<=", 28);
+        // tax would go 30 -> 27.5, crossing the partner's line; nothing else to do, so it happens anyway
+        Assert.Equal(("t:tax", 27.5), Move(G(), At, _ => 0, 4, onlyTax, red)!.Value);
+        // with a spending gap as an alternative, the governor takes that instead
+        var both = Leader(taxTarget: 10, spendTarget: 15); // tax gap 0.5 would win, but it crosses the line
+        Assert.Equal("t:tax", Move(G(), At, _ => 0, 4, both)!.Value.PolicyId);
+        Assert.Equal("t:spend", Move(G(), At, _ => 0, 4, both, red)!.Value.PolicyId);
+    }
+
+    [Fact]
+    public void PlatformMovesStayInsideTheRange()
+    {
+        var greedy = Leader(taxTarget: 20, spendTarget: 500);
+        for (int turn = 4; turn < 60; turn += 2)
+        {
+            var m = Governor.Move(G(), At, _ => 0, Costly, turn, greedy, Array.Empty<RedLineDef>());
+            if (m is { } mv) Assert.InRange(mv.Value, 0.0, 40.0);
+        }
+    }
+
     // ---- inside a game: player z (never in government) watches the AI run it -----------------------------------
 
     private static Spec[] Parties() => new[]
