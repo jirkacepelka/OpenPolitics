@@ -20,10 +20,28 @@ public static class Ui
         return l;
     }
 
-    public static Label Heading(string text) => Text(text, Colors.White, 22);
+    public static Label Heading(string text)
+    {
+        var l = Text(text, Colors.White, 24);
+        l.AddThemeFontOverride("font", AppTheme.Bold);
+        return l;
+    }
+
+    /// <summary>A big number or key word in the bold face.</summary>
+    public static Label Big(string text, Color? color = null, int size = 22)
+    {
+        var l = Text(text, color ?? Colors.White, size);
+        l.AddThemeFontOverride("font", AppTheme.Bold);
+        return l;
+    }
 
     /// <summary>A smaller section title inside a page or card.</summary>
-    public static Label Section(string text) => Text(text, Accent, 17);
+    public static Label Section(string text)
+    {
+        var l = Text(text.ToUpperInvariant(), Accent, 14);
+        l.AddThemeFontOverride("font", AppTheme.Bold);
+        return l;
+    }
 
     /// <summary>A rounded card around some content. The card is a PanelContainer: the child fills it.</summary>
     public static PanelContainer Card(Control child, Color? fill = null, bool expand = true)

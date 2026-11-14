@@ -12,7 +12,7 @@ public partial class CompassView : Control
 
     public CompassView()
     {
-        CustomMinimumSize = new Vector2(340, 340);
+        CustomMinimumSize = new Vector2(320, 320);
         MouseFilter = MouseFilterEnum.Stop;
     }
 

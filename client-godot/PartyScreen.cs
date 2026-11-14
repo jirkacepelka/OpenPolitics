@@ -10,6 +10,7 @@ namespace OpenPolitics.Client;
 public partial class PartyScreen : Screen
 {
     public override string TitleKey => "ui.client.tab.party";
+    public override float PreferredWidth => 0.88f;
     private readonly VBoxContainer _body;
     private int _groupIndex, _effort = 1, _valueIndex;
     private double _proposeTarget = double.NaN;

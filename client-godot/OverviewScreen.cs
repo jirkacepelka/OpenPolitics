@@ -6,6 +6,7 @@ namespace OpenPolitics.Client;
 public partial class OverviewScreen : Screen
 {
     public override string TitleKey => "ui.client.tab.overview";
+    public override float PreferredWidth => 0.7f;
     private readonly VBoxContainer _body;
 
     public OverviewScreen()
@@ -26,7 +27,7 @@ public partial class OverviewScreen : Screen
             _body.AddChild(Ui.Text(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Ui.Warn, 0, true));
             _body.AddChild(Ui.Rule());
         }
-        _body.AddChild(Ui.Heading(t.T("ui.heading.overview")));
+        _body.AddChild(Ui.Text(t.T("ui.client.hud_hint"), Ui.Muted, 14, true));
 
         var grid = new GridContainer { Columns = 2 };
         grid.AddThemeConstantOverride("h_separation", 24);
@@ -36,10 +37,6 @@ public partial class OverviewScreen : Screen
             grid.AddChild(Ui.Text(value, color, 18));
         }
         var values = s.Packs.Values.ToDictionary(v => v.Id);
-        if (f.Gdp is { } gdp) Row("ui.line.gdp", Fmt.Value(values["base:gdp"], gdp));
-        if (f.GrowthPercent is { } g) Row("ui.line.growth", Fmt.Signed(g) + " %", g < 0 ? Ui.Bad : Ui.Good);
-        if (f.Unemployment is { } u) Row("ui.line.unemployment", Fmt.Value(values["base:unemployment"], u));
-        if (f.Inflation is { } i) Row("ui.line.inflation", Fmt.Value(values["base:inflation"], i), i > 6 ? Ui.Bad : null);
         if (f.DebtPercentOfGdp is { } d) Row("ui.line.debt_ratio", Fmt.Number(d, "0") + " %", d > 120 ? Ui.Bad : null);
         if (f.BudgetPercentOfGdp is { } b) Row("ui.line.budget", Fmt.Signed(b) + " %", b < -3 ? Ui.Bad : null);
         _body.AddChild(grid);

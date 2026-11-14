@@ -5,19 +5,37 @@ namespace OpenPolitics.Client;
 /// <summary>The look of the whole client: one dark palette, rounded cards, readable type. Built in code so there are no asset files to keep in step.</summary>
 public static class AppTheme
 {
-    public static readonly Color Bg = new("0d111b");
-    public static readonly Color Header = new("121827");
-    public static readonly Color Surface = new("171e30");
-    public static readonly Color Card = new("1c2438");
-    public static readonly Color CardHover = new("232d46");
-    public static readonly Color Border = new("2d3957");
-    public static readonly Color Text = new("e7eaf3");
-    public static readonly Color Muted = new("8e99b3");
-    public static readonly Color Accent = new("6f9bff");
-    public static readonly Color AccentDim = new("3a5aa8");
-    public static readonly Color Good = new("4cc38a");
-    public static readonly Color Bad = new("ef6b73");
-    public static readonly Color Warn = new("f2b84b");
+    public static readonly Color Bg = new("070b14");
+    public static readonly Color Header = new("0b1120");
+    public static readonly Color Surface = new("101933");
+    public static readonly Color Card = new("16213d");
+    public static readonly Color CardHover = new("1f2e55");
+    public static readonly Color Border = new("2b3d68");
+    public static readonly Color Text = new("eaf0ff");
+    public static readonly Color Muted = new("8a9bbd");
+    public static readonly Color Accent = new("38bdf8");
+    public static readonly Color AccentDim = new("155e86");
+    public static readonly Color Good = new("34d399");
+    public static readonly Color Bad = new("fb7185");
+    public static readonly Color Warn = new("fbbf24");
+
+    public static readonly Color Tax = new("fbbf24"), Spend = new("2dd4bf"), Regulation = new("a78bfa"), ValueNode = new("60a5fa");
+
+    /// <summary>A frosted-glass panel floating over the map, with a soft shadow.</summary>
+    public static StyleBoxFlat Glass(float alpha = 0.9f, int radius = 16)
+    {
+        var s = Box(new Color(Header.R, Header.G, Header.B, alpha), radius, new Color(Border, 0.9f), 1, 0);
+        s.ShadowColor = new Color(0, 0, 0, 0.55f); s.ShadowSize = 22; s.ShadowOffset = new Vector2(0, 6);
+        return s;
+    }
+
+    private static SystemFont? _bold;
+    /// <summary>The bold face used for headings and big numbers.</summary>
+    public static SystemFont Bold => _bold ??= new SystemFont
+    {
+        FontNames = new[] { "Inter", "Noto Sans", "Segoe UI", "Helvetica Neue", "DejaVu Sans", "sans-serif" }, FontWeight = 700,
+        Antialiasing = TextServer.FontAntialiasing.Lcd, Hinting = TextServer.Hinting.Light, SubpixelPositioning = TextServer.SubpixelPositioning.Auto,
+    };
 
     public static StyleBoxFlat Box(Color fill, int radius = 8, Color? border = null, int borderWidth = 0, int pad = 0)
     {

@@ -6,6 +6,9 @@ namespace OpenPolitics.Client;
 public abstract partial class Screen : Control
 {
     public abstract string TitleKey { get; }
+
+    /// <summary>How much of the window width the floating panel takes for this screen (0..1).</summary>
+    public virtual float PreferredWidth => 0.62f;
     public abstract void Refresh(Session s);
 
     protected Screen()

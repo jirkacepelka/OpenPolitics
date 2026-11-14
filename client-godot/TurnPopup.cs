@@ -35,6 +35,9 @@ public partial class TurnPopup : Window
     /// <summary>True when there is anything to tell or decide.</summary>
     public static bool HasContent(Session s) => s.Digest.Count > 0 || Decisions(s).Count > 0;
 
+    /// <summary>True when the player must decide something (an offer to answer, a government to form, an ultimatum).</summary>
+    public static bool HasDecisions(Session s) => Decisions(s).Count > 0;
+
     private static List<string> Decisions(Session s)
     {
         var list = new List<string>();

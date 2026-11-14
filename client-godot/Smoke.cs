@@ -59,20 +59,23 @@ public static class Smoke
             s.Do(new Court("base:green_wave"));
             s.Do(new Criticize("base:gdp"));
             s.EndQuarter();
-            main.Tabs!.CurrentTab = q % main.Screens.Count;
+            main.Show(main.Screens[q % main.Screens.Count]);
             await Frame(main);
             if (q % 7 == 0)
-                foreach (var g in main.Screens.OfType<GraphScreen>()) g.SelectedId = q % 2 == 0 ? "base:gdp" : "base:income_tax";
+                main.Map!.Select(q % 2 == 0 ? "base:gdp" : "base:income_tax");
         }
         foreach (var screen in main.Screens)
+        {
+            main.Show(screen);
             if (screen.GetChildCount() == 0) throw new Exception($"{screen.GetType().Name} is empty");
+        }
         foreach (var policies in main.Screens.OfType<PoliciesScreen>()) policies.Focus(s, "base:pensions", 13);
         foreach (var chart in Charts.Available(s)) _ = Charts.Build(s, chart, 8);
         if (shots != null)
         {
             if (s.Packs.Policies.Count > 0) foreach (var policies in main.Screens.OfType<PoliciesScreen>()) policies.Focus(s, "base:minimum_wage", 7);
             await Frame(main);
-            main.Tabs!.CurrentTab = main.Screens.FindIndex(x => x is PoliciesScreen);
+            main.Show(main.Screens.First(x => x is PoliciesScreen));
             await Frame(main); await Frame(main);
             main.GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(shots, $"{scenarioId.Replace(':', '_')}-{language}-effects.png"));
             if (Charts.Available(s).FirstOrDefault(c => c.Id == (s.HasPolitics ? "polls" : "gdp")) is { } spec)
@@ -93,9 +96,16 @@ public static class Smoke
             await Frame(main);
         }
         if (shots != null)
+        {
+            main.Open(null);
+            await Frame(main); await Frame(main);
+            main.GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(shots, $"{scenarioId.Replace(':', '_')}-{language}-map.png"));
+            main.Show(main.Screens[0]);
+        }
+        if (shots != null)
             for (int i = 0; i < main.Screens.Count; i++)
             {
-                main.Tabs!.CurrentTab = i;
+                main.Show(main.Screens[i]);
                 await Frame(main); await Frame(main);
                 var img = main.GetViewport().GetTexture().GetImage();
                 img.SavePng(System.IO.Path.Combine(shots, $"{scenarioId.Replace(':', '_')}-{language}-{i}-{main.Screens[i].GetType().Name}.png"));

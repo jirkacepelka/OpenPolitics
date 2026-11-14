@@ -10,6 +10,7 @@ namespace OpenPolitics.Client;
 public partial class PoliciesScreen : Screen
 {
     public override string TitleKey => "ui.client.tab.policies";
+    public override float PreferredWidth => 0.9f;
     private readonly VBoxContainer _body;
     private readonly PolicyEffectsPanel _effects = new();
     private string? _focus;
@@ -22,7 +23,7 @@ public partial class PoliciesScreen : Screen
         var (scroll, body) = Ui.Page();
         _body = body;
         split.AddChild(scroll);
-        var side = new MarginContainer { CustomMinimumSize = new Vector2(380, 0) };
+        var side = new MarginContainer { CustomMinimumSize = new Vector2(340, 0) };
         side.AddThemeConstantOverride("margin_right", 12); side.AddThemeConstantOverride("margin_top", 12); side.AddThemeConstantOverride("margin_bottom", 12);
         side.AddChild(_effects);
         split.AddChild(side);

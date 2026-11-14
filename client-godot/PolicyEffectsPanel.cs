@@ -15,7 +15,7 @@ public partial class PolicyEffectsPanel : PanelContainer
 
     public PolicyEffectsPanel()
     {
-        CustomMinimumSize = new Vector2(360, 0);
+        CustomMinimumSize = new Vector2(320, 0);
         SizeFlagsVertical = SizeFlags.ExpandFill;
         AddChild(_body);
     }

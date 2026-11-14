@@ -10,6 +10,7 @@ namespace OpenPolitics.Client;
 public partial class PoliticsScreen : Screen
 {
     public override string TitleKey => "ui.client.tab.politics";
+    public override float PreferredWidth => 0.86f;
     private readonly VBoxContainer _body;
     private Session? _s;
     private readonly HashSet<string> _invited = new(StringComparer.Ordinal);
@@ -62,9 +63,9 @@ public partial class PoliticsScreen : Screen
             bool gov = pol.GovernmentParties.Contains(id);
             row.AddChild(Ui.Text(gov ? "★" : " ", Ui.Warn));
             var name = Ui.Text(t.Name(id) + (id == pol.PlayerParty ? "  (" + t.T("ui.politics.you") + ")" : ""), id == pol.PlayerParty ? Ui.Accent : null);
-            name.CustomMinimumSize = new Vector2(260, 0);
+            name.CustomMinimumSize = new Vector2(210, 0);
             row.AddChild(name);
-            row.AddChild(Ui.Bar(share, 0, max, gov ? Ui.Warn : Ui.Accent, 260));
+            row.AddChild(Ui.Bar(share, 0, max, gov ? Ui.Warn : Ui.Accent, 190));
             var pct = Ui.Text(Fmt.Number(share * 100) + " %");
             pct.CustomMinimumSize = new Vector2(70, 0);
             row.AddChild(pct);
