@@ -74,6 +74,16 @@ public sealed class GraphEvaluator
             contribs.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<Contribution>)kv.Value));
     }
 
+    /// <summary>
+    /// Steady-state change of every edge leaving <paramref name="policyId"/> if the policy moved from one setting to another,
+    /// in the edge's own units (value units per year, or percent per year for relative edges). Delays are ignored.
+    /// </summary>
+    public IReadOnlyList<(string EdgeId, string To, EdgeKind Kind, double Amount)> Preview(string policyId, double from, double to) =>
+        _edges.Where(e => e.Def.From == policyId)
+            .Select(e => (e.Def.Id, e.Def.To, e.Def.Kind,
+                (EdgeFunctions.Apply(e.Def.Fn, to, e.Reference, e.Scale) - EdgeFunctions.Apply(e.Def.Fn, from, e.Reference, e.Scale)) * e.Def.Strength))
+            .ToList();
+
     public (string EdgeId, double[] State)[] Snapshot() =>
         _edges.Select(e => (e.Def.Id, e.Line.Snapshot())).ToArray();
 

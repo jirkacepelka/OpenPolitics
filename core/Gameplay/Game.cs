@@ -139,6 +139,32 @@ public sealed class Game
     /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
     public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 
+    /// <summary>
+    /// What setting <paramref name="policyId"/> to <paramref name="value"/> would do, measured from the setting it will have
+    /// once queued changes are in. Null for an unknown policy or a value outside its range. Changes nothing.
+    /// </summary>
+    public PolicyPreview? PreviewPolicy(string policyId, double value)
+    {
+        if (!_policyDefs.TryGetValue(policyId, out var policy) || !double.IsFinite(value) || value < policy.Min || value > policy.Max)
+            return null;
+        double from = LatestPolicy(policyId);
+        var effects = new SortedDictionary<string, (double Add, double Rel)>(Ord);
+        foreach (var (_, to, kind, amount) in _graph.Preview(policyId, from, value))
+        {
+            var (a, r) = effects.GetValueOrDefault(to);
+            effects[to] = kind == EdgeKind.Additive ? (a + amount, r) : (a, r + amount);
+        }
+        double range = Math.Max(policy.Max - policy.Min, 1e-12);
+        var groups = new List<GroupEffect>();
+        foreach (var g in _packs.VoterGroups.OrderBy(g => g.Id, Ord))
+            if (g.PolicyPrefs.TryGetValue(policyId, out var pref))
+                groups.Add(new GroupEffect(g.Id, -g.PolicyWeights.GetValueOrDefault(policyId, 1.0) * (Math.Abs(value - pref) - Math.Abs(from - pref)) / range));
+        double delta = value - from;
+        double budget = delta * policy.CostPerUnit - (policy.RevenueBaseValueId != null ? delta : 0.0);
+        return new PolicyPreview(policyId, from, value,
+            effects.Select(kv => new ValueEffect(kv.Key, kv.Value.Add, kv.Value.Rel)).ToList(), groups, budget);
+    }
+
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 
