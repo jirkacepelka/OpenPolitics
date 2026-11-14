@@ -10,8 +10,10 @@ public static class CoalitionBuilder
     public static CoalitionProposal? Build(
         string formateur, IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats,
         IReadOnlyDictionary<string, double> policyRange, double fraction, int programSlots,
-        Func<string, string, double> relation, ISet<string> excluded)
+        Func<string, string, double> relation, ISet<string> excluded,
+        Func<string, string, double>? grudge = null)
     {
+        grudge ??= (_, _) => 0.0;
         if (!parties.TryGetValue(formateur, out var lead)) return null;
         var eligible = parties.Keys
             .Where(id => id != formateur && !excluded.Contains(id) && seats.GetValueOrDefault(id) > 0)
@@ -34,24 +36,24 @@ public static class CoalitionBuilder
 
         foreach (var c in candidates.OrderBy(c => c.Score).ThenBy(c => c.Size).ThenBy(c => c.Key, StringComparer.Ordinal))
         {
-            var agreements = Allocate(formateur, c.Partners, parties, programSlots, relation);
+            var agreements = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge);
             if (agreements == null) continue;
             var proposal = new CoalitionProposal(formateur, c.Partners, agreements);
-            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation).Count == 0) return proposal;
+            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge).Count == 0) return proposal;
         }
         return null;
     }
 
     private static List<AgreedDemand>? Allocate(
         string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, int slots,
-        Func<string, string, double> relation)
+        Func<string, string, double> relation, Func<string, string, double> grudge)
     {
         var members = new List<string> { formateur }; members.AddRange(partners);
         var redLines = members.SelectMany(m => parties[m].RedLines).ToList();
         var chosen = new List<(string Party, DemandDef Demand)>();
         foreach (var partner in partners) // ordinal order
         {
-            double need = CoalitionRules.RequiredWeight(parties[partner], relation(formateur, partner)), got = 0;
+            double need = CoalitionRules.RequiredWeight(parties[partner], relation(formateur, partner), grudge(partner, formateur)), got = 0;
             foreach (var d in parties[partner].Demands.OrderByDescending(d => d.Weight).ThenBy(d => d.Id, StringComparer.Ordinal))
             {
                 if (got + 1e-12 >= need) break;

@@ -38,6 +38,13 @@ internal sealed class PoliticsEngine
     private readonly SortedDictionary<string, double> _pressure = new(Ord);
     /// <summary>How responsible voters hold each party for the state of the country, 0..1; moves slowly toward the government role.</summary>
     private readonly SortedDictionary<string, double> _attribution = new(Ord);
+    /// <summary>Resentment between parties, keyed "a|b" = how much a resents b; raised by leaving and falls, fades slowly.</summary>
+    private readonly SortedDictionary<string, double> _grudge = new(Ord);
+    private static readonly double GrudgeDecay = DetMath.Pow(0.5, 1.0 / 8.0); // half-life of 8 turns
+
+    private double Resent(string a, string b) => _grudge.GetValueOrDefault(a + "|" + b);
+    private void AddGrudge(string a, string b, double amount) =>
+        _grudge[a + "|" + b] = Math.Min(2.0, Resent(a, b) + amount);
     private readonly List<MeasureInfo> _measures = new();
     private readonly List<string> _valueIds;
     private readonly List<Dictionary<string, double>> _history = new(); // value snapshots of the last 5 turns
@@ -144,7 +151,8 @@ internal sealed class PoliticsEngine
             new SortedDictionary<string, double>(_relations, Ord), new SortedDictionary<string, double>(_momentum, Ord),
             new SortedDictionary<string, double>(_pressure, Ord),
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
-            _measures.ToList()));
+            _measures.ToList()),
+        new SortedDictionary<string, double>(_grudge, Ord));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
@@ -174,6 +182,11 @@ internal sealed class PoliticsEngine
         foreach (var id in _pressure.Keys.ToList()) _pressure[id] *= HalfLifeFactor;
         foreach (var id in _attribution.Keys.ToList())
             _attribution[id] = AttributionTarget(id) + (_attribution[id] - AttributionTarget(id)) * HalfLifeFactor;
+        foreach (var key in _grudge.Keys.ToList())
+        {
+            double g = _grudge[key] * GrudgeDecay;
+            if (g < 0.005) _grudge.Remove(key); else _grudge[key] = g;
+        }
         _pc = Math.Min(MaxCapital, _pc + 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0));
     }
 
@@ -301,7 +314,7 @@ internal sealed class PoliticsEngine
         if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
         var proposal = new CoalitionProposal(_scenario.PlayerParty,
             partners.Where(p => p != _scenario.PlayerParty).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements.Distinct().ToList());
-        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation);
+        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent);
         if (refusals.Count > 0)
             return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
         _pending.Add(Form(reportTurn, proposal));
@@ -422,7 +435,7 @@ internal sealed class PoliticsEngine
 
     private CoalitionProposal? BuildFor(string formateur) =>
         CoalitionBuilder.Build(formateur, _parties, _seats, _ranges, _rules.MajorityFraction, _rules.ProgramSlots,
-            Relation, _excluded);
+            Relation, _excluded, Resent);
 
     private void FailAttempt(int turn, string formateur, List<PoliticalEvent> events)
     {
@@ -466,7 +479,7 @@ internal sealed class PoliticsEngine
         _loyalty.Clear(); _warned.Clear(); _ultimatums.Clear(); _redLinesActive.Clear();
         foreach (var p in _government.Parties.Where(p => p != _government.Leader))
         {
-            _loyalty[p] = _loyaltyParams.Start;
+            _loyalty[p] = LoyaltyModel.StartLoyalty(_loyaltyParams.Start, Relation(_government.Leader, p), Resent(p, _government.Leader));
             foreach (var r in _parties[p].RedLines)
                 if (LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy))) _redLinesActive.Add(RedKey(p, r));
         }
@@ -525,6 +538,7 @@ internal sealed class PoliticsEngine
         if (departed && !CoalitionRules.HasMajority(_government.Parties, _seats, _rules.MajorityFraction))
         {
             events.Add(new GovernmentFell(turn));
+            foreach (var p in _government.Parties.Where(p => p != _government.Leader)) AddGrudge(p, _government.Leader, 0.2);
             BeginFormation(turn, events, _government.Leader);
         }
     }
@@ -532,6 +546,10 @@ internal sealed class PoliticsEngine
     private void Depart(string partner, int turn, List<PoliticalEvent> events)
     {
         events.Add(new PartnerLeft(turn, partner));
+        int unmet = _government.Commitments.Count(c => c.PartyId == partner
+            && CommitmentMath.Progress(c, Current(c)) + 1e-9 < CommitmentMath.Expected(c, turn, _government.FormedTurn));
+        AddGrudge(partner, _government.Leader, 0.5 + 0.1 * unmet);
+        AddGrudge(_government.Leader, partner, 0.3);
         _government = new Government(_government.Leader, _government.Parties.Where(p => p != partner).ToList(),
             _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn);
         _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner);

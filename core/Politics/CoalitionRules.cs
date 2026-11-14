@@ -30,12 +30,18 @@ public static class CoalitionRules
     }
 
     /// <summary>Price a partner asks for, reduced by good relations.</summary>
-    public static double RequiredWeight(PartyDef partner, double relation) => partner.Price * (1.0 - 0.5 * relation);
+    public static double RequiredWeight(PartyDef partner, double relation, double grudgeToFormateur = 0.0) =>
+        partner.Price * (1.0 - 0.5 * relation) * (1.0 + Math.Max(0.0, grudgeToFormateur));
+
+    /// <summary>A party that resents another this much refuses to sit in a government with it.</summary>
+    public const double GrudgeVeto = 0.5;
 
     public static IReadOnlyList<Refusal> Evaluate(
         CoalitionProposal p, IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats,
-        double fraction, int programSlots, Func<string, string, double> relation)
+        double fraction, int programSlots, Func<string, string, double> relation,
+        Func<string, string, double>? grudge = null)
     {
+        grudge ??= (_, _) => 0.0;
         var refusals = new List<Refusal>();
         var members = new List<string> { p.Formateur };
         members.AddRange(p.Partners);
@@ -59,6 +65,9 @@ public static class CoalitionRules
         if (distinctAgreements.Count > programSlots) refusals.Add(new Refusal("slots", null, null));
         if (!CoalitionRules.HasMajority(known, seats, fraction)) refusals.Add(new Refusal("majority", null, null));
 
+        foreach (var m in known.OrderBy(x => x, StringComparer.Ordinal))
+            if (known.Any(o => o != m && grudge(m, o) >= GrudgeVeto)) refusals.Add(new Refusal("grudge", m, null));
+
         foreach (var (a, d) in agreed)
             foreach (var m in known)
                 foreach (var line in parties[m].RedLines)
@@ -72,7 +81,7 @@ public static class CoalitionRules
         foreach (var partner in p.Partners.Where(parties.ContainsKey).Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
         {
             double weight = agreed.Where(x => x.A.PartyId == partner).Sum(x => x.D.Weight);
-            if (weight + 1e-12 < RequiredWeight(parties[partner], relation(p.Formateur, partner)))
+            if (weight + 1e-12 < RequiredWeight(parties[partner], relation(p.Formateur, partner), grudge(partner, p.Formateur)))
                 refusals.Add(new Refusal("price", partner, null));
         }
         return refusals;

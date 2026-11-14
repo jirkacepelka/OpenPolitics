@@ -14,6 +14,10 @@ public static class LoyaltyModel
     public static double Target(double fulfil, double shortfall, double baseMood, bool redLineViolated) =>
         Math.Clamp(50 + 40 * fulfil - 60 * shortfall + 20 * baseMood - (redLineViolated ? 20 : 0), 0, 100);
 
+    /// <summary>A partner's loyalty when a government forms: better relations help, a grudge against the leader hurts.</summary>
+    public static double StartLoyalty(double start, double relation, double grudge) =>
+        Math.Clamp(start + 20 * (relation - 0.3) / 0.7 - 30 * grudge, 20, 85);
+
     public static double Step(double loyalty, double target, double lambdaPerYear, double dt) =>
         Math.Clamp(loyalty + lambdaPerYear * dt * (target - loyalty), 0, 100);
 

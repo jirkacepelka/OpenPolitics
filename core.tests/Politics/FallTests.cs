@@ -74,16 +74,16 @@ public class FallTests
     }
 
     [Fact]
-    public void PlayerLeaderCanRebuildWithAProposalAndLoyaltyResets()
+    public void PlayerLeaderCanRebuildWithAnotherPartnerAtFullStartLoyalty()
     {
         var g = WithB();
         for (int i = 0; i < 30 && Pol(g).Phase == Phase.Governing; i++) g.EndTurn();
         Assert.Equal(Phase.Formation, Pol(g).Phase);
-        // the leaver may be re-invited at its price
-        var r = g.Apply(new ProposeCoalition(new[] { "base:b" }, new[] { Ag("b", "d1") }));
+        // the leaver is refused for now (grudge, see GrudgeTests); another party can be invited at its price
+        var r = g.Apply(new ProposeCoalition(new[] { "base:c" }, new[] { Ag("c", "d1"), Ag("c", "d2") }));
         Assert.True(r.Accepted, r.ErrorKey);
         var p = Pol(g);
-        Assert.Equal((Phase.Governing, 70.0), (p.Phase, p.Loyalty!["base:b"]));
+        Assert.Equal((Phase.Governing, 70.0), (p.Phase, p.Loyalty!["base:c"]));
         Assert.Single(Events<GovernmentFormed>(new[] { g.EndTurn() }));
     }
 
