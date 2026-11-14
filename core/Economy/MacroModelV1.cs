@@ -155,7 +155,7 @@ public sealed class MacroModelV1 : IEconomyModel
                 double share = pv * p.CostPerUnit / 100.0;
                 if (input.Indexation != null && input.Indexation.TryGetValue(p.Id, out var ix) && ix.BaseGdp > 0)
                     spending += ix.Mode == "inflation" ? share * ix.BaseGdp : share * ix.BaseGdp * (ix.BasePrice / price);
-                else spending += share * y2;
+                else spending += pv * p.CostPerUnit * y2 / 100.0; // exact original expression keeps golden snapshots bit-stable
             }
         }
         var rr = R(Ids.Revenue);
