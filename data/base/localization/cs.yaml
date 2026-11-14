@@ -353,3 +353,76 @@ ui.err.too_many_promises: "Za volební období lze slíbit nejvýše dvě věci.
 ui.err.unknown_demand: "Vaše strana takový požadavek nemá."
 ui.event.promise_kept: "Splnili jste slib: {0}. Voliči vám více důvěřují."
 ui.event.promise_broken: "Porušili jste slib: {0}. Voliči vám méně důvěřují."
+
+# --- Wave 4 policies ---
+name.base:defence: Posílení obrany
+name.base:culture_sport: Kultura a sport
+name.base:public_transport: Veřejná doprava
+name.base:housing_support: Podpora bydlení
+name.base:family_allowances: Rodinné přídavky
+name.base:active_labour_policy: Aktivní politika zaměstnanosti
+name.base:rural_development: Rozvoj venkova
+name.base:green_subsidies: Zelené dotace
+name.base:digital_infrastructure: Digitální infrastruktura
+name.base:childcare: Péče o děti
+name.base:property_tax: Daň z nemovitostí
+name.base:carbon_tax: Uhlíková daň
+name.base:wealth_tax: Majetková daň
+name.base:transaction_tax: Daň z finančních transakcí
+name.base:excise_taxes: Spotřební daně na zdraví
+name.base:minimum_wage: Minimální mzda
+name.base:labour_flexibility: Flexibilita trhu práce
+name.base:rent_control: Regulace nájmů
+name.base:drug_policy: Liberalizace drog
+name.base:university_fees: Školné na univerzitách
+name.base:retirement_age: Důchodový věk
+name.base:energy_mix: Čistý energetický mix
+name.base:business_regulation: Regulace podnikání
+name.base:surveillance: Pravomoci dohledu
+desc.base:defence: "Mimořádné výdaje na obranu v % HDP (nad základ ve správě státu). Malé přínosy pro bezpečnost a technologie."
+desc.base:culture_sport: "Divadla, muzea a sportovní kluby v % HDP. Zdravější a vzdělanější lidé."
+desc.base:public_transport: "Dotace vlaků, tramvají a autobusů v % HDP. Čistší vzduch a snazší dojíždění."
+desc.base:housing_support: "Příspěvky na nájem a obecní byty v % HDP. Snižuje nerovnost."
+desc.base:family_allowances: "Peníze rodinám s dětmi v % HDP. Méně chudých rodin a později o něco větší pracovní síla."
+desc.base:active_labour_policy: "Rekvalifikace a zprostředkování práce v % HDP. Snižuje nezaměstnanost."
+desc.base:rural_development: "Podpora vsí a farem v % HDP. Práce a spravedlnost mimo města."
+desc.base:green_subsidies: "Zateplení, solární panely a čistý průmysl v % HDP. Zlepšuje prostředí, lehce zvyšuje ceny."
+desc.base:digital_infrastructure: "Rychlý internet a online služby státu v % HDP. Dlouhodobě zvyšuje produktivitu."
+desc.base:childcare: "Jesle a školky v % HDP. Rodiče mohou pracovat a děti se učí dříve."
+desc.base:property_tax: "Daň z pozemků a staveb v % HDP. Těžko se obchází, mírně snižuje nerovnost."
+desc.base:carbon_tax: "Daň z emisí v % HDP. Čistší příroda, vyšší ceny, zátěž pro průmysl."
+desc.base:wealth_tax: "Daň z velkých majetků v % HDP. Snižuje nerovnost, ale odhání kapitál."
+desc.base:transaction_tax: "Malá daň z obchodování na trzích v % HDP. Vynáší peníze, investoři ji nemají rádi."
+desc.base:excise_taxes: "Přirážky na tabák, alkohol a cukr v % HDP. Zdravější lidé, vyšší ceny."
+desc.base:minimum_wage: "Jak vysoká je zákonná minimální mzda (0 až 10). Pomáhá nejchudším, může stát práci a zvyšuje ceny."
+desc.base:labour_flexibility: "Jak snadné je přijímat a propouštět (0 až 10). Více práce a produktivity, méně jistot."
+desc.base:rent_control: "Jak přísně jsou nájmy zastropovány (0 až 10). Chrání nájemníky, odrazuje od stavění."
+desc.base:drug_policy: "Jak liberální jsou drogové zákony (0 až 10). Odlehčí soudům a pomůže závislým, ale kriminalita může mírně stoupnout."
+desc.base:university_fees: "Jak vysoké je školné (0 až 10). Šetří veřejné peníze, ale odrazuje chudší studenty."
+desc.base:retirement_age: "Věk odchodu do důchodu (roky). Pozdější odchod znamená více pracujících a těžší stáří."
+desc.base:energy_mix: "Jak zelená je výroba energie (0 až 10). Čistší vzduch, dražší energie."
+desc.base:business_regulation: "Kolik byrokracie čeká firmy (0 až 10). Chrání spotřebitele a zaměstnance, brzdí investice."
+desc.base:surveillance: "Kolik smí stát sledovat občany (0 až 10). Méně nevyřešených zločinů, méně svobod."
+
+# --- Wave 4 events ---
+event.banking_crisis: "Run na banky otřásá finančním systémem, úvěry mizí."
+event.export_boom: "Zahraniční poptávka po českém zboží prudce roste."
+event.pandemic: "Pandemie zavírá pracoviště a plní nemocnice."
+event.flood: "Povodně smývají silnice, mosty i domy."
+event.drought: "Dlouhé sucho zničilo úrodu."
+event.migration_wave: "Přichází vlna nově příchozích hledajících práci."
+event.brain_drain: "Kvalifikovaní lidé odcházejí za lepším platem do zahraničí."
+event.general_strike: "Odbory vyhlašují generální stávku kvůli mzdám a cenám."
+event.tech_hub: "Světová firma otevírá v zemi výzkumné centrum."
+event.foreign_investment: "Zahraniční investoři stavějí nové továrny."
+event.oil_price_drop: "Ceny ropy klesají a pohonné hmoty zlevňují."
+event.interest_spike: "Věřitelé chtějí za státní dluhopisy víc."
+event.cyber_attack: "Kybernetický útok na několik dní ochromuje úřady a banky."
+event.flu_season: "Tvrdá chřipková sezóna drží lidi doma."
+event.wage_pressure: "Práce je dost, rostou mzdy i ceny."
+event.deflation_scare: "Ceny přestaly růst; lidé odkládají nákupy a firmy brzdí."
+event.green_breakthrough: "Rychle se šíří levná technologie čisté energie."
+event.education_wave: "Učitelé a rodiče prosazují vlnu školských reforem."
+event.housing_shortage: "Nájmy raketově rostou, bytů se staví málo."
+event.trade_war: "Obchodní válka uzavírá exportní trhy a zvedá ceny."
+event.startup_wave: "Vlna start-upů přináší nová místa i nápady."

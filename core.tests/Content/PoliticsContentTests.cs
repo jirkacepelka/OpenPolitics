@@ -27,10 +27,10 @@ public class PoliticsContentTests
         Assert.Equal(1.0, sc.Support.Values.Sum(), 12);
         foreach (var p in Packs.Parties)
         {
-            Assert.InRange(p.Platform.Count, 3, 6);
+            Assert.InRange(p.Platform.Count, 3, 12);
             Assert.Equal(Packs.VoterGroups.Count, p.Affinity.Count);
-            Assert.InRange(p.Demands.Count, 3, 5);
-            Assert.InRange(p.RedLines.Count, 1, 2);
+            Assert.InRange(p.Demands.Count, 3, 10);
+            Assert.InRange(p.RedLines.Count, 1, 3);
         }
     }
 

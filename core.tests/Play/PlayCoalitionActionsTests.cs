@@ -79,8 +79,8 @@ public class PlayCoalitionActionsTests
     [Fact]
     public void IndexingSpendingWorksFromTheCommandLine()
     {
-        Assert.Contains("now follows", Play("test:leads", "index 7 inflation\nquit\n"));
-        Assert.Contains("Only spending can be indexed", Play("test:leads", "index 3 inflation\nquit\n"));
+        Assert.Contains("now follows", Play("test:leads", "index base:pensions inflation\nquit\n"));
+        Assert.Contains("Only spending can be indexed", Play("test:leads", "index base:income_tax inflation\nquit\n"));
     }
 
     [Fact]

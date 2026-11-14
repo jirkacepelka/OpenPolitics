@@ -1,0 +1,283 @@
+# ILLUSTRATIVE data: effects of the wave-4 policies. Deflection is measured from each policy's default over its range.
+- id: base:defence_to_crime
+  from: base:defence
+  to: base:crime
+  strength: -40
+  delay: {type: lag, turns: 4}
+- id: base:defence_to_productivity
+  from: base:defence
+  to: base:productivity
+  kind: relative
+  strength: 0.2
+  delay: {type: lag, turns: 8}
+- id: base:culture_sport_to_health
+  from: base:culture_sport
+  to: base:health
+  strength: 0.8
+  delay: {type: lag, turns: 8}
+- id: base:culture_sport_to_education_level
+  from: base:culture_sport
+  to: base:education_level
+  strength: 0.6
+  delay: {type: lag, turns: 8}
+- id: base:public_transport_to_environment
+  from: base:public_transport
+  to: base:environment
+  strength: 1
+  delay: {type: lag, turns: 4}
+- id: base:public_transport_to_productivity
+  from: base:public_transport
+  to: base:productivity
+  kind: relative
+  strength: 0.4
+  delay: {type: lag, turns: 8}
+- id: base:housing_support_to_inequality
+  from: base:housing_support
+  to: base:inequality
+  strength: -0.8
+  delay: {type: lag, turns: 4}
+- id: base:family_allowances_to_inequality
+  from: base:family_allowances
+  to: base:inequality
+  strength: -0.6
+  delay: {type: lag, turns: 4}
+- id: base:family_allowances_to_labour_force
+  from: base:family_allowances
+  to: base:labour_force
+  kind: relative
+  strength: 0.15
+  delay: {type: lag, turns: 12}
+- id: base:active_labour_policy_to_unemployment
+  from: base:active_labour_policy
+  to: base:unemployment
+  strength: -1.2
+  delay: {type: lag, turns: 4}
+- id: base:active_labour_policy_to_inequality
+  from: base:active_labour_policy
+  to: base:inequality
+  strength: -0.3
+  delay: {type: lag, turns: 4}
+- id: base:rural_development_to_inequality
+  from: base:rural_development
+  to: base:inequality
+  strength: -0.3
+  delay: {type: lag, turns: 4}
+- id: base:rural_development_to_unemployment
+  from: base:rural_development
+  to: base:unemployment
+  strength: -0.2
+  delay: {type: lag, turns: 4}
+- id: base:green_subsidies_to_environment
+  from: base:green_subsidies
+  to: base:environment
+  strength: 2
+  delay: {type: lag, turns: 4}
+- id: base:green_subsidies_to_inflation
+  from: base:green_subsidies
+  to: base:inflation
+  strength: 0.2
+  delay: {type: lag, turns: 2}
+- id: base:green_subsidies_to_productivity
+  from: base:green_subsidies
+  to: base:productivity
+  kind: relative
+  strength: 0.2
+  delay: {type: lag, turns: 8}
+- id: base:digital_infrastructure_to_productivity
+  from: base:digital_infrastructure
+  to: base:productivity
+  kind: relative
+  strength: 0.8
+  delay: {type: lag, turns: 8}
+- id: base:digital_infrastructure_to_capital
+  from: base:digital_infrastructure
+  to: base:capital
+  kind: relative
+  strength: 0.3
+  delay: {type: lag, turns: 8}
+- id: base:childcare_to_labour_force
+  from: base:childcare
+  to: base:labour_force
+  kind: relative
+  strength: 0.3
+  delay: {type: lag, turns: 8}
+- id: base:childcare_to_inequality
+  from: base:childcare
+  to: base:inequality
+  strength: -0.4
+  delay: {type: lag, turns: 4}
+- id: base:childcare_to_education_level
+  from: base:childcare
+  to: base:education_level
+  strength: 0.3
+  delay: {type: lag, turns: 8}
+- id: base:property_tax_to_inequality
+  from: base:property_tax
+  to: base:inequality
+  strength: -0.5
+  delay: {type: lag, turns: 4}
+- id: base:property_tax_to_capital
+  from: base:property_tax
+  to: base:capital
+  kind: relative
+  strength: -0.2
+  delay: {type: lag, turns: 8}
+- id: base:carbon_tax_to_environment
+  from: base:carbon_tax
+  to: base:environment
+  strength: 1.5
+  delay: {type: lag, turns: 4}
+- id: base:carbon_tax_to_inflation
+  from: base:carbon_tax
+  to: base:inflation
+  strength: 0.6
+  delay: {type: lag, turns: 2}
+- id: base:carbon_tax_to_productivity
+  from: base:carbon_tax
+  to: base:productivity
+  kind: relative
+  strength: -0.2
+  delay: {type: lag, turns: 8}
+- id: base:wealth_tax_to_inequality
+  from: base:wealth_tax
+  to: base:inequality
+  strength: -0.8
+  delay: {type: lag, turns: 4}
+- id: base:wealth_tax_to_capital
+  from: base:wealth_tax
+  to: base:capital
+  kind: relative
+  strength: -0.5
+  delay: {type: lag, turns: 8}
+- id: base:transaction_tax_to_capital
+  from: base:transaction_tax
+  to: base:capital
+  kind: relative
+  strength: -0.4
+  delay: {type: lag, turns: 4}
+- id: base:excise_taxes_to_health
+  from: base:excise_taxes
+  to: base:health
+  strength: 0.6
+  delay: {type: lag, turns: 8}
+- id: base:excise_taxes_to_inflation
+  from: base:excise_taxes
+  to: base:inflation
+  strength: 0.4
+  delay: {type: lag, turns: 2}
+- id: base:minimum_wage_to_unemployment
+  from: base:minimum_wage
+  to: base:unemployment
+  strength: 0.6
+  delay: {type: lag, turns: 4}
+- id: base:minimum_wage_to_inequality
+  from: base:minimum_wage
+  to: base:inequality
+  strength: -0.5
+  delay: {type: lag, turns: 4}
+- id: base:minimum_wage_to_inflation
+  from: base:minimum_wage
+  to: base:inflation
+  strength: 0.2
+  delay: {type: lag, turns: 2}
+- id: base:labour_flexibility_to_unemployment
+  from: base:labour_flexibility
+  to: base:unemployment
+  strength: -0.5
+  delay: {type: lag, turns: 4}
+- id: base:labour_flexibility_to_inequality
+  from: base:labour_flexibility
+  to: base:inequality
+  strength: 0.3
+  delay: {type: lag, turns: 4}
+- id: base:labour_flexibility_to_productivity
+  from: base:labour_flexibility
+  to: base:productivity
+  kind: relative
+  strength: 0.3
+  delay: {type: lag, turns: 8}
+- id: base:rent_control_to_inequality
+  from: base:rent_control
+  to: base:inequality
+  strength: -0.3
+  delay: {type: lag, turns: 4}
+- id: base:rent_control_to_capital
+  from: base:rent_control
+  to: base:capital
+  kind: relative
+  strength: -0.2
+  delay: {type: lag, turns: 8}
+- id: base:drug_policy_to_crime
+  from: base:drug_policy
+  to: base:crime
+  strength: 25
+  delay: {type: lag, turns: 4}
+- id: base:drug_policy_to_health
+  from: base:drug_policy
+  to: base:health
+  strength: 0.5
+  delay: {type: lag, turns: 8}
+- id: base:university_fees_to_education_level
+  from: base:university_fees
+  to: base:education_level
+  strength: -0.6
+  delay: {type: lag, turns: 8}
+- id: base:university_fees_to_inequality
+  from: base:university_fees
+  to: base:inequality
+  strength: 0.3
+  delay: {type: lag, turns: 8}
+- id: base:retirement_age_to_labour_force
+  from: base:retirement_age
+  to: base:labour_force
+  kind: relative
+  strength: 0.4
+  delay: {type: lag, turns: 8}
+- id: base:retirement_age_to_unemployment
+  from: base:retirement_age
+  to: base:unemployment
+  strength: 0.3
+  delay: {type: lag, turns: 4}
+- id: base:retirement_age_to_health
+  from: base:retirement_age
+  to: base:health
+  strength: -0.2
+  delay: {type: lag, turns: 8}
+- id: base:energy_mix_to_environment
+  from: base:energy_mix
+  to: base:environment
+  strength: 1
+  delay: {type: lag, turns: 4}
+- id: base:energy_mix_to_inflation
+  from: base:energy_mix
+  to: base:inflation
+  strength: 0.3
+  delay: {type: lag, turns: 4}
+- id: base:energy_mix_to_productivity
+  from: base:energy_mix
+  to: base:productivity
+  kind: relative
+  strength: -0.1
+  delay: {type: lag, turns: 8}
+- id: base:business_regulation_to_productivity
+  from: base:business_regulation
+  to: base:productivity
+  kind: relative
+  strength: -0.4
+  delay: {type: lag, turns: 8}
+- id: base:business_regulation_to_capital
+  from: base:business_regulation
+  to: base:capital
+  kind: relative
+  strength: -0.3
+  delay: {type: lag, turns: 8}
+- id: base:business_regulation_to_unemployment
+  from: base:business_regulation
+  to: base:unemployment
+  strength: 0.2
+  delay: {type: lag, turns: 4}
+- id: base:surveillance_to_crime
+  from: base:surveillance
+  to: base:crime
+  strength: -30
+  delay: {type: lag, turns: 4}

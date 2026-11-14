@@ -1,0 +1,85 @@
+# ILLUSTRATIVE data: add-on programmes and levers (wave 4). Add-ons start at 0: nothing extra is spent or taxed until you choose to.
+- id: base:defence
+  unit: percent_of_gdp
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_y: 0.6
+- id: base:culture_sport
+  unit: percent_of_gdp
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.2
+- id: base:public_transport
+  unit: percent_of_gdp
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.2
+  axis_y: -0.1
+- id: base:housing_support
+  unit: percent_of_gdp
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.7
+- id: base:family_allowances
+  unit: percent_of_gdp
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.5
+  axis_y: 0.3
+- id: base:active_labour_policy
+  unit: percent_of_gdp
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.3
+- id: base:rural_development
+  unit: percent_of_gdp
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.3
+  axis_y: 0.3
+- id: base:green_subsidies
+  unit: percent_of_gdp
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.3
+  axis_y: -0.3
+- id: base:digital_infrastructure
+  unit: percent_of_gdp
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 4
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+- id: base:childcare
+  unit: percent_of_gdp
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP
+  axis_x: -0.4
+  axis_y: -0.2

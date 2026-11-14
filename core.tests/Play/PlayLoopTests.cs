@@ -168,7 +168,7 @@ public class PlayLoopTests
     [Fact]
     public void WhyExplainsWhatPushedAValue()
     {
-        var o = Play("set health 12\n" + Quarters(8) + "why health\nquit\n");
+        var o = Play("set base:health_spending 12\n" + Quarters(8) + "why health\nquit\n");
         Assert.Contains("WHY DID IT CHANGE: Public health", o);
         Assert.Contains("Healthcare spending: pushes up", o);
     }

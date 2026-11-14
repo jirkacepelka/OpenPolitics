@@ -353,3 +353,76 @@ ui.err.too_many_promises: "You can make at most two promises per term."
 ui.err.unknown_demand: "Your party has no such demand."
 ui.event.promise_kept: "You kept your promise: {0}. Voters trust you more."
 ui.event.promise_broken: "You broke your promise: {0}. Voters trust you less."
+
+# --- Wave 4 policies ---
+name.base:defence: Defence upgrade
+name.base:culture_sport: Culture and sport
+name.base:public_transport: Public transport
+name.base:housing_support: Housing support
+name.base:family_allowances: Family allowances
+name.base:active_labour_policy: Active labour policy
+name.base:rural_development: Rural development
+name.base:green_subsidies: Green subsidies
+name.base:digital_infrastructure: Digital infrastructure
+name.base:childcare: Childcare
+name.base:property_tax: Property tax
+name.base:carbon_tax: Carbon tax
+name.base:wealth_tax: Wealth tax
+name.base:transaction_tax: Financial transaction tax
+name.base:excise_taxes: Health excise taxes
+name.base:minimum_wage: Minimum wage
+name.base:labour_flexibility: Labour market flexibility
+name.base:rent_control: Rent control
+name.base:drug_policy: Drug liberalisation
+name.base:university_fees: University fees
+name.base:retirement_age: Retirement age
+name.base:energy_mix: Clean energy mix
+name.base:business_regulation: Business regulation
+name.base:surveillance: Surveillance powers
+desc.base:defence: "Extra defence spending, percent of GDP (on top of the baseline in Administration). Small security and technology spillovers."
+desc.base:culture_sport: "Theatres, museums and sports clubs, percent of GDP. Healthier, better educated people."
+desc.base:public_transport: "Subsidies for trains, trams and buses, percent of GDP. Cleaner air, easier commuting."
+desc.base:housing_support: "Rent allowances and municipal flats, percent of GDP. Cuts inequality."
+desc.base:family_allowances: "Cash for families with children, percent of GDP. Fewer poor families, a slightly larger workforce later."
+desc.base:active_labour_policy: "Retraining and job placement, percent of GDP. Brings unemployment down."
+desc.base:rural_development: "Support for villages and farms, percent of GDP. Jobs and fairness outside the cities."
+desc.base:green_subsidies: "Insulation, solar panels and clean industry, percent of GDP. Improves the environment; pushes prices up a little."
+desc.base:digital_infrastructure: "Fast internet and online public services, percent of GDP. Raises productivity in the long run."
+desc.base:childcare: "Nurseries and kindergartens, percent of GDP. Parents can work; children learn earlier."
+desc.base:property_tax: "Tax on land and buildings, percent of GDP. Hard to avoid, mildly reduces inequality."
+desc.base:carbon_tax: "Tax on emissions, percent of GDP. Cleaner nature, higher prices, a drag on industry."
+desc.base:wealth_tax: "Tax on large fortunes, percent of GDP. Cuts inequality but chases capital away."
+desc.base:transaction_tax: "Tiny tax on trading, percent of GDP. Raises money; investors dislike it."
+desc.base:excise_taxes: "Extra duties on tobacco, alcohol and sugar, percent of GDP. Healthier people, higher prices."
+desc.base:minimum_wage: "How high the legal minimum wage is (0 to 10). Helps the poorest; can cost jobs and raises prices."
+desc.base:labour_flexibility: "How easy it is to hire and fire (0 to 10). More jobs and productivity, less security."
+desc.base:rent_control: "How strictly rents are capped (0 to 10). Protects tenants, discourages building."
+desc.base:drug_policy: "How liberal drug laws are (0 to 10). Frees up courts and helps addicts, but crime can tick up."
+desc.base:university_fees: "How high tuition fees are (0 to 10). Saves public money; keeps poorer students out."
+desc.base:retirement_age: "The age people retire at (years). Later retirement means more workers and a tougher old age."
+desc.base:energy_mix: "How green the power supply is (0 to 10). Cleaner air, pricier energy."
+desc.base:business_regulation: "How much red tape firms face (0 to 10). Protects consumers and workers; slows investment."
+desc.base:surveillance: "How much the state may watch its citizens (0 to 10). Fewer crimes solved the hard way, fewer freedoms."
+
+# --- Wave 4 events ---
+event.banking_crisis: "A bank run shakes the financial system; credit dries up."
+event.export_boom: "Foreign demand for Czech goods surges."
+event.pandemic: "A pandemic closes workplaces and fills hospitals."
+event.flood: "Floods wash away roads, bridges and homes."
+event.drought: "A long drought withers the harvest."
+event.migration_wave: "A wave of newcomers arrives, seeking work."
+event.brain_drain: "Skilled workers leave the country for better pay abroad."
+event.general_strike: "Unions call a general strike over pay and prices."
+event.tech_hub: "A global firm opens a research centre in the country."
+event.foreign_investment: "Foreign investors build new factories."
+event.oil_price_drop: "Oil prices fall and fuel gets cheaper."
+event.interest_spike: "Lenders demand more to buy the state's bonds."
+event.cyber_attack: "A cyber attack paralyses public offices and banks for days."
+event.flu_season: "A harsh flu season keeps people home."
+event.wage_pressure: "With jobs plentiful, wages and prices climb."
+event.deflation_scare: "Prices stop rising; shoppers wait and firms hold back."
+event.green_breakthrough: "A cheap clean-energy technology spreads fast."
+event.education_wave: "Teachers and parents push a wave of school reforms."
+event.housing_shortage: "Rents soar as too few homes are built."
+event.trade_war: "A trade war closes export markets and raises prices."
+event.startup_wave: "A wave of start-ups brings new jobs and ideas."
