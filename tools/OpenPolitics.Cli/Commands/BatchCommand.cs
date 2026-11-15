@@ -8,7 +8,7 @@ public static class BatchCommand
 {
     public const string Usage =
         "Usage: batch --packs <dir>... [--scenario <id>] [--games <n>] [--strategy passive|random|extreme] [--turns <n>] [--json <file>]\n" +
-        "       batch --politics --packs <dir>... [--scenario <id>] [--games <n>] [--strategy ignorer|keeper|random|extreme|activist] [--turns <n>] [--party <id>|all]";
+        "       batch --politics --packs <dir>... [--scenario <id>] [--games <n>] [--strategy ignorer|keeper|random|extreme|activist|reformer] [--turns <n>] [--party <id>|all]";
 
     /// <summary>Returns 0 if the batch is stable, 1 if not, 2 on usage or pack problems.</summary>
     public static int Execute(string[] args, TextWriter output)
@@ -56,7 +56,7 @@ public static class BatchCommand
     private static int ExecutePolitics(ArgParser p, int games, int turns, string strategyName, TextWriter output)
     {
         if (!Enum.TryParse<PoliticsStrategy>(strategyName, ignoreCase: true, out var strategy))
-            p.Errors.Add($"Unknown politics strategy '{strategyName}' (use ignorer, keeper, random, extreme or activist).");
+            p.Errors.Add($"Unknown politics strategy '{strategyName}' (use ignorer, keeper, random, extreme, activist or reformer).");
         if (games == 0) p.Errors.Add("--games must be at least 1.");
         if (p.Errors.Count > 0)
         {
@@ -76,7 +76,7 @@ public static class BatchCommand
         {
             // One batch per party: the table of decision 0013 (falls, governing share, how often the player leads, poll).
             output.WriteLine($"Politics batch per player party: {games} game(s) x {turns} turns, strategy '{strategy.ToString().ToLowerInvariant()}'");
-            output.WriteLine("party                      role        falls  stuck  governing  leads  lost-lead  poll   capital  changes/y  refused/y");
+            output.WriteLine("party                      role        falls  stuck  governing  leads  lost-lead  poll   capital  cap.lead  changes/y  refused/y");
             var options = PartyChoice.Options(loaded.Packs, scenario);
             int stuckAll = 0;
             foreach (var o in options)
@@ -84,9 +84,9 @@ public static class BatchCommand
                 var r = PoliticsBatch.Run(loaded.Packs, scenario, games, turns, strategy, 1, o.PartyId);
                 stuckAll += r.StuckGames;
                 var inv = System.Globalization.CultureInfo.InvariantCulture;
-                output.WriteLine(string.Format(inv, "{0,-26} {1,-11} {2,5}  {3,5}  {4,8:0.0} %  {5,4:0} %  {6,9}  {7,4:0.0} %  {8,7:0.0}  {9,9:0.00}  {10,9:0.00}",
+                output.WriteLine(string.Format(inv, "{0,-26} {1,-11} {2,5}  {3,5}  {4,8:0.0} %  {5,4:0} %  {6,9}  {7,4:0.0} %  {8,7:0.0}  {11,8:0.0}  {9,9:0.00}  {10,9:0.00}",
                     o.PartyId, o.Role.ToString().ToLowerInvariant(), r.Falls, r.StuckGames, 100 * r.GoverningShare, 100 * r.PlayerLeadShare,
-                    r.GamesLosingLead, 100 * r.MeanPlayerSupportOverRun, r.MeanCapital, r.PolicyChangesPerYear, r.PolicyRefusalsPerYear));
+                    r.GamesLosingLead, 100 * r.MeanPlayerSupportOverRun, r.MeanCapital, r.PolicyChangesPerYear, r.PolicyRefusalsPerYear, r.MeanCapitalLeading));
             }
             output.WriteLine(stuckAll == 0 ? "Result: Stable" : "Result: NOT stable (games got stuck outside Governing)");
             return stuckAll == 0 ? 0 : 1;

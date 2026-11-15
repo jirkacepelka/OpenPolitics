@@ -206,7 +206,13 @@ internal sealed class PoliticsEngine
         _phase != Phase.Governing ? "error.no_majority" : PlayerRole != Role.Leader ? "error.not_leader" : null;
 
     /// <summary>Capital cannot be banked without limit: a party that never acts does not stockpile an unbeatable campaign.</summary>
-    public const double MaxCapital = 30.0;
+    public const double MaxCapital = PoliticsLimits.MaxCapital;
+
+    /// <summary>The player's political capital right now.</summary>
+    public double Capital => _pc;
+
+    /// <summary>Charges the player's party for a policy change the game accepts; false (and nothing charged) when it cannot pay.</summary>
+    public bool TrySpendCapital(double cost) => TrySpend(cost);
 
     private static readonly double HalfLifeFactor = DetMath.Pow(0.5, 0.25); // half-life of 4 turns
 
@@ -232,13 +238,14 @@ internal sealed class PoliticsEngine
             double g = _grudge[key] * GrudgeDecay;
             if (g < 0.005) _grudge.Remove(key); else _grudge[key] = g;
         }
-        _income = 2.0 + 8.0 * _org * share + (_government.Leader == Player ? 2.0 : 0.0) + CoalitionCapitalBonus();
+        _income = PoliticsLimits.BaseIncome + 8.0 * _org * share
+            + (_phase == Phase.Governing && _government.Leader == Player ? PoliticsLimits.LeaderIncome : 0.0) + CoalitionCapitalBonus();
         _pc = Math.Clamp(_pc + _income, 0.0, MaxCapital);
     }
 
     private double _income;
 
-    /// <summary>A happy coalition is worth political capital, an unhappy one costs it (up to 3 per turn either way).</summary>
+    /// <summary>A happy coalition is worth political capital, an unhappy one costs it (up to <see cref="PoliticsLimits.CoalitionIncome"/> per turn either way).</summary>
     private double CoalitionCapitalBonus()
     {
         if (_phase != Phase.Governing) return 0.0;
@@ -247,9 +254,9 @@ internal sealed class PoliticsEngine
             case Role.Leader:
                 var partners = _government.Parties.Where(p => p != Player).ToList();
                 return partners.Count == 0 ? 0.0
-                    : 3.0 * Math.Clamp((partners.Average(p => _loyalty.GetValueOrDefault(p, _loyaltyParams.Start)) - 50.0) / 50.0, -1.0, 1.0);
+                    : PoliticsLimits.CoalitionIncome * Math.Clamp((partners.Average(p => _loyalty.GetValueOrDefault(p, _loyaltyParams.Start)) - 50.0) / 50.0, -1.0, 1.0);
             case Role.Partner:
-                return 3.0 * Math.Clamp((Relation(Player, _government.Leader) - DefaultRelation) / (1.0 - DefaultRelation), -1.0, 1.0);
+                return PoliticsLimits.CoalitionIncome * Math.Clamp((Relation(Player, _government.Leader) - DefaultRelation) / (1.0 - DefaultRelation), -1.0, 1.0);
             default:
                 return 0.0;
         }

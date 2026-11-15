@@ -7,8 +7,11 @@ using OpenPolitics.Core.Politics;
 
 namespace OpenPolitics.Core.Batch;
 
-/// <summary>How the scripted player party behaves in a politics batch. All of them answer formation questions.</summary>
-public enum PoliticsStrategy { Ignorer, Keeper, Random, Extreme, Activist }
+/// <summary>
+/// How the scripted player party behaves in a politics batch. All of them answer formation questions. Reformer (decision 0013) governs like the AI
+/// governor with its own platform - commitments, crisis responses, drift toward the platform - and pays for every change in political capital.
+/// </summary>
+public enum PoliticsStrategy { Ignorer, Keeper, Random, Extreme, Activist, Reformer }
 
 public sealed record PoliticsBatchReport(
     int Games, int Turns, string Strategy,
@@ -17,7 +20,7 @@ public sealed record PoliticsBatchReport(
     double MeanPlayerSupportAtEnd = 0, double MeanPlayerSeatsAtEnd = 0, int NegativeCapitalGames = 0,
     double MeanPlayerSupportOverRun = 0,
     double GoverningShare = 0, double PlayerLeadShare = 0, double MeanCapital = 0,
-    double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0)
+    double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0, double MeanCapitalLeading = 0)
 {
     public string ToText()
     {
@@ -38,8 +41,8 @@ public sealed record PoliticsBatchReport(
         sb.AppendLine($"  Quarters with a sitting government: {(100 * GoverningShare).ToString("0.0", inv)} %");
         sb.AppendLine($"  Quarters the player leads:   {(100 * PlayerLeadShare).ToString("0.0", inv)} %");
         sb.AppendLine($"  Games where the player lost the lead: {GamesLosingLead}");
-        sb.AppendLine($"  Player capital (mean):       {MeanCapital.ToString("0.0", inv)}");
-        sb.AppendLine($"  Policy changes per year:     {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
+        sb.AppendLine($"  Player capital (mean):       {MeanCapital.ToString("0.0", inv)} overall, {MeanCapitalLeading.ToString("0.0", inv)} while leading");
+        sb.AppendLine($"  Policy changes per year led: {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
         return sb.ToString();
     }
 }
@@ -57,7 +60,7 @@ public static class PoliticsBatch
         int governments = 0, withLoss = 0, departures = 0, falls = 0, fallsOk = 0, early = 0, stuck = 0;
         double sumFirstLoss = 0, sumSupport = 0, sumSeats = 0, sumRun = 0;
         int negativeCapital = 0, governingTurns = 0, leadTurns = 0, lostLead = 0;
-        double sumCapital = 0;
+        double sumCapital = 0, sumCapitalLeading = 0;
         var counter = new PolicyCounter();
         var policies = packs.Policies.ToDictionary(p => p.Id, StringComparer.Ordinal);
 
@@ -94,7 +97,7 @@ public static class PoliticsBatch
                 var phase = now.Phase;
                 sumCapital += now.Party.PoliticalCapital;
                 if (phase == Phase.Governing) governingTurns++;
-                if (now.PlayerRole == Role.Leader) { leadTurns++; led = true; }
+                if (now.PlayerRole == Role.Leader) { leadTurns++; led = true; sumCapitalLeading += now.Party.PoliticalCapital; }
                 else if (led && phase == Phase.Governing) lost = true;
                 sinceGoverning = phase == Phase.Governing ? 0 : sinceGoverning + 1;
                 // After a fall the machinery may start several rounds (early elections), so only count a game
@@ -122,13 +125,15 @@ public static class PoliticsBatch
             games > 0 ? sumSupport / games : 0, games > 0 ? sumSeats / games : 0, negativeCapital,
             games > 0 ? sumRun / games : 0,
             Share(governingTurns, games, turns), Share(leadTurns, games, turns), games * turns > 0 ? sumCapital / (games * turns) : 0,
-            PerYear(counter.Accepted, packs, scenarioId, games, turns), PerYear(counter.Refused, packs, scenarioId, games, turns), lostLead);
+            PerYear(counter.Accepted, packs, scenarioId, leadTurns), PerYear(counter.Refused, packs, scenarioId, leadTurns), lostLead,
+            leadTurns > 0 ? sumCapitalLeading / leadTurns : 0);
     }
 
     private static double Share(int count, int games, int turns) => games * turns > 0 ? (double)count / (games * turns) : 0;
 
-    private static double PerYear(int count, PackSet packs, string scenarioId, int games, int turns) =>
-        games * turns > 0 ? count / (games * turns / (double)packs.GetScenario(scenarioId).TurnsPerYear) : 0;
+    /// <summary>Per year in which the player led the government.</summary>
+    private static double PerYear(int count, PackSet packs, string scenarioId, int leadTurns) =>
+        leadTurns > 0 ? count / (leadTurns / (double)packs.GetScenario(scenarioId).TurnsPerYear) : 0;
 
     /// <summary>Policy changes the scripted player tried as leader: accepted, and refused because they cost more capital than it had.</summary>
     private sealed class PolicyCounter
@@ -164,6 +169,14 @@ public static class PoliticsBatch
                 if (pol.Government != null
                     && Governor.Move(pol.Government, id => LatestPolicy(game, current, id), _ => 0, policies, state.Turn) is { } m)
                     counter.Set(game, m.PolicyId, m.Value);
+                break;
+            case PoliticsStrategy.Reformer:
+                var own = packs.Parties.FirstOrDefault(p => p.Id == pol.PlayerParty);
+                var partnerLines = pol.Government!.Parties.Where(p => p != pol.PlayerParty)
+                    .SelectMany(p => packs.Parties.First(x => x.Id == p).RedLines).ToList();
+                var values = state.Countries.Values.Single().Values;
+                if (Governor.Move(pol.Government, id => LatestPolicy(game, current, id), id => values.GetValueOrDefault(id), policies, state.Turn, own, partnerLines) is { } r)
+                    counter.Set(game, r.PolicyId, r.Value);
                 break;
             case PoliticsStrategy.Random:
                 if (state.Turn % 4 == 0 && packs.Policies.Count > 0)

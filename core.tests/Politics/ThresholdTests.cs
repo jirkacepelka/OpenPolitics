@@ -1,4 +1,5 @@
 using OpenPolitics.Core.Gameplay;
+using OpenPolitics.Core.Tests.Gameplay;
 using Xunit;
 using static OpenPolitics.Core.Tests.Politics.FormationFixture;
 
@@ -18,6 +19,7 @@ public class ThresholdTests
         f["policies/e.yaml"] =
         "- id: base:electoral_threshold\n  unit: percent\n  min: 0\n  max: 10\n  default: 5\n" +
         "- id: base:electoral_method\n  unit: electoral_method\n  min: 0\n  max: 2\n  default: 0\n";
+        GameFixture.FreePolicies(f); // these tests are about the election rules, not about what changing them costs
     });
 
     private static IReadOnlyDictionary<string, int> SeatsAfterElection(double? threshold, double? method = null)

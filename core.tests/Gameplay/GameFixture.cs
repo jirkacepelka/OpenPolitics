@@ -57,4 +57,11 @@ internal static class GameFixture
     }
 
     public static long Bits(double d) => BitConverter.DoubleToInt64Bits(d);
+
+    /// <summary>Makes every policy of the pack free of political capital (decision 0013), for tests about other mechanics.</summary>
+    public static void FreePolicies(Dictionary<string, string> f)
+    {
+        foreach (var key in f.Keys.Where(k => k.StartsWith("policies/", StringComparison.Ordinal)).ToList())
+            f[key] = f[key].Replace("  min: ", "  capital_cost: 0\n  min: ");
+    }
 }

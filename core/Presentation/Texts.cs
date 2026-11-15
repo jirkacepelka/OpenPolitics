@@ -61,7 +61,10 @@ public sealed class Texts
     /// <summary>Plain-language text for a refused action (error key + optional detail).</summary>
     public string Error(ActionResult r)
     {
-        string text = _t.T("ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err."));
+        string key = "ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
+        // a policy change the party cannot pay for: "cost|capital" in the detail (decision 0013)
+        if (r.ErrorKey == "error.policy_cost" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        string text = _t.T(key);
         if (r.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && r.Detail is { Length: > 1 } detail)
         {
             var split = detail.Split(':'); // "base:party:demand" or "base:party:"

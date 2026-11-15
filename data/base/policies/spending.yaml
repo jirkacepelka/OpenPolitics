@@ -1,5 +1,6 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:pensions
+  capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 4
   max: 16
@@ -9,6 +10,7 @@
   axis_x: -0.6
   axis_y: 0.2
 - id: base:health_spending
+  capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 3
   max: 14
@@ -17,6 +19,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.6
 - id: base:education_spending
+  capital_cost: 1.25   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 2
   max: 9
@@ -42,6 +45,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: -0.4
 - id: base:social_benefits
+  capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 3
   max: 16
@@ -58,6 +62,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.2
 - id: base:administration
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 3
   max: 9

@@ -1,5 +1,6 @@
 # ILLUSTRATIVE data: add-on programmes and levers (wave 4). Add-ons start at 0: nothing extra is spent or taxed until you choose to.
 - id: base:defence
+  capital_cost: 1.25   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 3
@@ -8,6 +9,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: 0.6
 - id: base:culture_sport
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -16,6 +18,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.2
 - id: base:public_transport
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 3
@@ -25,6 +28,7 @@
   axis_x: -0.2
   axis_y: -0.1
 - id: base:housing_support
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 3
@@ -33,6 +37,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.7
 - id: base:family_allowances
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 3
@@ -42,6 +47,7 @@
   axis_x: -0.5
   axis_y: 0.3
 - id: base:active_labour_policy
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 2
@@ -50,6 +56,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.3
 - id: base:rural_development
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 2
@@ -59,6 +66,7 @@
   axis_x: -0.3
   axis_y: 0.3
 - id: base:green_subsidies
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 3
@@ -68,6 +76,7 @@
   axis_x: -0.3
   axis_y: -0.3
 - id: base:digital_infrastructure
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 2
@@ -75,6 +84,7 @@
   delay_turns: 4
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
 - id: base:childcare
+  capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 0
   max: 2

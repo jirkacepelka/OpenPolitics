@@ -113,10 +113,37 @@ public sealed class Game
             return new ActionResult(false, "error.unknown_policy", set.PolicyId);
         if (!double.IsFinite(set.Value) || set.Value < policy.Min || set.Value > policy.Max)
             return new ActionResult(false, "error.value_out_of_range", $"{set.PolicyId} must be in [{policy.Min}, {policy.Max}]");
+        if (_politics != null)
+        {
+            double cost = PolicyChangeCost(set.PolicyId, set.Value);
+            if (!_politics.TrySpendCapital(cost))
+                return new ActionResult(false, "error.policy_cost",
+                    string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{cost:0}|{Math.Floor(_politics.Capital + 1e-9):0}"));
+        }
 
         _pending.Add(new PendingPolicy(set.PolicyId, set.Value, _turn + policy.DelayTurns));
         _log.Add((_turn, action));
         return ActionResult.Ok;
+    }
+
+    /// <summary>
+    /// Political capital the leader pays for setting <paramref name="policyId"/> to <paramref name="value"/> now (decision 0013): measured from the
+    /// value the policy will have once queued changes are in (<see cref="PolicyCost"/>); cancelling a queued change - going back to the value in
+    /// force - is free and refunds nothing. 0 without politics, for an unknown policy and for indexation (a separate action).
+    /// </summary>
+    public double PolicyChangeCost(string policyId, double value)
+    {
+        if (_politics == null || !_policyDefs.TryGetValue(policyId, out var policy) || !double.IsFinite(value)) return 0.0;
+        bool queued = _pending.Any(p => p.PolicyId == policyId);
+        if (queued && Math.Abs(value - _policies[policyId]) <= 1e-9 * Math.Max(1.0, Math.Abs(value))) return 0.0;
+        return PolicyCost.For(policy, LatestPolicy(policyId), value);
+    }
+
+    /// <summary>The settings of a policy the player's capital pays for now, around its queued value (null without politics).</summary>
+    public (double Lo, double Hi)? AffordableRange(string policyId)
+    {
+        if (_politics == null || !_policyDefs.TryGetValue(policyId, out var policy)) return null;
+        return PolicyCost.Affordable(policy, LatestPolicy(policyId), _politics.Capital);
     }
 
     /// <summary>Spending policies that are not tied to GDP, with their mode ("inflation" or "none").</summary>
@@ -164,8 +191,10 @@ public sealed class Game
                 groups.Add(new GroupEffect(g.Id, -weight * (Math.Abs(value - pref) - Math.Abs(from - pref)) / range));
         double delta = value - from;
         double budget = delta * policy.CostPerUnit - (policy.RevenueBaseValueId != null ? delta : 0.0);
+        double cost = PolicyChangeCost(policyId, value);
         return new PolicyPreview(policyId, from, value,
-            effects.Select(kv => new ValueEffect(kv.Key, kv.Value.Add, kv.Value.Rel)).ToList(), groups, budget);
+            effects.Select(kv => new ValueEffect(kv.Key, kv.Value.Add, kv.Value.Rel)).ToList(), groups, budget,
+            cost, _politics == null || _politics.Capital + 1e-9 >= cost);
     }
 
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>

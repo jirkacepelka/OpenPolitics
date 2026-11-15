@@ -64,3 +64,36 @@ public class PlayPartyChoiceTests
         Assert.Contains("Player party: base:open_net", one.ToString());
     }
 }
+
+/// <summary>The CLI's set shows what a change costs in political capital and refuses what the party cannot pay (decision 0013).</summary>
+public class PlayCapitalCostTests
+{
+    private static string PlayCz(string input, string? party = null)
+    {
+        var output = new StringWriter();
+        Assert.Equal(0, new PlayLoop(BasePackTests.LoadBase().Packs!, "base:cz_2015", 1, "en", 80, false, new StringReader(input), output, party).Run());
+        return output.ToString();
+    }
+
+    [Fact]
+    public void SetShowsTheCostOfTheChange()
+    {
+        var o = PlayCz("set threshold 4.5\nquit\n");
+        Assert.Contains("Scheduled: Electoral threshold", o);
+        Assert.Contains("Cost: 4 political capital (2 left)", o);
+    }
+
+    [Fact]
+    public void SetRefusesWhatThePartyCannotPay()
+    {
+        var o = PlayCz("set threshold 0\nquit\n");
+        Assert.Contains("This change costs 22 political capital; you have 6.", o);
+        Assert.DoesNotContain("Scheduled:", o);
+    }
+
+    [Fact]
+    public void AnOppositionPartyIsToldItDoesNotLead()
+    {
+        Assert.Contains("Only the leading party", PlayCz("set threshold 4.5\nquit\n", "base:civic_right"));
+    }
+}

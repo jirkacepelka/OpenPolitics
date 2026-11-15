@@ -52,6 +52,8 @@ public static class PackValidator
             if (!(Math.Abs(p.AxisX) <= 1.0) || !(Math.Abs(p.AxisY) <= 1.0))
                 Err("E007", "policy", p.Id, $"Policy '{p.Id}' has an axis loading outside [-1, 1].");
             if (p.DelayTurns < 0) Err("E007", "policy", p.Id, $"Policy '{p.Id}' has negative delay_turns.");
+            if (!(p.CapitalCost >= 0 && p.CapitalCost <= 10))
+                Err("E007", "policy", p.Id, $"Policy '{p.Id}' has capital_cost {p.CapitalCost} outside [0, 10].");
             if (p.Unit == "tax_rate" && (p.RevenueBaseValueId == null || !(p.BaseShare > 0)))
                 Err("E007", "policy", p.Id, $"Policy '{p.Id}' has unit tax_rate and needs revenue_base and a positive base_share.");
             if (p.RevenueBaseValueId != null) Ref("policy", p.Id, $"Policy '{p.Id}' revenue_base", p.RevenueBaseValueId, valueIds, "value");

@@ -210,12 +210,17 @@ public sealed class PlayLoop
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
         { _out.WriteLine(_t.T("ui.err.not_a_number", args[1])); return; }
         value = Fmt.ToParameter(policy, value, _t); // typed in the shown unit (tax rate in %, spending in bn per year)
+        double cost = _game.PolicyChangeCost(policy.Id, value);
         var result = _game.Apply(new SetPolicy(policy.Id, value));
-        if (result.Accepted) _out.WriteLine(_t.T("ui.set.ok", _t.Name(policy.Id), Fmt.Policy(policy, value, _t)));
+        if (result.Accepted)
+        {
+            _out.WriteLine(_t.T("ui.set.ok", _t.Name(policy.Id), Fmt.Policy(policy, value, _t)));
+            if (cost > 0 && Current.Politics?.Party is { } party)
+                _out.WriteLine(_t.T("ui.set.cost", Fmt.Number(cost, "0"), Fmt.Number(Math.Floor(party.PoliticalCapital + 1e-9), "0")));
+        }
         else
         {
-            string key = "ui." + (result.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
-            _out.WriteLine(_t.T(key));
+            _out.WriteLine(new Texts(_packs, _t).Error(result));
             if (result.ErrorKey == "error.value_out_of_range")
                 _out.WriteLine("  " + _t.T("ui.range", Fmt.Policy(policy, policy.Min, _t), Fmt.Policy(policy, policy.Max, _t)));
         }

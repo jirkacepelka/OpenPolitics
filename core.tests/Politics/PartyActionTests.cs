@@ -34,12 +34,12 @@ public class PartyActionTests
         var g = As("z"); // opposition: no leader bonus
         double share = Pol(g).Support["base:z"];
         g.EndTurn();
-        Assert.Equal(6 + 2 + 8 * 0.19 * share, St(g).PoliticalCapital, 9);
+        Assert.Equal(6 + PoliticsLimits.BaseIncome + 8 * 0.19 * share, St(g).PoliticalCapital, 9);
 
-        var leader = As("a"); // leader bonus +2
+        var leader = As("a"); // leader bonus
         double leaderShare = Pol(leader).Support["base:a"];
         leader.EndTurn();
-        Assert.Equal(6 + 2 + 8 * 0.19 * leaderShare + 2, St(leader).PoliticalCapital, 9);
+        Assert.Equal(6 + PoliticsLimits.BaseIncome + 8 * 0.19 * leaderShare + PoliticsLimits.LeaderIncome, St(leader).PoliticalCapital, 9);
     }
 
     [Fact]

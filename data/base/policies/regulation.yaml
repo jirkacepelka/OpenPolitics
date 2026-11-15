@@ -8,6 +8,7 @@
   axis_x: -0.4
   axis_y: -0.3
 - id: base:migration
+  capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10
@@ -15,6 +16,7 @@
   delay_turns: 2
   axis_y: -1
 - id: base:minimum_wage
+  capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10
@@ -22,6 +24,7 @@
   delay_turns: 1
   axis_x: -0.9
 - id: base:labour_flexibility
+  capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10
@@ -29,6 +32,7 @@
   delay_turns: 2
   axis_x: 0.9
 - id: base:rent_control
+  capital_cost: 1.25   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10
@@ -36,6 +40,7 @@
   delay_turns: 2
   axis_x: -0.8
 - id: base:drug_policy
+  capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10
@@ -50,6 +55,7 @@
   delay_turns: 2
   axis_x: 0.5
 - id: base:retirement_age
+  capital_cost: 2.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 60
   max: 70
@@ -57,6 +63,7 @@
   delay_turns: 4
   axis_x: 0.5
 - id: base:energy_mix
+  capital_cost: 1.25   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10
@@ -72,6 +79,7 @@
   delay_turns: 2
   axis_x: -0.7
 - id: base:surveillance
+  capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
   max: 10

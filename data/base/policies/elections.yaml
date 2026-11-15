@@ -1,11 +1,13 @@
 # ILLUSTRATIVE data: the rules of the election are policies too. They take effect at the next election.
 - id: base:electoral_threshold
+  capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: percent
   min: 0
   max: 10
   default: 5
   delay_turns: 4
 - id: base:electoral_method
+  capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: electoral_method   # 0 = D'Hondt, 1 = Sainte-Lague, 2 = Hare quota (rounded to the nearest whole number)
   min: 0
   max: 2

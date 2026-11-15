@@ -96,7 +96,7 @@ public class GamePoliticsTests
         double GovShare(bool bad)
         {
             // No election inside the window, so the government (and who gets blamed) stays the same.
-            var g = Simulation.NewGame(GameFixture.Load(f => AddPolitics(f, turnsToElection: 40)), Scenario, 9);
+            var g = Simulation.NewGame(GameFixture.Load(f => { AddPolitics(f, turnsToElection: 40); GameFixture.FreePolicies(f); }), Scenario, 9);
             if (bad)
             {
                 Assert.True(g.Apply(new SetPolicy("base:tax", 60)).Accepted);

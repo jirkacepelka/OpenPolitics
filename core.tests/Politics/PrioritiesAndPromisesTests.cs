@@ -1,5 +1,6 @@
 using OpenPolitics.Core.Gameplay;
 using OpenPolitics.Core.Politics;
+using OpenPolitics.Core.Tests.Gameplay;
 using Xunit;
 using static OpenPolitics.Core.Tests.Politics.FormationFixture;
 
@@ -10,7 +11,7 @@ public class PrioritiesAndPromisesTests
     private static readonly Spec[] Three = { new("a", 0.50, Tax: 30), new("b", 0.30, Tax: 31), new("c", 0.20, Tax: 45) };
 
     private static Game Governing(int turnsToElection = 12) =>
-        New(Load(Three, "a", government: new[] { "a" }, turnsToElection: turnsToElection));
+        New(Load(Three, "a", government: new[] { "a" }, turnsToElection: turnsToElection, mutate: GameFixture.FreePolicies));
 
     [Fact]
     public void SettingAPriorityMovesTheWeightByAtMostTwoTenthsAndCostsOneCapital()
@@ -117,7 +118,7 @@ public class PrioritiesAndPromisesTests
     [Fact]
     public void AKeptPromiseBeatsABrokenOneAtTheElectionThatSettlesIt()
     {
-        var packs = Load(Three, "a", government: new[] { "a" }, turnsToElection: 5, extraGroups: true);
+        var packs = Load(Three, "a", government: new[] { "a" }, turnsToElection: 5, extraGroups: true, mutate: GameFixture.FreePolicies);
         var broken = New(packs);
         broken.Apply(new MakePromise("d1"));
         var kept = New(packs);

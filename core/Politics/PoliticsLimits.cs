@@ -13,4 +13,14 @@ public static class PoliticsLimits
 
     /// <summary>At most this many promises per term.</summary>
     public const int MaxPromises = 2;
+
+    /// <summary>Capital cannot be banked without limit: a party that never acts does not stockpile an unbeatable campaign.</summary>
+    public const double MaxCapital = 30.0;
+
+    /// <summary>
+    /// Political capital per quarter: every party gets BaseIncome (+ 8 x organisation x poll share); the leader of the government LeaderIncome on
+    /// top; a coalition is worth up to +-CoalitionIncome (leader: partners' mean loyalty, partner: relation with the leader). Decision 0013 raised the
+    /// base (was 2) and cut the governing extras (were 2 and 3) because policy changes now cost capital.
+    /// </summary>
+    public const double BaseIncome = 3.5, LeaderIncome = 1.0, CoalitionIncome = 2.0;
 }

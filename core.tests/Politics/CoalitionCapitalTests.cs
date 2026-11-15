@@ -36,7 +36,9 @@ public class CoalitionCapitalTests
         var g = Make("a", new[] { "a", "b" }, Agree);
         for (int i = 0; i < 20 && Pol(g).Loyalty!.GetValueOrDefault("base:b", 100) > 40 && Pol(g).Phase == Phase.Governing; i++) g.EndTurn();
         Assert.True(Pol(g).Loyalty!["base:b"] <= 40);
-        Assert.True(Income(g) < 4.0, $"income {Income(g)}"); // the leader's flat income is 4; an unhappy partner takes some of it away
+        // the leader's income without the coalition part; an unhappy partner takes some of it away
+        double flat = PoliticsLimits.BaseIncome + PoliticsLimits.LeaderIncome + 8 * Pol(g).Party!.Organization * Pol(g).Support["base:a"];
+        Assert.True(Income(g) < flat - 0.2, $"income {Income(g)} vs {flat}");
         Assert.InRange(Pol(g).Party!.PoliticalCapital, 0.0, 30.0);
     }
 
@@ -45,7 +47,8 @@ public class CoalitionCapitalTests
     {
         var g = Make("a", new[] { "a" });
         g.EndTurn();
-        Assert.InRange(Income(g), 4.0, 4.0 + 8 * 0.2 + 1e-9);
+        double flat = PoliticsLimits.BaseIncome + PoliticsLimits.LeaderIncome;
+        Assert.InRange(Income(g), flat, flat + 8 * 0.2 + 1e-9);
     }
 
     [Fact]
@@ -65,6 +68,6 @@ public class CoalitionCapitalTests
     {
         var g = Make("z", new[] { "a", "b" });
         g.EndTurn();
-        Assert.InRange(Income(g), 2.0, 2.0 + 8 * 0.2 * 0.5);
+        Assert.InRange(Income(g), PoliticsLimits.BaseIncome, PoliticsLimits.BaseIncome + 8 * 0.2 * 0.5);
     }
 }
