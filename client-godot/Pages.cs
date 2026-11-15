@@ -112,7 +112,7 @@ public sealed class BudgetScreen : Screen
         void Tile(string label, string fig, string unit, Color? color = null, string? note = null)
         {
             var box = Ui.VBox(2);
-            box.AddChild(Ui.L(label, Tx.Overline, AppTheme.Chrome));
+            box.AddChild(Ui.L(label, Tx.Overline, AppTheme.Ink3));
             var row = Ui.HBox(6);
             row.AddChild(Ui.L(fig, Tx.FigureXl, color ?? AppTheme.Ink));
             if (unit.Length > 0) { var u = Ui.L(unit, Tx.Label, AppTheme.Ink2); u.SizeFlagsVertical = SizeFlags.ShrinkEnd; row.AddChild(u); }
@@ -140,7 +140,7 @@ public sealed class BudgetScreen : Screen
                 double now = s.Country.Policies.GetValueOrDefault(p.Id, p.Default);
                 string id = p.Id;
                 var row = Ui.HBox(10);
-                row.AddChild(new PictoDisc(Icons.For(id), 26, AppTheme.Chrome, Colors.White));
+                row.AddChild(new PictoDisc(Icons.For(id), 26));
                 var name = Ui.L(t.Name(id), Tx.BodyStrong);
                 name.CustomMinimumSize = new Vector2(Layout.Compact ? 120 : 190, 0); name.ClipText = true; name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
                 row.AddChild(name);
@@ -185,7 +185,7 @@ public sealed class NewsScreen : Screen
             {
                 var line = Ui.HBox(12);
                 bool alert = text.Contains("ultim", StringComparison.OrdinalIgnoreCase);
-                var icon = new PictoDisc(alert ? IconKind.Alert : IconKind.News, 28, alert ? AppTheme.Warn : AppTheme.Panel2, alert ? Colors.White : AppTheme.Ink2) { SizeFlagsVertical = SizeFlags.ShrinkBegin };
+                var icon = new PictoDisc(alert ? IconKind.Alert : IconKind.News, 28, alert ? new Color(AppTheme.Warn, 0.16f) : AppTheme.Panel, alert ? AppTheme.WarnText : AppTheme.Ink2) { SizeFlagsVertical = SizeFlags.ShrinkBegin };
                 line.AddChild(icon);
                 line.AddChild(Ui.L(Ui.Fix(text), Tx.Body, AppTheme.Ink, true));
                 d.Body.AddChild(line);

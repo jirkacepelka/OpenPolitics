@@ -54,55 +54,65 @@ public partial class PolicySlider : Control
     }
 
     private float Pad => Compact ? 10 : 16;
-    private float TrackY => Compact ? Size.Y / 2 : 54;
+    private float TrackY => Compact ? Size.Y / 2 : 56;
     private float X(double v) => Pad + (float)((v - Min) / (Max - Min)) * (Size.X - 2 * Pad);
     private double V(float x) => Min + (Math.Clamp(x, Pad, Size.X - Pad) - Pad) / Math.Max(Size.X - 2 * Pad, 1) * (Max - Min);
 
     public override void _Draw()
     {
-        float y = TrackY, th = Compact ? 6 : 10, r = th / 2;
-        var font = AppTheme.Bold;
+        float y = TrackY, th = Compact ? 4 : 6, r = th / 2;
         if (!Compact)
         {
             var (fig, unit) = Ui.Split(Format(Target));
-            DrawString(AppTheme.FigBold, new Vector2(Pad - 2, 26), fig, HorizontalAlignment.Left, -1, 26, AppTheme.Ink);
-            float fw = AppTheme.FigBold.GetStringSize(fig, HorizontalAlignment.Left, -1, 26).X;
-            if (unit.Length > 0) DrawString(font, new Vector2(Pad + fw + 4, 26), unit, HorizontalAlignment.Left, -1, 15, AppTheme.Ink2);
+            DrawString(AppTheme.FigSemi, new Vector2(Pad - 2, 28), fig, HorizontalAlignment.Left, -1, 28, AppTheme.Ink);
+            float fw = AppTheme.FigSemi.GetStringSize(fig, HorizontalAlignment.Left, -1, 28).X;
+            if (unit.Length > 0) DrawString(AppTheme.Regular, new Vector2(Pad + fw + 5, 28), unit, HorizontalAlignment.Left, -1, 14, AppTheme.Ink3);
+            double delta = Target - InForce;
+            if (Math.Abs(delta) > Step / 2)
+            {
+                string d = (delta > 0 ? "\u25b2 " : "\u25bc ") + Ui.Num(Math.Abs(delta), Math.Abs(delta) >= 10 ? "0" : "0.0");
+                float ux = Pad + fw + 5 + (unit.Length > 0 ? AppTheme.Regular.GetStringSize(unit, HorizontalAlignment.Left, -1, 14).X + 10 : 6);
+                DrawString(AppTheme.FigSemi, new Vector2(ux, 27), d, HorizontalAlignment.Left, -1, 12, AppTheme.Chrome);
+            }
         }
         float x0 = X(Min), x1 = X(Max);
-        DrawStyleBox(AppTheme.Box(AppTheme.TrackLight, (int)r), new Rect2(x0 - r, y - r, x1 - x0 + th, th));
-        // ticks: five segments
+        DrawStyleBox(AppTheme.Box(AppTheme.TrackLight, (int)Math.Ceiling(r)), new Rect2(x0 - r, y - r, x1 - x0 + th, th));
         if (!Compact)
-            for (int i = 0; i <= 5; i++)
+            for (int i = 0; i <= 10; i++)
             {
-                float tx = x0 + (x1 - x0) * i / 5f;
-                DrawRect(new Rect2(tx - 1, y - r - 5, 2, th + 10), i is 0 or 5 ? AppTheme.Ink2 : new Color("a0a0a0"));
+                float tx = x0 + (x1 - x0) * i / 10f;
+                bool major = i % 5 == 0;
+                DrawRect(new Rect2(tx - 0.5f, y + 8, 1, major ? 6 : 3), major ? AppTheme.Ink3 : AppTheme.Border);
             }
         float fx = X(Compact ? Target : InForce);
-        if (fx > x0 + 0.5f) DrawStyleBox(AppTheme.Box(Editable ? AppTheme.Chrome : AppTheme.Ink3, (int)r), new Rect2(x0 - r, y - r, fx - x0 + th, th));
+        var fillColor = Editable ? AppTheme.Chrome : AppTheme.InkDisabled;
+        if (fx > x0 + 0.5f) DrawStyleBox(AppTheme.Box(fillColor, (int)Math.Ceiling(r)), new Rect2(x0 - r, y - r, fx - x0 + th, th));
         if (!Compact && Scheduled is { } sch && Math.Abs(sch - InForce) > Step / 2)
         {
             float a = X(Math.Min(sch, InForce)), b = X(Math.Max(sch, InForce));
-            for (float sx = a; sx < b; sx += 6)
-                DrawLine(new Vector2(sx, y + r), new Vector2(Math.Min(sx + th, b), y - r), new Color(AppTheme.Chrome, 0.75f), 2f, true);
+            for (float sx = a; sx < b; sx += 5)
+                DrawLine(new Vector2(sx, y + r), new Vector2(Math.Min(sx + th, b), y - r), new Color(AppTheme.Chrome, 0.6f), 1.5f, true);
         }
-        if (GovMarker is { } g) DrawRect(new Rect2(X(g) - 1.5f, y - 9, 3, 18), AppTheme.Ink);
         if (!Compact && Math.Abs(Target - InForce) > Step / 2)
         {
-            DrawCircle(new Vector2(X(InForce), y), 10, AppTheme.Surface);
-            DrawCircle(new Vector2(X(InForce), y), 8, AppTheme.ChromeLight);
+            float tx = X(Target), ix = X(InForce);
+            DrawRect(new Rect2(Math.Min(tx, ix), y - 0.75f, Math.Abs(tx - ix), 1.5f), new Color(AppTheme.Chrome, 0.5f));
+            DrawCircle(new Vector2(ix, y), 5, AppTheme.Surface);
+            DrawArc(new Vector2(ix, y), 4.5f, 0, Mathf.Tau, 24, fillColor, 2, true);
         }
-        float tr = Compact ? 9 : (_drag || _hover ? 15 : 14);
-        var tc = Editable ? (_drag ? AppTheme.ChromeDark : AppTheme.Chrome) : AppTheme.Ink3;
+        if (GovMarker is { } g) DrawRect(new Rect2(X(g) - 1, y - 7, 2, 14), AppTheme.Ink);
+        float tr = Compact ? 7 : (_drag || _hover ? 11 : 10);
         var tp = new Vector2(X(Target), y);
-        DrawCircle(tp, tr + 2.5f, AppTheme.Surface);
-        DrawCircle(tp, tr, tc);
-        if (HasFocus() && !Compact) DrawArc(tp, tr + 5, 0, Mathf.Tau, 40, AppTheme.Ink, 2, true);
+        DrawCircle(tp + new Vector2(0, 1.5f), tr + 1, new Color(AppTheme.Ink, 0.12f));
+        DrawCircle(tp, tr, new Color("ffffff"));
+        DrawArc(tp, tr - 1.25f, 0, Mathf.Tau, 40, Editable ? (_drag ? AppTheme.ChromeDark : AppTheme.Chrome) : AppTheme.InkDisabled, 2.5f, true);
+        if (_drag && !Compact) DrawCircle(tp, 3.5f, AppTheme.Chrome);
+        if (HasFocus() && !Compact) DrawArc(tp, tr + 4, 0, Mathf.Tau, 40, new Color(AppTheme.Chrome, 0.35f), 3, true);
         if (!Compact)
         {
             string lo = MinLabel.Length > 0 ? MinLabel : Format(Min), hi = MaxLabel.Length > 0 ? MaxLabel : Format(Max);
-            DrawString(AppTheme.Regular, new Vector2(x0 - 6, y + 30), Ui.Fix(lo), HorizontalAlignment.Left, -1, 12, AppTheme.Ink3);
-            DrawString(AppTheme.Regular, new Vector2(x1 - 200 + 6, y + 30), Ui.Fix(hi), HorizontalAlignment.Right, 200, 12, AppTheme.Ink3);
+            DrawString(AppTheme.FigSemi, new Vector2(x0 - 4, y + 32), Ui.Fix(lo), HorizontalAlignment.Left, -1, 11, AppTheme.Ink3);
+            DrawString(AppTheme.FigSemi, new Vector2(x1 - 200 + 4, y + 32), Ui.Fix(hi), HorizontalAlignment.Right, 200, 11, AppTheme.Ink3);
         }
     }
 

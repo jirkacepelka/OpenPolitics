@@ -18,15 +18,15 @@ public static class Detail
     public static Control EffectRow(IconKind? icon, string name, double fill, string number, Action? onClick = null, string tooltip = "", bool group = false, float nameWidth = 0)
     {
         var row = Ui.HBox(12);
-        row.CustomMinimumSize = new Vector2(0, 30);
-        if (icon != null) row.AddChild(group ? new PictoDisc(icon.Value, 24, AppTheme.Panel2, AppTheme.Ink2) : new PictoDisc(icon.Value, 24, AppTheme.Chrome, Colors.White));
+        row.CustomMinimumSize = new Vector2(0, 34);
+        if (icon != null) row.AddChild(group ? new PictoDisc(icon.Value, 26, AppTheme.Panel, AppTheme.Ink2) : new PictoDisc(icon.Value, 26));
         else row.AddChild(Ui.Gap(24));
-        var l = Ui.L(name, Tx.BodyStrong);
+        var l = Ui.L(name, Tx.Body, AppTheme.Ink);
         l.CustomMinimumSize = new Vector2(nameWidth > 0 && !Layout.Compact ? nameWidth : Layout.Compact ? 120 : Layout.Wide ? 210 : 165, 0);
         l.ClipText = true; l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         l.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         row.AddChild(l);
-        var bar = new Meter(Math.Clamp(fill, -1, 1), -1, 1, fill >= 0 ? AppTheme.Good : AppTheme.Bad, 60, true, 14) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var bar = new Meter(Math.Clamp(fill, -1, 1), -1, 1, fill >= 0 ? AppTheme.Good : AppTheme.Bad, 60, true, 6) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddChild(bar);
         var n = Ui.Right(Ui.L(number, Tx.Data, AppTheme.Signed(fill)));
         n.CustomMinimumSize = new Vector2(58, 0);
@@ -55,11 +55,11 @@ public static class Detail
     {
         var box = Ui.VBox(6);
         var head = Ui.HBox(8);
-        head.AddChild(Ui.L(label, Tx.Label, AppTheme.Chrome));
+        head.AddChild(Ui.L(label, Tx.Small, AppTheme.Ink3));
         head.AddChild(Ui.Spacer());
         head.AddChild(Ui.L(value, Tx.Data));
         box.AddChild(head);
-        box.AddChild(new Meter(frac, 0, 1, color, 120, false, 14) { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, TrackColor = AppTheme.Track });
+        box.AddChild(new Meter(frac, 0, 1, color, 120, false, 6) { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
         box.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         return box;
     }
@@ -68,7 +68,7 @@ public static class Detail
     public static Control Stat(string label, string value, Color? color = null)
     {
         var row = Ui.HBox(8);
-        row.AddChild(Ui.L(label, Tx.Label, AppTheme.Chrome));
+        row.AddChild(Ui.L(label, Tx.Small, AppTheme.Ink3));
         row.AddChild(Ui.Spacer());
         var v = Ui.Right(Ui.L(value, Tx.Data, color ?? AppTheme.Ink));
         row.AddChild(v);
@@ -121,7 +121,7 @@ public static class PolicyDialog
         double target = double.NaN;
         void Build()
         {
-            d.ClearBody(); Ui.Clear(d.Actions);
+            d.ClearBody(); d.ClearActions();
             double now = s.Country.Policies.GetValueOrDefault(id, p.Default);
             var queued = s.Game.PendingPolicies.LastOrDefault(x => x.PolicyId == id);
             double latest = queued?.Value ?? now;
@@ -139,10 +139,10 @@ public static class PolicyDialog
             delayBox.TooltipText = t.T("ui.pd.delay_hint");
             bars.AddChild(delayBox);
             var popLabel = Ui.L("", Tx.Data);
-            var popBar = new Meter(0, 0, 1, AppTheme.Good, 120, false, 14) { SizeFlagsHorizontal = SizeFlags.ExpandFill, TrackColor = AppTheme.Track };
+            var popBar = new Meter(0, 0, 1, AppTheme.Good, 120, false, 6) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             var popBox = Ui.VBox(6);
             var popHead = Ui.HBox(8);
-            popHead.AddChild(Ui.L(t.T("ui.pd.popularity"), Tx.Label, AppTheme.Chrome)); popHead.AddChild(Ui.Spacer()); popHead.AddChild(popLabel);
+            popHead.AddChild(Ui.L(t.T("ui.pd.popularity"), Tx.Small, AppTheme.Ink3)); popHead.AddChild(Ui.Spacer()); popHead.AddChild(popLabel);
             popBox.AddChild(popHead); popBox.AddChild(popBar);
             popBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             bars.AddChild(popBox);
@@ -158,7 +158,7 @@ public static class PolicyDialog
             {
                 var modes = new[] { "gdp", "inflation", "none" };
                 var row = Ui.HBox(8);
-                row.AddChild(Ui.L(t.T("ui.client.indexation"), Tx.Label, AppTheme.Chrome));
+                row.AddChild(Ui.L(t.T("ui.client.indexation"), Tx.Small, AppTheme.Ink3));
                 row.AddChild(Ui.Spacer());
                 var box = new OptionButton { Disabled = blocked != null, TooltipText = t.T("ui.index.hint"), FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(150, 30) };
                 foreach (var m in modes) box.AddItem(t.T("ui.index." + m));
@@ -192,17 +192,17 @@ public static class PolicyDialog
             sliderCol.AddChild(slider);
             var money = Ui.HBox(30);
             var costBox = Ui.VBox(0); var costValue = Ui.L("", Tx.Figure);
-            costBox.AddChild(Ui.L(t.T("ui.pd.cost"), Tx.Label, AppTheme.Chrome)); costBox.AddChild(costValue);
+            costBox.AddChild(Ui.L(t.T("ui.pd.cost"), Tx.Small, AppTheme.Ink3)); costBox.AddChild(costValue);
             var budBox = Ui.VBox(0); var budValue = Ui.L("", Tx.Figure);
-            budBox.AddChild(Ui.L(t.T("ui.pd.budget_change"), Tx.Label, AppTheme.Chrome)); budBox.AddChild(budValue);
+            budBox.AddChild(Ui.L(t.T("ui.pd.budget_change"), Tx.Small, AppTheme.Ink3)); budBox.AddChild(budValue);
             money.AddChild(costBox); money.AddChild(budBox);
             if (p.CostPerUnit != 0 || p.RevenueBaseValueId != null) sliderCol.AddChild(money);
             var capBox = Ui.HBox(12);
-            capBox.AddChild(new PictoDisc(IconKind.Coin, 54, AppTheme.Chrome, Colors.White));
+            capBox.AddChild(new PictoDisc(IconKind.Coin, 54));
             var capText = Ui.VBox(2);
             if (s.Politics?.Party is { } ps)
             {
-                capText.AddChild(Ui.L("×" + Ui.Num(ps.PoliticalCapital, "0"), Tx.FigureXl));
+                capText.AddChild(Ui.L(Ui.Num(ps.PoliticalCapital, "0"), Tx.FigureXl));
                 capText.AddChild(Ui.L(t.T("ui.party.capital") + " · " + Ui.Signed(ps.Income) + " " + t.T("ui.party.per_quarter"), Tx.Small, AppTheme.Ink2, true));
             }
             capText.AddChild(Ui.L(t.T("ui.pd.capital_free"), Tx.Small, AppTheme.Ink3, true));
@@ -213,16 +213,20 @@ public static class PolicyDialog
             // In small windows the slider comes before the effect list so it is never below the fold.
             if (Layout.Compact || Layout.Short) d.Body.MoveChild(sliderBlock, effects.GetIndex());
 
+            var revert = d.AddAction(t.T("ui.pd.revert"), IconKind.Undo, () => { });
             var apply = d.AddAction(t.T("ui.pd.apply"), IconKind.Check, () =>
             {
                 if (s.Do(new SetPolicy(id, slider.Target), t.T("ui.set.ok", t.Name(id), Ui.Fix(Fmt.Policy(p, slider.Target, t))))) target = double.NaN;
-            });
+            }, false, "");
             var cancel = d.AddAction(t.T("ui.pd.cancel"), IconKind.Close, () =>
             {
                 if (s.Do(new SetPolicy(id, now), t.T("ui.pd.cancel_ok", t.Name(id)))) target = double.NaN;
             }, blocked != null || queued == null || Math.Abs(queued.Value - now) < 1e-9);
-            var revert = d.AddAction(t.T("ui.pd.revert"), IconKind.Undo, () => { target = latest; slider.SetTarget(latest); });
+            revert.Pressed += () => { target = latest; slider.SetTarget(latest); };
             cancel.TooltipText = t.T("ui.pd.cancel_hint");
+            cancel.ThemeTypeVariation = "ButtonGhost";
+            d.Actions.MoveChild(cancel, 0);
+            var spacer = Ui.Spacer(); d.Actions.AddChild(spacer); d.Actions.MoveChild(spacer, 1);
 
             void Update(double v)
             {
@@ -321,7 +325,7 @@ public static class ValueDialog
         int range = 0;
         void Build()
         {
-            d.ClearBody(); Ui.Clear(d.Actions);
+            d.ClearBody(); d.ClearActions();
             var left = Ui.VBox(12);
             var head = Ui.HBox(14);
             var (fig, unit) = Ui.Split(Fmt.Value(def, s.Country.Values.GetValueOrDefault(id)));
@@ -396,7 +400,7 @@ public static class GroupDialog
         d.Key = "group:" + id;
         void Build()
         {
-            d.ClearBody(); Ui.Clear(d.Actions);
+            d.ClearBody(); d.ClearActions();
             double sat = s.Country.Satisfaction.GetValueOrDefault(id);
             var left = Ui.VBox(12);
             var head = Ui.HBox(14);
@@ -453,7 +457,7 @@ public static class PartyDialog
         d.Key = "party:" + id;
         void Build()
         {
-            d.ClearBody(); Ui.Clear(d.Actions);
+            d.ClearBody(); d.ClearActions();
             var pol = s.Politics;
             if (pol == null) return;
             var left = Ui.VBox(10);

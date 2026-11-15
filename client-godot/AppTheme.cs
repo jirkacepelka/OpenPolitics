@@ -13,32 +13,38 @@ public enum Tx { Display, Title, Heading, Body, BodyStrong, Label, Small, Overli
 public static class AppTheme
 {
     // ---- colour tokens -------------------------------------------------------------------------------------
-    public static readonly Color Chrome = new("1c8be0");
-    public static readonly Color ChromeDark = new("1570ba");
-    public static readonly Color ChromeLight = new("58adec");
-    public static readonly Color ChromeTint = new("dcedfb");
-    public static readonly Color ActiveTab = new("262626");
-    public static readonly Color Play = new("62b81e");
-    public static readonly Color PlayDark = new("4e9a14");
-    public static readonly Color MapBg = new("f4f4f2");
-    public static readonly Color Surface = new("ffffff");
-    public static readonly Color Panel = new("ededed");
-    public static readonly Color Panel2 = new("e0e0e0");
-    public static readonly Color Track = new("4a4a4a");
-    public static readonly Color TrackLight = new("d5d5d5");
-    public static readonly Color Border = new("2b2b2b");
-    public static readonly Color Hairline = new("dcdcdc");
-    public static readonly Color Ink = new("1e1e1e");
-    public static readonly Color Ink2 = new("4a4a4a");
-    public static readonly Color Ink3 = new("767676");
-    public static readonly Color InkDisabled = new("ababab");
-    public static readonly Color Good = new("5db92b");
-    public static readonly Color Warn = new("f29a12");
-    public static readonly Color Bad = new("ec4a22");
-    public static readonly Color GoodText = new("3a8a14");
-    public static readonly Color WarnText = new("a86600");
-    public static readonly Color BadText = new("c93a15");
-    public static readonly Color Veil = new(1, 1, 1, 0.72f);
+    /// <summary>The signature colour (violet ink): primary action, selection, policy rings, the slider. Swap it here.</summary>
+    public static readonly Color Chrome = new("5b45e0");
+    public static readonly Color ChromeDark = new("4632bf");
+    public static readonly Color ChromeLight = new("a497f4");
+    public static readonly Color ChromeTint = new("eeebfd");
+    /// <summary>Graphite: the voter panel, the hub, tooltips, the active tab icon.</summary>
+    public static readonly Color Graphite = new("1d1c23");
+    public static readonly Color Graphite2 = new("2b2a33");
+    public static readonly Color Graphite3 = new("3a3944");
+    public static readonly Color ActiveTab = new("eeebfd");
+    public static readonly Color Play = new("5b45e0");
+    public static readonly Color PlayDark = new("4632bf");
+    public static readonly Color MapBg = new("edeae4");
+    public static readonly Color Surface = new("fbfaf8");
+    public static readonly Color Panel = new("f2f0ec");
+    public static readonly Color Panel2 = new("e8e5df");
+    public static readonly Color Track = new("e2ded7");
+    public static readonly Color TrackLight = new("e6e2db");
+    public static readonly Color Border = new("d8d3ca");
+    public static readonly Color Hairline = new("e6e2db");
+    public static readonly Color Ink = new("17161c");
+    public static readonly Color Ink2 = new("4b4952");
+    public static readonly Color Ink3 = new("75727b");
+    public static readonly Color InkDisabled = new("aeaab2");
+    public static readonly Color Good = new("2f9e66");
+    public static readonly Color Warn = new("e0892c");
+    public static readonly Color Bad = new("dc4b3e");
+    public static readonly Color GoodText = new("23784c");
+    public static readonly Color WarnText = new("a35c12");
+    public static readonly Color BadText = new("b73a2f");
+    public static readonly Color Veil = new(0.09f, 0.086f, 0.11f, 0.34f);
+    public const int Radius = 10, RadiusLg = 16;
 
     /// <summary>Traffic-light colour for a goodness in 0..1.</summary>
     public static Color Traffic(double goodness) => goodness >= 0.6 ? Good : goodness >= 0.4 ? Warn : Bad;
@@ -168,7 +174,8 @@ public static class AppTheme
     public static ImageTexture Check(bool on, bool disabled = false, int size = 18) => Paint(size, size, (x, y) =>
     {
         float c = size / 2f, half = c - 1f;
-        float d = Math.Max(Math.Abs(x - c), Math.Abs(y - c)) - half;
+        var q = new Vector2(Math.Abs(x - c), Math.Abs(y - c)) - new Vector2(half - 4, half - 4);
+        float d = new Vector2(Math.Max(q.X, 0), Math.Max(q.Y, 0)).Length() + Math.Min(Math.Max(q.X, q.Y), 0) - 4;
         var col = new Color(0, 0, 0, 0);
         float k = disabled ? 0.4f : 1f;
         if (on)
@@ -180,7 +187,7 @@ public static class AppTheme
         else
         {
             col = Over(col, Colors.White, Cover(d));
-            col = Over(col, new Color(Ink3, k), Cover(Math.Abs(d + 1f) - 1f));
+            col = Over(col, new Color(Ink3, k), Cover(Math.Abs(d + 0.75f) - 0.75f));
         }
         return col;
     });
@@ -209,20 +216,21 @@ public static class AppTheme
 
     private static ImageTexture? _dot;
     /// <summary>One faint dot of the map grid, tiled.</summary>
-    public static ImageTexture GridDot => _dot ??= Paint(24, 24, (x, y) => x < 1.5f && y < 1.5f ? new Color("dededa") : new Color(0, 0, 0, 0));
+    public static ImageTexture GridDot => _dot ??= Paint(24, 24, (x, y) => x < 1.5f && y < 1.5f ? new Color("dcd8d0") : new Color(0, 0, 0, 0));
 
     // ---- the theme ------------------------------------------------------------------------------------------
     private static Theme? _instance;
     public static Theme Instance => _instance ??= Build();
 
-    private static void ButtonStyle(Theme t, string type, Color fill, Color hover, Color pressed, Color text, Color? border = null, float padH = 14, float padV = 8, Color? disabledFill = null)
+    private static void ButtonStyle(Theme t, string type, Color fill, Color hover, Color pressed, Color text, Color? border = null, float padH = 14, float padV = 8, Color? disabledFill = null, int radius = Radius)
     {
-        t.SetStylebox("normal", type, Box(fill, 0, border, 1, padH, padV));
-        t.SetStylebox("hover", type, Box(hover, 0, border, 1, padH, padV));
-        t.SetStylebox("pressed", type, Box(pressed, 0, border, 1, padH, padV));
-        t.SetStylebox("hover_pressed", type, Box(pressed, 0, border, 1, padH, padV));
-        t.SetStylebox("disabled", type, Box(disabledFill ?? Panel, 0, border == null ? null : Hairline, 1, padH, padV));
-        t.SetStylebox("focus", type, Box(new Color(0, 0, 0, 0), 0, Ink, 2));
+        t.SetStylebox("normal", type, Box(fill, radius, border, 1, padH, padV));
+        t.SetStylebox("hover", type, Box(hover, radius, border, 1, padH, padV));
+        t.SetStylebox("pressed", type, Box(pressed, radius, border, 1, padH, padV));
+        t.SetStylebox("hover_pressed", type, Box(pressed, radius, border, 1, padH, padV));
+        t.SetStylebox("disabled", type, Box(disabledFill ?? Panel, radius, border == null ? null : Hairline, 1, padH, padV));
+        var focus = Box(new Color(0, 0, 0, 0), radius + 2, Chrome, 2); focus.SetExpandMarginAll(2);
+        t.SetStylebox("focus", type, focus);
         foreach (var c in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color" }) t.SetColor(c, type, text);
         t.SetColor("font_disabled_color", type, InkDisabled);
         t.SetColor("icon_normal_color", type, text);
@@ -254,45 +262,46 @@ public static class AppTheme
         // Buttons. Default = chrome flat (D4); variations for the others.
         ButtonStyle(t, "Button", Chrome, ChromeDark, ChromeDark.Darkened(0.12f), Colors.White, null, 14, 8, Panel2);
         Variation(t, "ButtonSecondary", "Button");
-        ButtonStyle(t, "ButtonSecondary", Surface, Panel, Panel2, Ink, new Color("b5b5b5"), 14, 8, Surface);
+        ButtonStyle(t, "ButtonSecondary", Surface, Panel, Panel2, Ink, Border, 14, 8, Surface);
         Variation(t, "ButtonGhost", "Button");
-        ButtonStyle(t, "ButtonGhost", new Color(0, 0, 0, 0), new Color(0, 0, 0, 0.06f), new Color(0, 0, 0, 0.12f), Chrome, null, 8, 6, new Color(0, 0, 0, 0));
+        ButtonStyle(t, "ButtonGhost", new Color(0, 0, 0, 0), new Color(Ink, 0.05f), new Color(Ink, 0.09f), Chrome, null, 8, 6, new Color(0, 0, 0, 0));
         Variation(t, "ButtonPlay", "Button");
-        ButtonStyle(t, "ButtonPlay", Play, PlayDark, PlayDark.Darkened(0.1f), Colors.White, null, 0, 0, Panel2);
+        ButtonStyle(t, "ButtonPlay", Play, PlayDark, PlayDark.Darkened(0.1f), Colors.White, null, 16, 8, Panel2, 12);
         Variation(t, "ButtonDanger", "Button");
-        ButtonStyle(t, "ButtonDanger", Surface, new Color("fdeae4"), new Color("f8d4c9"), BadText, Bad, 14, 8, Surface);
+        ButtonStyle(t, "ButtonDanger", Surface, new Color("fbebe8"), new Color("f6d8d3"), BadText, new Color(Bad, 0.45f), 14, 8, Surface);
         // Segment / toggle buttons (sort strip, ranges, tabs inside dialogs): flat grey, chrome when pressed.
         Variation(t, "ButtonSeg", "Button");
-        ButtonStyle(t, "ButtonSeg", Panel, Panel2, Chrome, Ink, null, 12, 6, Panel);
-        t.SetColor("font_pressed_color", "ButtonSeg", Colors.White);
-        t.SetColor("font_hover_pressed_color", "ButtonSeg", Colors.White);
-        t.SetStylebox("hover_pressed", "ButtonSeg", Box(ChromeDark, 0, null, 1, 12, 6));
+        ButtonStyle(t, "ButtonSeg", Panel2, new Color("dedad3"), Surface, Ink2, null, 12, 6, Panel2, 8);
+        var segOn = Box(Surface, 8, new Color(Ink, 0.06f), 1, 12, 6); segOn.ShadowColor = new Color(Ink, 0.10f); segOn.ShadowSize = 2; segOn.ShadowOffset = new Vector2(0, 1);
+        t.SetStylebox("pressed", "ButtonSeg", segOn); t.SetStylebox("hover_pressed", "ButtonSeg", segOn);
+        t.SetColor("font_pressed_color", "ButtonSeg", Ink);
+        t.SetColor("font_hover_pressed_color", "ButtonSeg", Ink);
         // Selectable cards (scenario choice): white with a grey border, chrome border and tint when chosen.
         Variation(t, "ButtonCard", "Button");
-        ButtonStyle(t, "ButtonCard", Surface, new Color("f6f6f6"), ChromeTint, Ink, new Color("c4c4c4"), 14, 12, Surface);
-        t.SetStylebox("pressed", "ButtonCard", Box(ChromeTint, 0, Chrome, 2, 14, 12));
-        t.SetStylebox("hover_pressed", "ButtonCard", Box(ChromeTint, 0, Chrome, 2, 14, 12));
+        ButtonStyle(t, "ButtonCard", Surface, new Color("ffffff"), ChromeTint, Ink, Border, 14, 12, Surface, 12);
+        t.SetStylebox("pressed", "ButtonCard", Box(ChromeTint, 12, Chrome, 2, 14, 12));
+        t.SetStylebox("hover_pressed", "ButtonCard", Box(ChromeTint, 12, Chrome, 2, 14, 12));
         // Tabs in a dialog: text with a chrome underline when pressed.
         Variation(t, "ButtonTab", "Button");
-        ButtonStyle(t, "ButtonTab", new Color(0, 0, 0, 0), Panel, new Color(0, 0, 0, 0), Ink2, null, 14, 10, new Color(0, 0, 0, 0));
-        var under = Box(new Color(0, 0, 0, 0), 0, null, 1, 14, 10); under.BorderColor = Chrome; under.BorderWidthBottom = 4;
+        ButtonStyle(t, "ButtonTab", new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), Ink3, null, 2, 10, new Color(0, 0, 0, 0), 0);
+        var under = Box(new Color(0, 0, 0, 0), 0, null, 1, 2, 10); under.BorderColor = Chrome; under.BorderWidthBottom = 2;
         t.SetStylebox("pressed", "ButtonTab", under); t.SetStylebox("hover_pressed", "ButtonTab", under);
         t.SetColor("font_pressed_color", "ButtonTab", Ink); t.SetColor("font_hover_pressed_color", "ButtonTab", Ink);
-        t.SetFont("font", "ButtonTab", Bold); t.SetFontSize("font_size", "ButtonTab", 14);
-        t.SetColor("font_color", "ButtonTab", Ink2);
+        t.SetFont("font", "ButtonTab", Semi); t.SetFontSize("font_size", "ButtonTab", 14);
+        t.SetColor("font_color", "ButtonTab", Ink3); t.SetColor("font_hover_color", "ButtonTab", Ink);
 
         // Drop-downs.
         foreach (var type in new[] { "OptionButton", "MenuButton" })
         {
-            ButtonStyle(t, type, Surface, Panel, Panel, Ink, new Color("b5b5b5"), 10, 6, Surface);
-            t.SetStylebox("normal", type, Box(Surface, 0, new Color("b5b5b5"), 1, 10, 6));
+            ButtonStyle(t, type, Surface, Panel, Panel, Ink, Border, 12, 6, Surface, 8);
         }
         t.SetIcon("arrow", "OptionButton", Chevron(Ink2));
         t.SetConstant("arrow_margin", "OptionButton", 8);
 
         // Popups and tooltips.
-        t.SetStylebox("panel", "PopupMenu", Box(Surface, 0, Border, 1, 4));
-        t.SetStylebox("hover", "PopupMenu", Box(ChromeTint, 0));
+        var pop = Box(Surface, 12, new Color(Ink, 0.08f), 1, 6); pop.ShadowColor = new Color(Ink, 0.14f); pop.ShadowSize = 16; pop.ShadowOffset = new Vector2(0, 6);
+        t.SetStylebox("panel", "PopupMenu", pop);
+        t.SetStylebox("hover", "PopupMenu", Box(ChromeTint, 8));
         t.SetStylebox("separator", "PopupMenu", new StyleBoxLine { Color = Hairline, Thickness = 1 });
         t.SetColor("font_color", "PopupMenu", Ink); t.SetColor("font_hover_color", "PopupMenu", Ink);
         t.SetColor("font_disabled_color", "PopupMenu", InkDisabled);
@@ -301,8 +310,9 @@ public static class AppTheme
         t.SetConstant("item_start_padding", "PopupMenu", 10); t.SetConstant("item_end_padding", "PopupMenu", 10);
         t.SetIcon("radio_checked", "PopupMenu", Disc(Chrome, Chrome, 12)); t.SetIcon("radio_unchecked", "PopupMenu", Blank(12));
         t.SetIcon("checked", "PopupMenu", Check(true, false, 14)); t.SetIcon("unchecked", "PopupMenu", Check(false, false, 14));
-        t.SetStylebox("panel", "PopupPanel", Box(Surface, 0, Border, 1, 8));
-        t.SetStylebox("panel", "TooltipPanel", Box(new Color("222222"), 3, null, 1, 10, 7));
+        t.SetStylebox("panel", "PopupPanel", pop);
+        var tip = Box(Graphite, 8, null, 1, 10, 7); tip.ShadowColor = new Color(Ink, 0.2f); tip.ShadowSize = 8; tip.ShadowOffset = new Vector2(0, 3);
+        t.SetStylebox("panel", "TooltipPanel", tip);
         t.SetColor("font_color", "TooltipLabel", Colors.White);
         t.SetFont("font", "TooltipLabel", Regular); t.SetFontSize("font_size", "TooltipLabel", 13);
 
@@ -310,23 +320,27 @@ public static class AppTheme
         t.SetStylebox("panel", "PanelContainer", Empty());
         void PanelVar(string name, StyleBox box) { Variation(t, name, "PanelContainer"); t.SetStylebox("panel", name, box); }
         var top = Box(Surface, 0); top.BorderColor = Hairline; top.BorderWidthBottom = 1;
+        top.ShadowColor = new Color(Ink, 0.05f); top.ShadowSize = 6; top.ShadowOffset = new Vector2(0, 2);
         PanelVar("TopBar", top);
-        PanelVar("Sidebar", Box(Chrome, 0));
-        PanelVar("Dialog", Box(Surface, 0, Border, 1));
+        PanelVar("Sidebar", Box(Graphite, 0));
+        var dialog = Box(Surface, RadiusLg, new Color(Ink, 0.06f), 1); dialog.ShadowColor = new Color(Ink, 0.20f); dialog.ShadowSize = 36; dialog.ShadowOffset = new Vector2(0, 14);
+        PanelVar("Dialog", dialog);
         PanelVar("Sheet", Box(Surface, 0));
-        PanelVar("Inset", Box(new Color("f3f3f3"), 0, null, 1, 14, 12));
-        PanelVar("Card", Box(Surface, 0, Hairline, 1, 14, 12));
+        PanelVar("Inset", Box(Panel, 12, null, 1, 16, 14));
+        PanelVar("Card", Box(Surface, 14, Hairline, 1, 16, 14));
         PanelVar("Pill", Box(Panel, 40, null, 1, 0, 0));
-        PanelVar("Toast", Box(new Color("262626"), 3, null, 1, 16, 10));
-        PanelVar("Warn", Box(new Color("fff1dc"), 0, null, 1, 12, 10));
-        PanelVar("ChromeBox", Box(Chrome, 0, null, 1, 12, 8));
+        var toast = Box(Graphite, 12, null, 1, 18, 12); toast.ShadowColor = new Color(Ink, 0.2f); toast.ShadowSize = 12; toast.ShadowOffset = new Vector2(0, 4);
+        PanelVar("Toast", toast);
+        PanelVar("Warn", Box(new Color("fbf0e2"), 10, null, 1, 14, 10));
+        var lens = Box(Graphite, 12, null, 1, 12, 8); lens.ShadowColor = new Color(Ink, 0.16f); lens.ShadowSize = 10; lens.ShadowOffset = new Vector2(0, 3);
+        PanelVar("ChromeBox", lens);
 
         // Inputs.
         foreach (var type in new[] { "LineEdit", "SpinBox" })
         {
-            t.SetStylebox("normal", type, Box(Surface, 0, new Color("b5b5b5"), 1, 10, 6));
-            t.SetStylebox("focus", type, Box(Surface, 0, Chrome, 2, 10, 6));
-            t.SetStylebox("read_only", type, Box(Panel, 0, Hairline, 1, 10, 6));
+            t.SetStylebox("normal", type, Box(new Color("ffffff"), 8, Border, 1, 10, 6));
+            t.SetStylebox("focus", type, Box(new Color("ffffff"), 8, Chrome, 2, 10, 6));
+            t.SetStylebox("read_only", type, Box(Panel, 8, Hairline, 1, 10, 6));
             t.SetColor("font_color", type, Ink); t.SetColor("font_placeholder_color", type, Ink3);
             t.SetColor("caret_color", type, Ink); t.SetColor("selection_color", type, ChromeTint);
             t.SetFont("font", type, FigSemi); t.SetFontSize("font_size", type, 13);
@@ -347,12 +361,12 @@ public static class AppTheme
         t.SetIcon("radio_checked", "CheckBox", Disc(Chrome, Chrome, 18)); t.SetIcon("radio_unchecked", "CheckBox", Disc(Surface, Ink3, 18));
 
         // Sliders (display card, priority) and progress.
-        var track = Box(TrackLight, 3); track.ContentMarginTop = track.ContentMarginBottom = 3;
+        var track = Box(TrackLight, 2); track.ContentMarginTop = track.ContentMarginBottom = 2;
         t.SetStylebox("slider", "HSlider", track);
-        t.SetStylebox("grabber_area", "HSlider", Box(Chrome, 3));
-        t.SetStylebox("grabber_area_highlight", "HSlider", Box(ChromeDark, 3));
-        t.SetIcon("grabber", "HSlider", Disc(Chrome, Chrome, 20));
-        t.SetIcon("grabber_highlight", "HSlider", Disc(ChromeDark, ChromeDark, 20));
+        t.SetStylebox("grabber_area", "HSlider", Box(Chrome, 2));
+        t.SetStylebox("grabber_area_highlight", "HSlider", Box(ChromeDark, 2));
+        t.SetIcon("grabber", "HSlider", Disc(new Color("ffffff"), Chrome, 20));
+        t.SetIcon("grabber_highlight", "HSlider", Disc(ChromeTint, ChromeDark, 20));
         t.SetIcon("grabber_disabled", "HSlider", Disc(Panel2, Panel2, 20));
         t.SetIcon("tick", "HSlider", Blank(1));
         t.SetStylebox("background", "ProgressBar", Box(TrackLight, 4));

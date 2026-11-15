@@ -61,7 +61,7 @@ public partial class Chart : Control
 
     private Rect2 Area()
     {
-        if (Tile) return new Rect2(14, 52, Size.X - 28, Size.Y - 64);
+        if (Tile) return new Rect2(16, 62, Size.X - 32, Size.Y - 76);
         var font = AppTheme.FigSemi;
         var (min, max) = Range();
         float yl = Math.Max(font.GetStringSize(Ui.Num(min, _format), HorizontalAlignment.Left, -1, 11).X, font.GetStringSize(Ui.Num(max, _format), HorizontalAlignment.Left, -1, 11).X);
@@ -88,17 +88,22 @@ public partial class Chart : Control
     public override void _Draw()
     {
         var rect = new Rect2(Vector2.Zero, Size);
-        if (Tile) DrawStyleBox(AppTheme.Box(AppTheme.Surface, 0, _inside ? AppTheme.Chrome : AppTheme.Hairline, _inside ? 2 : 1), rect);
+        if (Tile)
+        {
+            var tile = AppTheme.Box(AppTheme.Surface, 14, _inside ? new Color(AppTheme.Chrome, 0.5f) : AppTheme.Hairline, 1);
+            if (_inside) { tile.ShadowColor = new Color(AppTheme.Ink, 0.08f); tile.ShadowSize = 10; tile.ShadowOffset = new Vector2(0, 3); }
+            DrawStyleBox(tile, rect);
+        }
         var area = Area();
         var (min, max) = Range();
         var fig = AppTheme.FigSemi;
         int n = _turns.Count;
         if (Tile)
         {
-            DrawString(AppTheme.Face(700, false, 1), new Vector2(14, 22), _title.ToUpperInvariant(), HorizontalAlignment.Left, Size.X - 28, 11, AppTheme.Chrome);
+            DrawString(AppTheme.Face(600, false, 1), new Vector2(16, 24), _title.ToUpperInvariant(), HorizontalAlignment.Left, Size.X - 32, 11, AppTheme.Ink3);
             double last = double.NaN;
             foreach (var s in Shown.Take(1)) foreach (var v in s.Values) if (double.IsFinite(v)) last = v;
-            DrawString(AppTheme.FigBold, new Vector2(14, 44), Ui.Num(last, _format), HorizontalAlignment.Left, Size.X - 28, 18, AppTheme.Ink);
+            DrawString(AppTheme.FigSemi, new Vector2(16, 48), Ui.Num(last, _format), HorizontalAlignment.Left, Size.X - 32, 20, AppTheme.Ink);
         }
         else
         {
@@ -133,9 +138,9 @@ public partial class Chart : Control
                     if (shown.Count == 1)
                     {
                         var poly = new List<Vector2>(run) { new(run[^1].X, area.End.Y), new(run[0].X, area.End.Y) };
-                        DrawColoredPolygon(poly.ToArray(), new Color(s.Color, 0.07f));
+                        DrawColoredPolygon(poly.ToArray(), new Color(s.Color == AppTheme.Ink ? AppTheme.Chrome : s.Color, 0.08f));
                     }
-                    DrawPolyline(run.ToArray(), s.Color, Tile ? 2f : 2.5f, true);
+                    DrawPolyline(run.ToArray(), shown.Count == 1 && s.Color == AppTheme.Ink ? AppTheme.Chrome : s.Color, Tile ? 1.75f : 2.25f, true);
                 }
                 else DrawCircle(run[0], 3f, s.Color);
             }
@@ -167,7 +172,7 @@ public partial class Chart : Control
             var font = AppTheme.Regular;
             float w = lines.Max(l => font.GetStringSize(l.Text, HorizontalAlignment.Left, -1, 12).X) + 20, h = 10 + lines.Count * 17;
             float bx = x + 12 + w > Size.X ? x - 12 - w : x + 12, by = area.Position.Y + 4;
-            DrawStyleBox(AppTheme.Box(new Color("222222"), 3), new Rect2(bx, by, w, h));
+            DrawStyleBox(AppTheme.Box(AppTheme.Graphite, 8), new Rect2(bx, by, w, h));
             for (int i = 0; i < lines.Count; i++) DrawString(font, new Vector2(bx + 10, by + 18 + i * 17), lines[i].Text, HorizontalAlignment.Left, -1, 12, lines[i].Color);
         }
     }

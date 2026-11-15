@@ -116,7 +116,7 @@ public partial class WorldMap : Control
         // Radii: the nodes cover about 30 % of the field.
         float area = W * H;
         float sumW2 = _nodes.Sum(n => n.Weight * n.Weight);
-        float k = Mathf.Clamp(Mathf.Sqrt(0.30f * area / (Mathf.Pi * sumW2)), 14f, 46f);
+        float k = Mathf.Clamp(Mathf.Sqrt(0.23f * area / (Mathf.Pi * sumW2)), 13f, 40f);
         foreach (var n in _nodes) n.R = k * n.Weight;
 
         // Sector boundaries: wedge areas proportional to the node area in each sector; taxes centred at the top.
@@ -249,10 +249,24 @@ public partial class WorldMap : Control
         return focus != null && _byId.ContainsKey(focus);
     }
 
+    private string? _shownFocus; // the focus being faded in or out
+    private float _focusT;       // 0..1 eased strength of the focus fade
+
     public override void _Process(double delta)
     {
-        if (Focused(out _) && !DisplaySettings.ReduceMotion && Main.Animations) { _flow = (_flow + (float)delta * 40f) % 1000f; QueueRedraw(); }
+        bool motion = !DisplaySettings.ReduceMotion && Main.Animations;
+        bool focused = Focused(out var focus);
+        if (focused) _shownFocus = focus;
+        float target = focused ? 1 : 0;
+        bool redraw = false;
+        if (Math.Abs(_focusT - target) > 0.001f) { _focusT = motion ? Mathf.MoveToward(_focusT, target, (float)delta / 0.15f) : target; redraw = true; }
+        else if (!focused) _shownFocus = null;
+        if (focused && motion) { _flow = (_flow + (float)delta * 34f) % 1000f; redraw = true; }
+        if (redraw) QueueRedraw();
     }
+
+    private static readonly Color Separator = new("cfc9bf");
+    private static readonly Color Watermark = new("e2ded6");
 
     public override void _Draw()
     {
@@ -262,57 +276,58 @@ public partial class WorldMap : Control
         EnsureLayout();
         var s = _s; var t = s.T;
         var field = Field;
+        if (!Main.Animations || DisplaySettings.ReduceMotion) { bool f0 = Focused(out var fz); _focusT = f0 ? 1 : 0; _shownFocus = f0 ? fz : null; }
 
-        // Sector names as faint watermarks, then the dashed radial separators.
+        // Sector names as quiet watermarks, then thin dashed separators.
+        var wm = AppTheme.Face(600, false, 3);
         for (int g = 0; g < 3; g++)
         {
             float mid = (_bounds[g] + _bounds[g + 1]) / 2;
             float d = EdgeDistance(mid, field.Size.X, field.Size.Y);
-            var at = _hub + new Vector2(Mathf.Cos(mid), Mathf.Sin(mid)) * d * 0.62f;
+            var at = _hub + new Vector2(Mathf.Cos(mid), Mathf.Sin(mid)) * d * 0.64f;
             string name = t.T("ui.client.group." + g).ToUpperInvariant();
-            int fs = (int)Math.Clamp(field.Size.X / 34, 22, 44);
-            float w = AppTheme.Bold.GetStringSize(name, HorizontalAlignment.Left, -1, fs).X;
-            DrawString(AppTheme.Bold, at - new Vector2(w / 2, -fs / 3f), name, HorizontalAlignment.Left, -1, fs, new Color("e4e4e0"));
+            int fs = (int)Math.Clamp(field.Size.X / 48, 16, 30);
+            float w = wm.GetStringSize(name, HorizontalAlignment.Left, -1, fs).X;
+            DrawString(wm, at - new Vector2(w / 2, -fs / 3f), name, HorizontalAlignment.Left, -1, fs, Watermark);
         }
         for (int b = 0; b < 3; b++)
         {
             var u = new Vector2(Mathf.Cos(_bounds[b]), Mathf.Sin(_bounds[b]));
             float d = EdgeDistance(_bounds[b], field.Size.X, field.Size.Y);
-            float from = _hubW / 2 + 10;
-            for (float x = from; x < d; x += 18) DrawLine(_hub + u * x, _hub + u * Math.Min(x + 10, d), new Color("b8b8b4"), 2f);
+            float from = _hubW / 2 + 14;
+            for (float x = from; x < d; x += 12) DrawLine(_hub + u * x, _hub + u * Math.Min(x + 5, d), Separator, 1.2f, true);
         }
 
-        bool focused = Focused(out var focus);
+        string? focus = _shownFocus;
+        bool focused = focus != null && _byId.ContainsKey(focus) && _focusT > 0.001f;
         var neighbours = new HashSet<string>(StringComparer.Ordinal);
         if (focused)
             foreach (var e in s.Packs.Edges)
                 if ((e.From == focus || e.To == focus) && _byId.ContainsKey(e.From) && _byId.ContainsKey(e.To)) { neighbours.Add(e.From); neighbours.Add(e.To); }
 
-        // Influence arrows for the focused node only.
         if (focused)
             foreach (var e in s.Packs.Edges)
             {
                 if (e.From == e.To || (e.From != focus && e.To != focus)) continue;
                 if (!_byId.TryGetValue(e.From, out var a) || !_byId.TryGetValue(e.To, out var b)) continue;
-                DrawEdge(a, b, e.Strength >= 0 ? AppTheme.Good : AppTheme.Bad, Math.Abs(e.Strength));
+                DrawEdge(a, b, new Color(e.Strength >= 0 ? AppTheme.Good : AppTheme.Bad, _focusT), Math.Abs(e.Strength));
             }
 
         var group = LensGroup == null ? null : s.Packs.VoterGroups.FirstOrDefault(g => g.Id == LensGroup);
         var pending = s.Game.PendingPolicies.GroupBy(p => p.PolicyId).ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal);
-        foreach (var n in _nodes.OrderBy(n => n.Id == focus ? 1 : 0))
+        foreach (var n in _nodes.OrderBy(n => n.Id == focus ? 2 : neighbours.Contains(n.Id) ? 1 : 0))
         {
             float alpha = 1f;
-            if (focused && n.Id != focus && !neighbours.Contains(n.Id)) alpha = 0.3f;
-            bool relevant = true;
+            if (focused && n.Id != focus && !neighbours.Contains(n.Id)) alpha = 1 - 0.72f * _focusT;
             if (group != null)
             {
-                relevant = n.Policy ? group.PolicyWeights.ContainsKey(n.Id) : group.ValueWeights.ContainsKey(n.Id) || (group.LevelWeights?.ContainsKey(n.Id) ?? false);
-                if (!relevant) alpha = Math.Min(alpha, 0.22f);
+                bool relevant = n.Policy ? group.PolicyWeights.ContainsKey(n.Id) : group.ValueWeights.ContainsKey(n.Id) || (group.LevelWeights?.ContainsKey(n.Id) ?? false);
+                if (!relevant) alpha = Math.Min(alpha, 0.25f);
             }
-            DrawNode(n, alpha, group, pending, n.Id == focus);
+            DrawNode(n, alpha, group, pending, n.Id == focus ? _focusT : 0);
         }
         DrawHub();
-        if (focused && _byId.TryGetValue(focus!, out var fn)) DrawTag(fn);
+        if (focused && _byId.TryGetValue(focus!, out var fn)) DrawTag(fn, _focusT);
     }
 
     private void DrawEdge(Node a, Node b, Color color, double strength)
@@ -322,24 +337,25 @@ public partial class WorldMap : Control
         if (len < 1) return;
         var normal = new Vector2(-d.Y, d.X) / len;
         var ctrl = (p0 + p2) / 2 + normal * len * 0.12f;
-        const int n = 28;
+        const int n = 32;
         var pts = new List<Vector2>(n + 1);
         for (int i = 0; i <= n; i++)
         {
             float tt = i / (float)n;
             var p = (1 - tt) * (1 - tt) * p0 + 2 * (1 - tt) * tt * ctrl + tt * tt * p2;
-            if (p.DistanceTo(p0) < a.R + 2) continue;
-            if (p.DistanceTo(p2) < b.R + 4) break;
+            if (p.DistanceTo(p0) < a.R + 3) continue;
+            if (p.DistanceTo(p2) < b.R + 5) break;
             pts.Add(p);
         }
         if (pts.Count < 2) return;
-        float w = strength >= 0.5 ? 4.5f : strength >= 0.2 ? 3.5f : 2.5f;
-        var col = new Color(color, 0.9f);
+        float w = strength >= 0.5 ? 3f : strength >= 0.2 ? 2.3f : 1.7f;
+        var faint = new Color(color, color.A * 0.22f);
+        DrawPolyline(pts.ToArray(), faint, w, true);
+        var col = new Color(color, color.A * 0.95f);
         if (DisplaySettings.ReduceMotion || !Main.Animations) DrawPolyline(pts.ToArray(), col, w, true);
         else
         {
-            // moving dashes: walk the polyline, draw 14 on / 7 off with an offset that advances with time
-            float period = 21, phase = _flow * (0.6f + (float)Math.Min(strength, 1.0)) % period, acc = -phase;
+            float period = 18, on = 9, phase = _flow * (0.6f + (float)Math.Min(strength, 1.0)) % period, acc = -phase;
             for (int i = 1; i < pts.Count; i++)
             {
                 var s0 = pts[i - 1]; var s1 = pts[i]; float seg = s0.DistanceTo(s1);
@@ -347,26 +363,28 @@ public partial class WorldMap : Control
                 while (pos < seg)
                 {
                     float m = ((acc % period) + period) % period;
-                    bool on = m < 14;
-                    float step = Math.Min(seg - pos, on ? 14 - m : period - m);
-                    if (on) DrawLine(s0.Lerp(s1, pos / seg), s0.Lerp(s1, (pos + step) / seg), col, w, true);
+                    bool isOn = m < on;
+                    float step = Math.Min(seg - pos, isOn ? on - m : period - m);
+                    if (isOn) DrawLine(s0.Lerp(s1, pos / seg), s0.Lerp(s1, (pos + step) / seg), col, w, true);
                     pos += step; acc += step;
                     if (step <= 0.001f) break;
                 }
             }
         }
-        var tip = pts[^1]; var dir = (pts[^1] - pts[^2]).Normalized(); var side = new Vector2(-dir.Y, dir.X) * (w + 4);
-        DrawColoredPolygon(new[] { tip + dir * 4, tip - dir * (w * 2.6f) + side, tip - dir * (w * 2.6f) - side }, col);
+        var tip = pts[^1]; var dir = (pts[^1] - pts[^2]).Normalized(); var side = new Vector2(-dir.Y, dir.X) * (w + 2.5f);
+        DrawColoredPolygon(new[] { tip + dir * 3, tip - dir * (w * 3f + 4) + side, tip - dir * (w * 3f + 4) - side }, col);
     }
 
-    private void DrawNode(Node n, float alpha, VoterGroupDef? group, Dictionary<string, double> pending, bool focus)
+    private void DrawNode(Node n, float alpha, VoterGroupDef? group, Dictionary<string, double> pending, float focus)
     {
         var s = _s!;
-        float r = n.R * (focus ? 1.06f : 1f);
-        float ring = Math.Max(3f, r * 0.14f);
+        float r = n.R * (1 + 0.06f * focus);
+        float ring = Mathf.Clamp(r * 0.075f, 2f, 3.5f);
         var p = n.P;
-        if (n.Id == SelectedId) DrawArc(p, r + 6, 0, Mathf.Tau, 64, new Color(AppTheme.Ink, alpha), 3f, true);
-        DrawCircle(p, r + 1.5f, new Color(AppTheme.Surface, alpha));
+        // soft contact shadow (fine depth), stronger when focused
+        DrawCircle(p + new Vector2(0, 1.5f + 2 * focus), r + 0.5f, new Color(AppTheme.Ink, (0.06f + 0.08f * focus) * alpha));
+        if (n.Id == SelectedId) DrawArc(p, r + 5, 0, Mathf.Tau, 72, new Color(AppTheme.Chrome, alpha), 2f, true);
+        float ringR = r - ring / 2 - 1;
         if (n.Policy)
         {
             var def = s.Packs.Policies.First(x => x.Id == n.Id);
@@ -374,17 +392,17 @@ public partial class WorldMap : Control
             double frac = def.Max > def.Min ? (v - def.Min) / (def.Max - def.Min) : 0;
             var arcColor = AppTheme.Chrome;
             if (group != null && group.PolicyWeights.ContainsKey(n.Id)) { arcColor = AppTheme.Traffic(0.5 + 0.5 * Ui.Opinion(s, group, def)); frac = 1; }
-            DrawArc(p, r - ring / 2, 0, Mathf.Tau, 64, new Color(AppTheme.TrackLight, alpha), ring, true);
-            if (frac > 0.004) DrawArc(p, r - ring / 2, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (float)frac, 64, new Color(arcColor, alpha), ring, true);
-            DrawCircle(p, r - ring - 2, new Color(AppTheme.Chrome, alpha));
-            Icons.Draw(this, n.Icon, p, (r - ring) * 1.05f, new Color(1, 1, 1, alpha));
+            DrawCircle(p, r, new Color(AppTheme.ChromeTint.Lerp(new Color("ffffff"), 0.15f), alpha));
+            DrawArc(p, ringR, 0, Mathf.Tau, 72, new Color(AppTheme.Chrome, 0.16f * alpha), ring, true);
+            if (frac > 0.004) DrawArc(p, ringR, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (float)frac, 72, new Color(arcColor, alpha), ring, true);
+            Icons.Draw(this, n.Icon, p, r * 0.92f, new Color(AppTheme.Chrome.Darkened(0.1f), alpha));
             if (pending.TryGetValue(n.Id, out var target) && Math.Abs(target - v) > 1e-9)
             {
                 double tf = def.Max > def.Min ? (target - def.Min) / (def.Max - def.Min) : 0;
                 float a = -Mathf.Pi / 2 + Mathf.Tau * (float)tf;
-                var m = p + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (r - ring / 2);
-                DrawCircle(m, ring * 0.9f + 2, new Color(AppTheme.Ink, alpha));
-                DrawCircle(m, ring * 0.9f, new Color(AppTheme.Surface, alpha));
+                var m = p + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * ringR;
+                DrawCircle(m, ring + 2.5f, new Color(AppTheme.Surface, alpha));
+                DrawCircle(m, ring + 0.8f, new Color(AppTheme.Chrome, alpha));
             }
         }
         else
@@ -398,16 +416,14 @@ public partial class WorldMap : Control
                 good = Math.Sign(like) == Math.Sign(Ui.VoterLike(s, n.Id)) ? g0 : 1 - g0;
                 cares = true;
             }
-            DrawArc(p, r - ring / 2, 0, Mathf.Tau, 64, new Color(AppTheme.TrackLight, alpha), ring, true);
+            DrawCircle(p, r, new Color(new Color("ffffff"), alpha));
+            DrawArc(p, ringR, 0, Mathf.Tau, 72, new Color(AppTheme.TrackLight, alpha), ring, true);
             if (cares)
             {
-                var c = AppTheme.Traffic(good);
-                float frac = (float)Math.Clamp(0.15 + 0.85 * good, 0.15, 1);
-                DrawArc(p, r - ring / 2, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * frac, 64, new Color(c, alpha), ring, true);
+                float frac = (float)Math.Clamp(0.12 + 0.88 * good, 0.12, 1);
+                DrawArc(p, ringR, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * frac, 72, new Color(AppTheme.Traffic(good), alpha), ring, true);
             }
-            else DrawArc(p, r - ring / 2, 0, Mathf.Tau, 64, new Color("b9b9b9", alpha), ring, true);
-            DrawCircle(p, r - ring - 2, new Color(AppTheme.Panel, alpha));
-            Icons.Draw(this, n.Icon, p, (r - ring) * 1.05f, new Color(AppTheme.Ink2, alpha));
+            Icons.Draw(this, n.Icon, p, r * 0.92f, new Color(AppTheme.Ink2, alpha));
         }
     }
 
@@ -417,34 +433,39 @@ public partial class WorldMap : Control
     {
         var s = _s!;
         var rect = HubRect;
-        DrawStyleBox(AppTheme.Box(AppTheme.Chrome, (int)(_hubH / 2)), rect);
-        float icon = _hubH * 0.72f;
+        var shadow = AppTheme.Box(AppTheme.Graphite, (int)(_hubH / 2));
+        shadow.ShadowColor = new Color(AppTheme.Ink, 0.18f); shadow.ShadowSize = 10; shadow.ShadowOffset = new Vector2(0, 3);
+        DrawStyleBox(shadow, rect);
+        float icon = _hubH * 0.62f;
         var ic = new Vector2(rect.Position.X + _hubH / 2, rect.GetCenter().Y);
-        DrawCircle(ic, icon / 2, AppTheme.Surface);
+        DrawCircle(ic, icon / 2, AppTheme.Chrome);
         bool politics = s.Politics?.Party is not null;
-        Icons.Draw(this, politics ? IconKind.Coin : IconKind.Calendar, ic, icon * 0.62f, AppTheme.Chrome);
-        string text = politics ? "×" + Ui.Num(s.Politics!.Party!.PoliticalCapital, "0") : $"{s.Turn}/{Session.HorizonTurns}";
-        int fs = (int)(_hubH * 0.42f);
-        DrawString(AppTheme.FigBold, new Vector2(ic.X + icon / 2 + 6, rect.GetCenter().Y + fs * 0.36f), text, HorizontalAlignment.Left, rect.End.X - ic.X - icon / 2 - 10, fs, Colors.White);
+        Icons.Draw(this, politics ? IconKind.Coin : IconKind.Calendar, ic, icon * 0.6f, Colors.White);
+        string text = politics ? Ui.Num(s.Politics!.Party!.PoliticalCapital, "0") : $"{s.Turn}/{Session.HorizonTurns}";
+        int fs = (int)(_hubH * 0.38f);
+        DrawString(AppTheme.FigSemi, new Vector2(ic.X + icon / 2 + 8, rect.GetCenter().Y + fs * 0.36f), text, HorizontalAlignment.Left, rect.End.X - ic.X - icon / 2 - 12, fs, Colors.White);
     }
 
-    private void DrawTag(Node n)
+    private void DrawTag(Node n, float t01)
     {
         var s = _s!; var t = s.T;
         string name = t.Name(n.Id);
         string sub = "";
         if (n.Policy && s.Packs.Policies.FirstOrDefault(x => x.Id == n.Id) is { } pd) sub = Ui.Fix(Fmt.Policy(pd, s.Country.Policies.GetValueOrDefault(n.Id, pd.Default), t));
         else if (s.Packs.Values.FirstOrDefault(x => x.Id == n.Id) is { } vd) sub = Ui.Fix(Fmt.Value(vd, s.Country.Values.GetValueOrDefault(n.Id)));
-        var f1 = AppTheme.Bold; var f2 = AppTheme.FigSemi;
-        float w = Math.Max(f1.GetStringSize(name, HorizontalAlignment.Left, -1, 14).X, f2.GetStringSize(sub, HorizontalAlignment.Left, -1, 13).X) + 24;
-        float h = sub.Length > 0 ? 46 : 30;
-        var pos = new Vector2(n.P.X - w / 2, n.P.Y - n.R - 10 - h);
-        if (pos.Y < 4 || new Rect2(pos, new Vector2(w, h)).Intersects(HubRect.Grow(4))) pos.Y = n.P.Y + n.R + 10;
-        if (pos.Y + h > Size.Y - 4) pos.Y = n.P.Y - n.R - 10 - h;
+        var f1 = AppTheme.Semi; var f2 = AppTheme.FigSemi;
+        float w = Math.Max(f1.GetStringSize(name, HorizontalAlignment.Left, -1, 13).X, f2.GetStringSize(sub, HorizontalAlignment.Left, -1, 12).X) + 24;
+        float h = sub.Length > 0 ? 44 : 30;
+        var pos = new Vector2(n.P.X - w / 2, n.P.Y - n.R - 12 - h);
+        if (pos.Y < 4 || new Rect2(pos, new Vector2(w, h)).Intersects(HubRect.Grow(4))) pos.Y = n.P.Y + n.R + 12;
+        if (pos.Y + h > Size.Y - 4) pos.Y = n.P.Y - n.R - 12 - h;
         pos.X = Math.Clamp(pos.X, 4, Size.X - w - 4);
-        DrawStyleBox(AppTheme.Box(new Color("222222"), 3), new Rect2(pos, new Vector2(w, h)));
-        DrawString(f1, pos + new Vector2(12, 20), name, HorizontalAlignment.Left, -1, 14, Colors.White);
-        if (sub.Length > 0) DrawString(f2, pos + new Vector2(12, 38), sub, HorizontalAlignment.Left, -1, 13, new Color("c8c8c8"));
+        pos.Y += (1 - t01) * 4;
+        var box = AppTheme.Box(new Color(AppTheme.Graphite, t01), 8);
+        box.ShadowColor = new Color(AppTheme.Ink, 0.18f * t01); box.ShadowSize = 8; box.ShadowOffset = new Vector2(0, 3);
+        DrawStyleBox(box, new Rect2(pos, new Vector2(w, h)));
+        DrawString(f1, pos + new Vector2(12, 19), name, HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, t01));
+        if (sub.Length > 0) DrawString(f2, pos + new Vector2(12, 36), sub, HorizontalAlignment.Left, -1, 12, new Color(1, 1, 1, 0.65f * t01));
     }
 
     // ---- interaction -------------------------------------------------------------------------------------
@@ -466,7 +487,7 @@ public partial class WorldMap : Control
         {
             var h = Hit(mm.Position);
             bool hub = HubRect.HasPoint(mm.Position);
-            if (h != _hover) { _hover = h; QueueRedraw(); }
+            if (h != _hover) { _hover = h; SetProcess(true); QueueRedraw(); }
             MouseDefaultCursorShape = h != null || hub ? CursorShape.PointingHand : CursorShape.Arrow;
             TooltipText = hub && _s != null ? (_s.Politics?.Party != null ? _s.T.T("ui.party.capital") : _s.DateText()) : "";
         }
@@ -483,11 +504,11 @@ public partial class WorldMap : Control
     public Vector2? PositionOf(string id) { EnsureLayout(); return _byId.TryGetValue(id, out var n) ? n.P : null; }
 
     /// <summary>Hovers a node as the mouse would (scripted screenshots).</summary>
-    public void HoverForTest(string? id) { _hover = id; QueueRedraw(); }
+    public void HoverForTest(string? id) { _hover = id; _shownFocus = id; _focusT = id == null ? 0 : 1; QueueRedraw(); }
 
     public override void _Notification(int what)
     {
         if (what == NotificationResized) QueueRedraw();
-        else if (what == NotificationMouseExit && _hover != null) { _hover = null; QueueRedraw(); }
+        else if (what == NotificationMouseExit && _hover != null) { _hover = null; SetProcess(true); QueueRedraw(); }
     }
 }

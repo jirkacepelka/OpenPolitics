@@ -53,7 +53,7 @@ public static class Icons
     {
         float u = size / 24f;
         Vector2 P(float x, float y) => center + new Vector2(x, y) * u;
-        float w = Math.Max(1.5f, 2.3f * u);
+        float w = Math.Max(1.35f, 1.8f * u);
         void L(float x1, float y1, float x2, float y2) => c.DrawLine(P(x1, y1), P(x2, y2), color, w, true);
         void Poly(params float[] xy)
         {

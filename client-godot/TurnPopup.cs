@@ -17,19 +17,20 @@ public partial class IndicatorPill : Control
     }
     public override void _Draw()
     {
-        float d = Size.Y - 4, r = d / 2;
-        var pill = new Rect2(r, 8, Size.X - r - 2, Size.Y - 16);
-        DrawStyleBox(AppTheme.Box(AppTheme.Panel, (int)(pill.Size.Y / 2)), pill);
-        var c = new Vector2(r + 1, Size.Y / 2);
-        DrawCircle(c, r, AppTheme.Chrome);
-        Icons.Draw(this, _icon, c, d * 0.5f, Colors.White);
-        float x = d + 12, w = Size.X - x - 18;
-        DrawString(AppTheme.Semi, new Vector2(x, Size.Y / 2 - 4), _label, HorizontalAlignment.Left, w - 60, 13, AppTheme.Ink);
-        DrawString(AppTheme.FigBold, new Vector2(x, Size.Y / 2 - 4), _value, HorizontalAlignment.Right, w, 13, AppTheme.Ink);
-        var bar = new Rect2(x, Size.Y / 2 + 6, w, 10);
-        DrawStyleBox(AppTheme.Box(AppTheme.Track, 5), bar);
-        DrawStyleBox(AppTheme.Box(AppTheme.Traffic(_good), 5), new Rect2(bar.Position, new Vector2(Math.Max(10, w * (float)Math.Clamp(_good, 0, 1)), 10)));
+        var tile = new Rect2(0, 4, Size.X, Size.Y - 8);
+        DrawStyleBox(AppTheme.Box(AppTheme.Panel, 14), tile);
+        float d = Math.Min(40, tile.Size.Y - 20);
+        var c = new Vector2(tile.Position.X + 14 + d / 2, Size.Y / 2);
+        DrawCircle(c, d / 2, AppTheme.ChromeTint);
+        Icons.Draw(this, _icon, c, d * 0.55f, AppTheme.Chrome);
+        float x = c.X + d / 2 + 14, w = tile.End.X - x - 16;
+        DrawString(AppTheme.Face(600, false, 1), new Vector2(x, Size.Y / 2 - 6), _label, HorizontalAlignment.Left, w - 70, 11, AppTheme.Ink3);
+        DrawString(AppTheme.FigSemi, new Vector2(x, Size.Y / 2 - 5), _value, HorizontalAlignment.Right, w, 14, AppTheme.Ink);
+        var bar = new Rect2(x, Size.Y / 2 + 7, w, 5);
+        DrawStyleBox(AppTheme.Box(AppTheme.TrackLight, 3), bar);
+        DrawStyleBox(AppTheme.Box(AppTheme.Traffic(_good), 3), new Rect2(bar.Position, new Vector2(Math.Max(5, w * (float)Math.Clamp(_good, 0, 1)), 5)));
     }
+
     public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
 }
 
@@ -67,9 +68,9 @@ public static class TurnPopup
         d.Closed += () => s.Digest.Clear();
         d.Blocking = Main.Blocking(s);
         d.CloseEnabled = !d.Blocking;
-        d.Body.AddChild(Centred(Ui.L(t.T("ui.brief.overline", s.DateText()), Tx.Overline, AppTheme.Chrome)));
+        d.Body.AddChild(Centred(Ui.L(t.T("ui.brief.overline", s.DateText()), Tx.Overline, AppTheme.Ink3)));
         var head = Centred(Ui.L(Ui.Fix(title), Tx.Title, AppTheme.Ink, true));
-        head.AddThemeFontSizeOverride("font_size", 24);
+        head.AddThemeFontSizeOverride("font_size", 26);
         d.Body.AddChild(head);
         if (welcome) d.Body.AddChild(Ui.L(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
 
@@ -138,7 +139,7 @@ public static class TurnPopup
             {
                 var row = Ui.HBox(12);
                 bool alert = line.Contains("ultim", StringComparison.OrdinalIgnoreCase);
-                row.AddChild(new PictoDisc(alert ? IconKind.Alert : IconKind.News, 26, alert ? AppTheme.Warn : AppTheme.Panel2, alert ? Colors.White : AppTheme.Ink2) { SizeFlagsVertical = SizeFlags.ShrinkBegin });
+                row.AddChild(new PictoDisc(alert ? IconKind.Alert : IconKind.News, 26, alert ? new Color(AppTheme.Warn, 0.16f) : AppTheme.Panel, alert ? AppTheme.WarnText : AppTheme.Ink2) { SizeFlagsVertical = SizeFlags.ShrinkBegin });
                 row.AddChild(Ui.L(Ui.Fix(line), Tx.Body, AppTheme.Ink, true));
                 d.Body.AddChild(row);
             }

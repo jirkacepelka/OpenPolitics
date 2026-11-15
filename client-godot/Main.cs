@@ -91,6 +91,7 @@ public partial class Main : Control
     public override void _Notification(int what)
     {
         if (what == NotificationResized) Layout.Update(Size);
+        else if (what == NotificationWMCloseRequest && !OS.GetCmdlineUserArgs().Contains("--smoke")) DisplaySettings.RememberWindow(GetWindow());
     }
 
     private void OnLayoutClass()
@@ -324,7 +325,7 @@ public partial class Main : Control
         var d = _screenDialog;
         var scroll = d.Body.GetParent()?.GetParent() as ScrollContainer;
         int v = scroll?.ScrollVertical ?? 0;
-        Ui.Clear(d.Body); Ui.Clear(d.Fixed); Ui.Clear(d.HeaderExtra);
+        Ui.Clear(d.Body); Ui.Clear(d.Fixed); Ui.Clear(d.HeaderExtra); d.ClearActions();
         Current.Build(Session, d, this);
         if (scroll != null) Callable.From(() => { if (IsInstanceValid(scroll)) scroll.ScrollVertical = v; }).CallDeferred();
     }
@@ -456,7 +457,7 @@ public partial class Main : Control
             Ui.Num(ratio, "0.0"), Ui.Num(f.DebtPercentOfGdp ?? 0, "0") + " %"), Tx.Body, AppTheme.Ink, true));
         d.Body.AddChild(Ui.L(t.T(f.Mood >= 0.2 ? "ui.end.good" : f.Mood >= -0.3 ? "ui.end.ok" : "ui.end.bad"), Tx.BodyStrong, AppTheme.Ink, true));
         d.AddAction(t.T("ui.menu.quit"), IconKind.Back, ShowStart);
-        d.AddAction(t.T("ui.brief.to_map"), IconKind.Map, d.Close);
+        d.AddAction(t.T("ui.brief.to_map"), IconKind.Map, d.Close, false, "");
         d.Refit();
     }
 

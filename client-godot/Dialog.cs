@@ -16,6 +16,7 @@ public partial class Dialog : Control
     private readonly Label _title;
     private readonly SquareTab _close;
     private readonly MarginContainer _bodyMargin;
+    private readonly VBoxContainer _footer;
 
     public VBoxContainer Body { get; }
     /// <summary>Controls placed in the header between the title and CLOSE (tabs, ranges).</summary>
@@ -45,34 +46,40 @@ public partial class Dialog : Control
         var head = Ui.HBox(14);
         var headLeft = Ui.HBox(14);
         headLeft.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        if (icon != null) headLeft.AddChild(new PictoDisc(icon.Value, 46));
+        if (icon != null) headLeft.AddChild(new PictoDisc(icon.Value, 40));
         _title = Ui.L(title, Tx.Title);
         _title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _title.ClipText = true; _title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         _title.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         headLeft.AddChild(_title);
-        head.AddChild(Ui.Margin(headLeft, 20, 14, 14, 10));
+        head.AddChild(Ui.Margin(headLeft, 26, 14, 20, 12));
         head.GetChild<Control>(0).SizeFlagsHorizontal = SizeFlags.ExpandFill;
         HeaderExtra.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         head.AddChild(HeaderExtra);
-        _close = new SquareTab(IconKind.Close, closeTip) { Caption = "", CustomMinimumSize = new Vector2(52, 52), SizeFlagsVertical = SizeFlags.ShrinkBegin };
+        _close = new SquareTab(IconKind.Close, closeTip) { CustomMinimumSize = new Vector2(44, 44), SizeFlagsVertical = SizeFlags.ShrinkBegin, Inset = 4, IconScale = 0.34f };
         _close.Pressed += Close;
-        head.AddChild(_close);
+        head.AddChild(Ui.Margin(_close, 0, 0, 14, 0));
+        head.AddChild(Ui.Gap(10));
         column.AddChild(head);
         column.AddChild(Fixed);
 
         (_scroll, Body) = Ui.Scroller(14);
         Body.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _scroll.RemoveChild(Body);
-        _bodyMargin = Ui.Margin(Body, 22, 0, 6, 22);
+        _bodyMargin = Ui.Margin(Body, 26, 0, 4, 24);
         _bodyMargin.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _scroll.AddChild(_bodyMargin);
         _scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
         column.AddChild(_scroll);
+        _footer = new VBoxContainer { Visible = false };
+        _footer.AddThemeConstantOverride("separation", 0);
+        _footer.AddChild(new HairLine { CustomMinimumSize = new Vector2(0, 1) });
+        Actions.AddThemeConstantOverride("separation", 10);
+        Actions.Alignment = BoxContainer.AlignmentMode.End;
+        _footer.AddChild(Ui.Margin(Actions, 22, 14));
+        column.AddChild(_footer);
         _panel.AddChild(column);
         _frame.AddChild(_panel);
-        Actions.SizeFlagsHorizontal = SizeFlags.ShrinkEnd;
-        _frame.AddChild(Actions);
         AddChild(_frame);
         Layout.Changed += Relayout;
         TreeExiting += () => Layout.Changed -= Relayout;
@@ -82,19 +89,19 @@ public partial class Dialog : Control
     public bool CloseEnabled { set { _close.Visible = value; } }
 
     /// <summary>Adds a flat chrome button (icon + label) to the attached action bar.</summary>
-    public IconTextButton AddAction(string text, IconKind icon, Action onPress, bool disabled = false, string variation = "")
+    public IconTextButton AddAction(string text, IconKind icon, Action onPress, bool disabled = false, string variation = "ButtonSecondary")
     {
-        var b = Ui.Btn(text, onPress, variation, icon, null, disabled, 52);
-        b.IconSize = 22;
-        b.AddThemeFontOverride("font", AppTheme.Bold);
-        b.AddThemeFontSizeOverride("font_size", 14);
-        b.CustomMinimumSize = new Vector2(Layout.Compact ? 0 : 190, 52);
+        var b = Ui.Btn(text, onPress, variation, icon, null, disabled, 40);
+        b.CustomMinimumSize = new Vector2(Layout.Compact ? 0 : 132, 40);
         if (Layout.Compact) b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        if (Actions.GetChildCount() > 0) Actions.AddChild(new ColorRect { Color = Colors.White, CustomMinimumSize = new Vector2(1, 0), MouseFilter = MouseFilterEnum.Ignore });
         Actions.AddChild(b);
+        _footer.Visible = true;
         Relayout();
         return b;
     }
+
+    /// <summary>Removes every action (when a dialog rebuilds itself).</summary>
+    public void ClearActions() { Ui.Clear(Actions); _footer.Visible = false; }
 
     public void ClearBody() { Ui.Clear(Body); }
 
@@ -108,6 +115,15 @@ public partial class Dialog : Control
     public override void _Notification(int what)
     {
         if (what == NotificationResized || what == NotificationReady) Relayout();
+        if (what == NotificationReady && Main.Animations && !DisplaySettings.ReduceMotion)
+        {
+            Modulate = new Color(1, 1, 1, 0);
+            _frame.PivotOffset = _frame.Size / 2;
+            _frame.Scale = new Vector2(0.97f, 0.97f);
+            var tw = CreateTween().SetParallel().SetTrans(Tween.TransitionType.Quart).SetEase(Tween.EaseType.Out);
+            tw.TweenProperty(this, "modulate:a", 1f, 0.18f);
+            tw.TweenProperty(_frame, "scale", Vector2.One, 0.22f);
+        }
     }
 
     public override void _Process(double delta)
@@ -124,8 +140,7 @@ public partial class Dialog : Control
         if (!IsInsideTree()) return;
         var size = Size;
         bool sheet = Layout.Compact || size.X < PreferredWidth + 40 || size.Y < 420;
-        float actionsH = Actions.GetChildCount() > 0 ? 52 : 0;
-        Actions.SizeFlagsHorizontal = sheet ? SizeFlags.Fill : SizeFlags.ShrinkEnd;
+        float actionsH = _footer.Visible ? 69 : 0;
         if (sheet)
         {
             _frame.Position = Vector2.Zero; _frame.Size = size;
@@ -135,12 +150,12 @@ public partial class Dialog : Control
         _panel.ThemeTypeVariation = "Dialog";
         float margin = Layout.Short ? 24 : 40;
         float w = Math.Min(PreferredWidth, size.X - 2 * margin);
-        float maxH = size.Y - 2 * margin - actionsH;
-        float headH = 78 + Fixed.GetCombinedMinimumSize().Y;
+        float maxH = size.Y - 2 * margin;
+        float headH = 76 + Fixed.GetCombinedMinimumSize().Y;
         float contentH = _bodyMargin.GetCombinedMinimumSize().Y + 4;
-        float h = FillHeight ? maxH : Math.Min(maxH, headH + contentH);
+        float h = FillHeight ? maxH : Math.Min(maxH, headH + contentH + actionsH);
         h = Math.Max(h, Math.Min(maxH, 220));
-        _frame.Size = new Vector2(w, h + actionsH);
-        _frame.Position = new Vector2((size.X - w) / 2, (size.Y - h - actionsH) / 2);
+        _frame.Size = new Vector2(w, h);
+        _frame.Position = new Vector2((size.X - w) / 2, (size.Y - h) / 2);
     }
 }

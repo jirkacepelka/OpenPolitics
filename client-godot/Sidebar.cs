@@ -28,26 +28,39 @@ public partial class GroupRow : Control
 
     public override void _Draw()
     {
-        var bg = Selected ? AppTheme.ChromeDark : _hover ? new Color(AppTheme.ChromeDark, 0.55f) : new Color(0, 0, 0, 0);
-        DrawRect(new Rect2(Vector2.Zero, Size), bg);
+        var bg = Selected ? AppTheme.Graphite2 : _hover ? new Color(1, 1, 1, 0.045f) : new Color(0, 0, 0, 0);
+        var rect = new Rect2(6, 2, Size.X - 12, Size.Y - 4);
+        DrawStyleBox(AppTheme.Box(bg, 10), rect);
         double good = (_sat + 1) / 2;
         var fill = AppTheme.Traffic(good);
+        var track = new Color(1, 1, 1, 0.10f);
         if (Narrow)
         {
-            Icons.Draw(this, _icon, new Vector2(Size.X / 2, Size.Y / 2 - 6), 16, Colors.White);
-            float bw = Size.X - 16, by = Size.Y / 2 + 8;
-            DrawStyleBox(AppTheme.Box(Colors.White, 3), new Rect2(8, by, bw, 6));
-            DrawStyleBox(AppTheme.Box(fill, 3), new Rect2(8, by, Math.Max(6, bw * (float)Math.Clamp(good, 0, 1)), 6));
-            if (Selected) DrawRect(new Rect2(0, 0, 3, Size.Y), Colors.White);
+            Icons.Draw(this, _icon, new Vector2(Size.X / 2, Size.Y / 2 - 5), 16, new Color(1, 1, 1, Selected ? 1 : 0.8f));
+            float bw = Size.X - 22, by = Size.Y / 2 + 8;
+            DrawStyleBox(AppTheme.Box(track, 2), new Rect2(11, by, bw, 3));
+            DrawStyleBox(AppTheme.Box(fill, 2), new Rect2(11, by, Math.Max(3, bw * (float)Math.Clamp(good, 0, 1)), 3));
+            if (Selected) DrawStyleBox(AppTheme.Box(AppTheme.ChromeLight, 2), new Rect2(2, Size.Y / 2 - 9, 3, 18));
             return;
         }
-        float pad = 10, cy = Size.Y / 2;
-        if (_share > 0) DrawRect(new Rect2(0, 2, (Size.X - 4) * (float)Math.Clamp(_share, 0.04, 1), Size.Y / 2 + 2), new Color(AppTheme.ChromeLight, 0.55f));
-        DrawString(AppTheme.Bold, new Vector2(pad, cy + 1), _name, HorizontalAlignment.Left, Size.X - pad * 2, 13, Colors.White, TextServer.JustificationFlag.None);
+        float pad = 18, cy = Size.Y / 2;
+        float nameW = Size.X - pad * 2 - 46;
+        DrawString(AppTheme.Semi, new Vector2(pad, cy - 1), Fit(_name, nameW), HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, Selected || _hover ? 1f : 0.86f), TextServer.JustificationFlag.None);
+        string v = Ui.Signed(_sat, "0.00");
+        DrawString(AppTheme.FigSemi, new Vector2(Size.X - pad - 60, cy - 1), v, HorizontalAlignment.Right, 60, 12, AppTheme.Traffic(good).Lightened(0.25f));
         float y = cy + 7, w = Size.X - pad * 2;
-        DrawStyleBox(AppTheme.Box(Colors.White, 4), new Rect2(pad, y, w, 7));
-        DrawStyleBox(AppTheme.Box(fill, 4), new Rect2(pad, y, Math.Max(7, w * (float)Math.Clamp(good, 0, 1)), 7));
-        if (Selected) DrawRect(new Rect2(0, 0, 4, Size.Y), Colors.White);
+        DrawStyleBox(AppTheme.Box(track, 2), new Rect2(pad, y, w, 4));
+        DrawStyleBox(AppTheme.Box(fill, 2), new Rect2(pad, y, Math.Max(4, w * (float)Math.Clamp(good, 0, 1)), 4));
+        if (_share > 0) DrawRect(new Rect2(pad, y + 7, w * (float)Math.Clamp(_share, 0.02, 1), 1.5f), new Color(1, 1, 1, 0.22f));
+        if (Selected) DrawStyleBox(AppTheme.Box(AppTheme.ChromeLight, 2), new Rect2(6, cy - 10, 3, 20));
+    }
+
+    private static string Fit(string text, float width)
+    {
+        var f = AppTheme.Semi;
+        if (f.GetStringSize(text, HorizontalAlignment.Left, -1, 13).X <= width) return text;
+        while (text.Length > 3 && f.GetStringSize(text + "\u2026", HorizontalAlignment.Left, -1, 13).X > width) text = text[..^1];
+        return text.TrimEnd() + "\u2026";
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -85,22 +98,20 @@ public partial class Sidebar : PanelContainer
         var header = Ui.VBox(6);
         if (narrow)
         {
-            var open = new SquareTab(IconKind.Smile, "") { CustomMinimumSize = new Vector2(0, 52), HoverFill = AppTheme.ChromeDark };
+            var open = new SquareTab(IconKind.Smile, "") { CustomMinimumSize = new Vector2(0, 52), Style = TabStyle.Dark };
             open.Pressed += () => _main.ToggleSidebarDrawer();
             header.AddChild(open);
             _overall = new Control();
         }
         else
         {
-            var title = Ui.L("", Tx.Heading, Colors.White);
+            var title = Ui.L("", Tx.Overline, new Color(1, 1, 1, 0.6f));
             title.Name = "Title";
-            title.HorizontalAlignment = HorizontalAlignment.Center;
-            title.AddThemeFontSizeOverride("font_size", 16);
             header.AddChild(title);
-            _overall = new OverallBar { CustomMinimumSize = new Vector2(0, 16) };
+            _overall = new OverallBar { CustomMinimumSize = new Vector2(0, 40) };
             header.AddChild(_overall);
         }
-        column.AddChild(Ui.Margin(header, narrow ? 0 : 14, narrow ? 0 : 10, narrow ? 0 : 12, narrow ? 4 : 12));
+        column.AddChild(Ui.Margin(header, narrow ? 2 : 18, narrow ? 0 : 10, narrow ? 4 : 18, narrow ? 4 : 14));
         if (!narrow)
         {
             var sort = Ui.HBox(1);
@@ -108,18 +119,21 @@ public partial class Sidebar : PanelContainer
             foreach (var icon in new[] { IconKind.SortAz, IconKind.SortSize, IconKind.Smile })
             {
                 int k = i++;
-                var b = new SquareTab(icon, "") { Fill = AppTheme.ChromeDark, HoverFill = AppTheme.ChromeDark.Darkened(0.15f), CustomMinimumSize = new Vector2(0, 30), SizeFlagsHorizontal = SizeFlags.ExpandFill, Active = SortMode == k };
+                var b = new SquareTab(icon, "") { Style = TabStyle.Dark, Square = false, Inset = 2, IconScale = 0.5f, CustomMinimumSize = new Vector2(0, 30), SizeFlagsHorizontal = SizeFlags.ExpandFill, Active = SortMode == k };
                 b.Name = "Sort" + k;
                 b.Pressed += () => { SortMode = k; _main.RefreshSidebars(); };
                 sort.AddChild(b);
             }
-            column.AddChild(sort);
+            var sortBox = new PanelContainer();
+            sortBox.AddThemeStyleboxOverride("panel", AppTheme.Box(new Color(1, 1, 1, 0.05f), 10, null, 1, 2, 2));
+            sortBox.AddChild(sort);
+            column.AddChild(Ui.Margin(sortBox, 14, 0, 0, 8));
         }
         var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         _rows.SizeFlagsHorizontal = SizeFlags.ExpandFill; _rows.SizeFlagsVertical = SizeFlags.ExpandFill;
         scroll.AddChild(_rows);
         column.AddChild(scroll);
-        column.AddChild(Ui.Margin(_gov, narrow ? 4 : 12, 10));
+        column.AddChild(Ui.Margin(_gov, narrow ? 4 : 18, 14));
         AddChild(column);
     }
 
@@ -128,9 +142,11 @@ public partial class Sidebar : PanelContainer
         public double Mood;
         public override void _Draw()
         {
-            DrawStyleBox(AppTheme.Box(Colors.White, 8), new Rect2(Vector2.Zero, Size));
             double good = (Mood + 1) / 2;
-            DrawStyleBox(AppTheme.Box(AppTheme.Traffic(good), 8), new Rect2(0, 0, Math.Max(Size.Y, Size.X * (float)good), Size.Y));
+            DrawString(AppTheme.FigBold, new Vector2(0, 26), Ui.Signed(Mood, "0.00"), HorizontalAlignment.Left, -1, 24, Colors.White);
+            float y = Size.Y - 6;
+            DrawStyleBox(AppTheme.Box(new Color(1, 1, 1, 0.10f), 3), new Rect2(0, y, Size.X, 5));
+            DrawStyleBox(AppTheme.Box(AppTheme.Traffic(good), 3), new Rect2(0, y, Math.Max(5, Size.X * (float)good), 5));
         }
     }
 
@@ -183,15 +199,15 @@ public partial class Sidebar : PanelContainer
                 return;
             }
             var head = Ui.HBox(6);
-            head.AddChild(Ui.L(t.T("ui.rail.government"), Tx.Overline, Colors.White));
+            head.AddChild(Ui.L(t.T("ui.rail.government"), Tx.Overline, new Color(1, 1, 1, 0.6f)));
             head.AddChild(Ui.Spacer());
             head.AddChild(Ui.L($"{held} / {total}", Tx.Data, Colors.White));
             _gov.AddChild(head);
-            var bar = new Meter(held, 0, Math.Max(1, total), majority ? AppTheme.Good : AppTheme.Bad, 100, false, 7) { TrackColor = Colors.White, Mark = (float)rules.MajorityFraction, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var bar = new Meter(held, 0, Math.Max(1, total), majority ? AppTheme.Good : AppTheme.Bad, 100, false, 5) { TrackColor = new Color(1, 1, 1, 0.12f), Mark = (float)rules.MajorityFraction, MarkColor = Colors.White, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             _gov.AddChild(bar);
             var note = pol.Ultimatums is { Count: > 0 } u ? t.T("ui.rail.ultimatums", u.Count)
                 : t.T(majority ? "ui.rail.majority" : "ui.rail.no_majority") + " · " + (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.rail.election_in", pol.TurnsToElection));
-            var nl = Ui.L(note, Tx.Small, Colors.White);
+            var nl = Ui.L(note, Tx.Small, new Color(1, 1, 1, 0.6f));
             nl.ClipText = true; nl.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
             _gov.AddChild(nl);
             _gov.TooltipText = t.T("ui.client.tab.politics");

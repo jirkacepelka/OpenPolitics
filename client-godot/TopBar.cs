@@ -27,7 +27,7 @@ public partial class FigureCell : Control
 
     public override Vector2 _GetMinimumSize()
     {
-        float l = AppTheme.Face(700, false, 1).GetStringSize(Label.ToUpperInvariant(), HorizontalAlignment.Left, -1, 11).X + (Alert ? 12 : 0);
+        float l = AppTheme.Face(600, false, 1).GetStringSize(Label.ToUpperInvariant(), HorizontalAlignment.Left, -1, 11).X + (Alert ? 12 : 0);
         float v = AppTheme.FigBold.GetStringSize(Value, HorizontalAlignment.Left, -1, ValueSize).X
                   + (Unit.Length > 0 ? 4 + AppTheme.Semi.GetStringSize(Unit, HorizontalAlignment.Left, -1, 12).X : 0)
                   + (Delta.Length > 0 ? 6 + AppTheme.FigSemi.GetStringSize(Delta, HorizontalAlignment.Left, -1, 11).X : 0);
@@ -36,17 +36,17 @@ public partial class FigureCell : Control
 
     public override void _Draw()
     {
-        if (_hover) DrawRect(new Rect2(Vector2.Zero, Size), new Color(0, 0, 0, 0.04f));
+        if (_hover) DrawStyleBox(AppTheme.Box(new Color(AppTheme.Ink, 0.04f), 10), new Rect2(4, 8, Size.X - 8, Size.Y - 16));
         float x = 14, cy = Size.Y / 2;
         float lx = x;
         if (Alert) { DrawCircle(new Vector2(x + 4, cy - 11), 4, AppTheme.Bad); lx += 12; }
-        DrawString(AppTheme.Face(700, false, 1), new Vector2(lx, cy - 7), Label.ToUpperInvariant(), HorizontalAlignment.Left, -1, 11, AppTheme.Chrome);
+        DrawString(AppTheme.Face(600, false, 1), new Vector2(lx, cy - 8), Label.ToUpperInvariant(), HorizontalAlignment.Left, -1, 11, AppTheme.Ink3);
         int vs = ValueSize;
         DrawString(AppTheme.FigBold, new Vector2(x, cy + 15), Value, HorizontalAlignment.Left, -1, vs, AppTheme.Ink);
         float vx = x + AppTheme.FigBold.GetStringSize(Value, HorizontalAlignment.Left, -1, vs).X;
         if (Unit.Length > 0) { DrawString(AppTheme.Semi, new Vector2(vx + 4, cy + 15), Unit, HorizontalAlignment.Left, -1, 12, AppTheme.Ink3); vx += 4 + AppTheme.Semi.GetStringSize(Unit, HorizontalAlignment.Left, -1, 12).X; }
         if (Delta.Length > 0) DrawString(AppTheme.FigSemi, new Vector2(vx + 6, cy + 14), Delta, HorizontalAlignment.Left, -1, 11, DeltaColor);
-        DrawRect(new Rect2(Size.X - 1, 14, 1, Size.Y - 28), AppTheme.Hairline);
+        DrawRect(new Rect2(Size.X - 1, Size.Y * 0.28f, 1, Size.Y * 0.44f), AppTheme.Hairline);
     }
 
     public override void _GuiInput(InputEvent @event)
@@ -125,7 +125,7 @@ public partial class FigureStrip : Container
         foreach (var c in visible.Skip(_shown))
         {
             var row = Ui.HBox(10);
-            var name = Ui.L(c.Label, Tx.Overline, AppTheme.Chrome);
+            var name = Ui.L(c.Label, Tx.Overline, AppTheme.Ink3);
             name.CustomMinimumSize = new Vector2(150, 0);
             row.AddChild(name);
             row.AddChild(Ui.L(c.Value + (c.Unit.Length > 0 ? " " + c.Unit : ""), Tx.Data));
@@ -156,16 +156,16 @@ public partial class TermProgress : Control
     public void Set(double frac, string tooltip) { _frac = Math.Clamp(frac, 0, 1); TooltipText = tooltip; QueueRedraw(); }
     public override void _Draw()
     {
-        float cy = Size.Y / 2, icon = 34;
-        DrawArc(new Vector2(18 + icon / 2 - 14, cy), icon / 2 - 1.5f, 0, Mathf.Tau, 48, AppTheme.Chrome, 3f, true);
-        var c = new Vector2(18 + icon / 2 - 14, cy);
-        DrawLine(c, c + new Vector2(0, -10), AppTheme.Chrome, 3f, true);
-        DrawLine(c, c + new Vector2(7, 4), AppTheme.Chrome, 3f, true);
-        float x0 = icon + 14, x1 = Size.X - 16, h = 16;
+        float cy = Size.Y / 2;
+        var c = new Vector2(16, cy);
+        Icons.Draw(this, IconKind.Clock, c, 18, AppTheme.Ink3);
+        float x0 = 34, x1 = Size.X - 16, h = 6;
         if (x1 - x0 < 30) return;
-        DrawStyleBox(AppTheme.Box(AppTheme.Panel2, 8), new Rect2(x0, cy - h / 2, x1 - x0, h));
+        DrawStyleBox(AppTheme.Box(AppTheme.TrackLight, 3), new Rect2(x0, cy - h / 2, x1 - x0, h));
         float fw = (float)((x1 - x0) * _frac);
-        if (fw > 0) DrawStyleBox(AppTheme.Box(AppTheme.Chrome, 8), new Rect2(x0, cy - h / 2, Math.Max(fw, h), h));
+        if (fw > 0) DrawStyleBox(AppTheme.Box(AppTheme.Chrome, 3), new Rect2(x0, cy - h / 2, Math.Max(fw, h), h));
+        DrawCircle(new Vector2(x0 + Math.Max(fw, h / 2), cy), 5, AppTheme.Surface);
+        DrawArc(new Vector2(x0 + Math.Max(fw, h / 2), cy), 4.5f, 0, Mathf.Tau, 24, AppTheme.Chrome, 2, true);
     }
 }
 
@@ -188,6 +188,7 @@ public partial class TopBar : PanelContainer
         _main = main;
         ThemeTypeVariation = "TopBar";
         var row = Ui.HBox(0);
+        row.AddChild(Ui.Gap(6));
         row.AddChild(_figures);
         row.AddChild(_progress);
         _tabs.SizeFlagsVertical = SizeFlags.Fill;
@@ -223,10 +224,10 @@ public partial class TopBar : PanelContainer
         }
         Tab("news", IconKind.News, t.T("ui.client.tab.news"), () => _main.OpenScreen<NewsScreen>());
         Tab("menu", IconKind.Gear, t.T("ui.client.menu"), () => _main.ShowMenu(_tabById["menu"]));
-        _four = new SquareTab(IconKind.FastForward, t.T("ui.client.four_quarters")) { Fill = AppTheme.PlayDark, HoverFill = AppTheme.PlayDark.Darkened(0.12f), Caption = "×4" };
+        _four = new SquareTab(IconKind.FastForward, t.T("ui.client.four_quarters")) { Caption = "×4" };
         _four.Pressed += _main.PlayFour;
         _tabs.AddChild(_four);
-        _play = new SquareTab(IconKind.Play, t.T("ui.client.end_quarter") + "\n" + t.T("ui.client.end_quarter_hint")) { Fill = AppTheme.Play, HoverFill = AppTheme.PlayDark };
+        _play = new SquareTab(IconKind.Play, t.T("ui.client.end_quarter") + "\n" + t.T("ui.client.end_quarter_hint")) { Style = TabStyle.Filled, Fill = AppTheme.Play, HoverFill = AppTheme.PlayDark, IconScale = 0.3f, Square = false };
         _play.Pressed += _main.EndQuarterPressed;
         _tabs.AddChild(_play);
         Relayout();
@@ -236,10 +237,11 @@ public partial class TopBar : PanelContainer
     {
         float h = Layout.TopBar;
         CustomMinimumSize = new Vector2(0, h);
-        float tw = Layout.Compact ? 50 : Layout.Wide ? h : 64;
-        foreach (var tab in _tabById.Values) tab.CustomMinimumSize = new Vector2(tw, h);
-        _four.CustomMinimumSize = new Vector2(Layout.Compact ? 36 : h * 0.55f, h);
-        _play.CustomMinimumSize = new Vector2(Layout.Compact ? 60 : h * 1.15f, h);
+        float tw = Layout.Compact ? 48 : Layout.Wide ? 64 : 56;
+        float inset = Layout.Compact ? 7 : 12;
+        foreach (var tab in _tabById.Values) { tab.CustomMinimumSize = new Vector2(tw, h); tab.Inset = 5; }
+        _four.CustomMinimumSize = new Vector2(Layout.Compact ? 44 : 52, h); _four.Inset = 6;
+        _play.CustomMinimumSize = new Vector2(Layout.Compact ? 76 : 104, h); _play.Inset = inset;
         _progress.Visible = Layout.Width != WidthClass.Compact;
         _progress.CustomMinimumSize = new Vector2(Layout.Wide ? 260 : 150, 40);
         _progress.SizeFlagsHorizontal = Layout.Wide ? SizeFlags.ExpandFill : SizeFlags.Fill;
@@ -255,7 +257,7 @@ public partial class TopBar : PanelContainer
     public void SetPlayBlocked(bool blocked, string tip)
     {
         _play.Fill = blocked ? AppTheme.Warn : AppTheme.Play;
-        _play.HoverFill = blocked ? AppTheme.Warn.Darkened(0.12f) : AppTheme.PlayDark;
+        _play.HoverFill = blocked ? AppTheme.Warn.Darkened(0.1f) : AppTheme.PlayDark;
         _play.TooltipText = tip;
         _play.QueueRedraw();
     }

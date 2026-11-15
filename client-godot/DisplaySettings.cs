@@ -23,6 +23,10 @@ public static class DisplaySettings
     public static bool AutoScale { get; private set; } = true;
     public static bool ReduceMotion { get; private set; }
     public static WindowMode Mode { get; private set; } = WindowMode.Windowed;
+    /// <summary>Windowed size: "fit" (maximised to the screen, the default), "last" (the size the window had when the game was closed) or "WxH".</summary>
+    public static string Resolution { get; private set; } = "fit";
+    public static Vector2I LastSize { get; private set; } = Vector2I.Zero;
+    public static readonly Vector2I[] Presets = { new(1280, 720), new(1366, 768), new(1600, 900), new(1920, 1080), new(2560, 1440), new(3840, 2160) };
     public static bool Fullscreen => Mode == WindowMode.Fullscreen;
     public static event Action? Changed;
 
@@ -34,6 +38,8 @@ public static class DisplaySettings
         AutoScale = (bool)cfg.GetValue("display", "auto_scale", true);
         ReduceMotion = (bool)cfg.GetValue("display", "reduce_motion", false);
         Mode = (WindowMode)(int)cfg.GetValue("display", "window_mode", (bool)cfg.GetValue("display", "fullscreen", false) ? 2 : 0);
+        Resolution = (string)cfg.GetValue("display", "resolution", "fit");
+        LastSize = (Vector2I)cfg.GetValue("display", "last_size", Vector2I.Zero);
     }
 
     private static void Save()
@@ -43,6 +49,8 @@ public static class DisplaySettings
         cfg.SetValue("display", "auto_scale", AutoScale);
         cfg.SetValue("display", "reduce_motion", ReduceMotion);
         cfg.SetValue("display", "window_mode", (int)Mode);
+        cfg.SetValue("display", "resolution", Resolution);
+        cfg.SetValue("display", "last_size", LastSize);
         cfg.Save(File);
     }
 
@@ -71,17 +79,11 @@ public static class DisplaySettings
         window.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
         window.ContentScaleSize = Reference;
         window.MinSize = MinWindow;
+        window.MaxSize = Vector2I.Zero; // never cap the window
         if (sizeWindow)
         {
             ApplyMode(window);
-            if (Mode == WindowMode.Windowed)
-            {
-                var usable = DisplayServer.ScreenGetUsableRect();
-                var size = new Vector2I(Math.Min(1600, (int)(usable.Size.X * 0.92)), Math.Min(900, (int)(usable.Size.Y * 0.92)));
-                size = new Vector2I(Math.Max(size.X, MinWindow.X), Math.Max(size.Y, MinWindow.Y));
-                window.Size = size;
-                window.Position = usable.Position + (usable.Size - size) / 2;
-            }
+            if (Mode == WindowMode.Windowed) ApplyResolution(window);
         }
         Refit(window);
     }
@@ -104,10 +106,52 @@ public static class DisplaySettings
                 window.Position = usable.Position; window.Size = usable.Size;
                 break;
             default:
-                if (window.Mode != Window.ModeEnum.Windowed) window.Mode = Window.ModeEnum.Windowed;
+                if (window.Mode is Window.ModeEnum.ExclusiveFullscreen or Window.ModeEnum.Fullscreen) window.Mode = Window.ModeEnum.Windowed;
                 window.Borderless = false;
                 break;
         }
+    }
+
+    /// <summary>The window sizes offered in the display card: presets that fit the screen, plus the current size.</summary>
+    public static List<Vector2I> Choices(Window window)
+    {
+        var screen = DisplayServer.ScreenGetSize(window.CurrentScreen);
+        var list = Presets.Where(p => p.X <= screen.X && p.Y <= screen.Y).ToList();
+        if (!list.Contains(window.Size) && window.Mode == Window.ModeEnum.Windowed) list.Add(window.Size);
+        return list.OrderBy(p => p.X).ThenBy(p => p.Y).ToList();
+    }
+
+    /// <summary>Sizes a windowed window: maximised for "fit", the remembered size for "last", or an exact WxH (clamped to the screen).</summary>
+    private static void ApplyResolution(Window window)
+    {
+        var usable = DisplayServer.ScreenGetUsableRect(window.CurrentScreen);
+        Vector2I? size = null;
+        if (Resolution == "last" && LastSize.X >= MinWindow.X && LastSize.Y >= MinWindow.Y) size = LastSize;
+        else if (Parse(Resolution) is { } wh) size = wh;
+        if (size == null) { window.Mode = Window.ModeEnum.Maximized; return; }
+        if (window.Mode == Window.ModeEnum.Maximized) window.Mode = Window.ModeEnum.Windowed;
+        var s = new Vector2I(Math.Clamp(size.Value.X, MinWindow.X, Math.Max(MinWindow.X, usable.Size.X)), Math.Clamp(size.Value.Y, MinWindow.Y, Math.Max(MinWindow.Y, usable.Size.Y)));
+        window.Size = s;
+        window.Position = usable.Position + (usable.Size - s) / 2;
+    }
+
+    public static Vector2I? Parse(string text) =>
+        text.Split('x') is { Length: 2 } p && int.TryParse(p[0], out var w) && int.TryParse(p[1], out var h) ? new Vector2I(w, h) : null;
+
+    /// <summary>Chooses the windowed size ("fit" or "WxH") and applies it when the game is windowed.</summary>
+    public static void SetResolution(Window window, string resolution)
+    {
+        Resolution = resolution;
+        if (Mode == WindowMode.Windowed) ApplyResolution(window);
+        Refit(window);
+        Save(); Changed?.Invoke();
+    }
+
+    /// <summary>Remembers the windowed size when the game closes (used when the resolution is "last").</summary>
+    public static void RememberWindow(Window window)
+    {
+        if (Mode == WindowMode.Windowed && window.Mode == Window.ModeEnum.Windowed) LastSize = window.Size;
+        Save();
     }
 
     public static void SetScale(Window window, float scale, bool save = true)
@@ -126,12 +170,8 @@ public static class DisplaySettings
         bool wasBorderless = Mode == WindowMode.Borderless;
         Mode = mode;
         ApplyMode(window);
-        if (mode == WindowMode.Windowed && wasBorderless)
-        {
-            var usable = DisplayServer.ScreenGetUsableRect();
-            var size = new Vector2I(Math.Min(1600, (int)(usable.Size.X * 0.85)), Math.Min(900, (int)(usable.Size.Y * 0.85)));
-            window.Size = size; window.Position = usable.Position + (usable.Size - size) / 2;
-        }
+        if (mode == WindowMode.Windowed) ApplyResolution(window);
+        _ = wasBorderless;
         Refit(window);
         Save(); Changed?.Invoke();
     }

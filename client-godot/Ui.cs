@@ -255,16 +255,27 @@ public partial class IconTextButton : Button
     }
 }
 
-/// <summary>A square flat tab of the top bar: chrome, darker on hover, ink when active; a white pictogram; optional red badge.</summary>
+public enum TabStyle { Ghost, Filled, Dark }
+
+/// <summary>
+/// A square-ish icon tile: Ghost (top-bar tabs: no fill, a soft tile on hover, signature tint when active), Filled (the primary
+/// End-quarter action) or Dark (on the graphite voter panel). Hover and press ease over ~120 ms. Optional count badge and caption.
+/// </summary>
 public partial class SquareTab : Control
 {
     private readonly IconKind _kind;
     private bool _hover, _down;
+    private float _h; // eased hover 0..1
     public bool Active { get; set; }
     public int Badge { get; set; }
+    public TabStyle Style { get; set; } = TabStyle.Ghost;
     public Color Fill { get; set; } = AppTheme.Chrome;
     public Color HoverFill { get; set; } = AppTheme.ChromeDark;
     public string Caption { get; set; } = "";
+    public float Inset { get; set; } = 6;
+    public float IconScale { get; set; } = 0.36f;
+    /// <summary>Draw the tile as a centred square (tabs) rather than filling the control (the wide Play button).</summary>
+    public bool Square { get; set; } = true;
     public event Action? Pressed;
 
     public SquareTab(IconKind kind, string tooltip)
@@ -274,21 +285,48 @@ public partial class SquareTab : Control
         SizeFlagsVertical = SizeFlags.Fill;
     }
 
+    public override void _Process(double delta)
+    {
+        float target = _hover ? 1 : 0;
+        if (Math.Abs(_h - target) < 0.01f) { if (_h != target) { _h = target; QueueRedraw(); } SetProcess(false); return; }
+        _h = Main.Animations ? Mathf.MoveToward(_h, target, (float)delta * 8f) : target;
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
-        var fill = Active ? AppTheme.ActiveTab : _hover ? HoverFill : Fill;
-        if (_down) fill = fill.Darkened(0.1f);
-        DrawRect(new Rect2(Vector2.Zero, Size), fill);
-        float icon = Math.Min(Size.X, Size.Y) * 0.4f;
-        var c = new Vector2(Size.X / 2, Caption.Length > 0 ? Size.Y * 0.42f : Size.Y / 2);
-        Icons.Draw(this, _kind, c, icon, Colors.White);
+        var r = new Rect2(Vector2.Zero, Size).Grow(-Inset);
+        if (Square) { float side = Math.Min(r.Size.X, r.Size.Y); r = new Rect2(r.GetCenter() - new Vector2(side, side) / 2, new Vector2(side, side)); }
+        int radius = (int)Math.Min(12, r.Size.Y / 2);
+        Color ink;
+        switch (Style)
+        {
+            case TabStyle.Filled:
+                DrawStyleBox(AppTheme.Box(Fill.Lerp(HoverFill, _h).Darkened(_down ? 0.08f : 0), radius), r);
+                ink = Colors.White;
+                break;
+            case TabStyle.Dark:
+                var dark = Active ? AppTheme.Graphite3 : new Color(1, 1, 1, 0.07f * _h);
+                DrawStyleBox(AppTheme.Box(dark, radius), r);
+                ink = new Color(1, 1, 1, Active ? 1f : 0.62f + 0.38f * _h);
+                break;
+            default:
+                var fill = Active ? AppTheme.ChromeTint : new Color(AppTheme.Ink, 0.05f * _h + (_down ? 0.04f : 0));
+                DrawStyleBox(AppTheme.Box(fill, radius), r);
+                ink = Active ? AppTheme.Chrome : AppTheme.Ink2.Lerp(AppTheme.Ink, _h);
+                break;
+        }
+        float icon = Math.Min(r.Size.X, r.Size.Y) * IconScale * (Caption.Length > 0 ? 0.9f : 1f) + 4;
+        var c = new Vector2(Size.X / 2, Caption.Length > 0 ? r.Position.Y + r.Size.Y * 0.4f : Size.Y / 2);
+        Icons.Draw(this, _kind, c, icon, ink);
         if (Caption.Length > 0)
-            DrawString(AppTheme.Bold, new Vector2(0, Size.Y - 9), Caption, HorizontalAlignment.Center, Size.X, 11, Colors.White);
+            DrawString(AppTheme.Semi, new Vector2(r.Position.X, r.End.Y - 7), Caption, HorizontalAlignment.Center, r.Size.X, 11, ink);
         if (Badge > 0)
         {
-            var p = new Vector2(Size.X - 15, 15);
-            DrawCircle(p, 9, AppTheme.Bad);
-            DrawString(AppTheme.FigBold, new Vector2(p.X - 9, p.Y + 4), Badge.ToString(CultureInfo.InvariantCulture), HorizontalAlignment.Center, 18, 11, Colors.White);
+            var p = new Vector2(r.End.X - 6, r.Position.Y + 6);
+            DrawCircle(p, 8.5f, AppTheme.Surface);
+            DrawCircle(p, 7, AppTheme.Bad);
+            DrawString(AppTheme.FigBold, new Vector2(p.X - 8, p.Y + 3.5f), Badge.ToString(CultureInfo.InvariantCulture), HorizontalAlignment.Center, 16, 10, Colors.White);
         }
     }
 
@@ -305,8 +343,8 @@ public partial class SquareTab : Control
 
     public override void _Notification(int what)
     {
-        if (what == NotificationMouseEnter) { _hover = true; QueueRedraw(); }
-        else if (what == NotificationMouseExit) { _hover = false; _down = false; QueueRedraw(); }
+        if (what == NotificationMouseEnter) { _hover = true; SetProcess(true); }
+        else if (what == NotificationMouseExit) { _hover = false; _down = false; SetProcess(true); }
     }
 }
 
@@ -337,20 +375,20 @@ public partial class PictoDisc : Control
     private readonly IconKind _kind; private readonly Color _fill, _ink; private readonly float _d;
     public PictoDisc(IconKind kind, float diameter, Color? fill = null, Color? ink = null)
     {
-        _kind = kind; _d = diameter; _fill = fill ?? AppTheme.Panel2; _ink = ink ?? AppTheme.Ink2;
+        _kind = kind; _d = diameter; _fill = fill ?? AppTheme.ChromeTint; _ink = ink ?? AppTheme.Chrome;
         CustomMinimumSize = new Vector2(diameter, diameter);
         SizeFlagsVertical = SizeFlags.ShrinkCenter; MouseFilter = MouseFilterEnum.Ignore;
     }
     public override void _Draw()
     {
         DrawCircle(Size / 2, _d / 2, _fill);
-        Icons.Draw(this, _kind, Size / 2, _d * 0.56f, _ink);
+        Icons.Draw(this, _kind, Size / 2, _d * 0.54f, _ink);
     }
 }
 
 /// <summary>
-/// A rounded bar. Plain: fill from the left (traffic, chrome or party colour). Diverging: a dark track with the fill growing from the centre,
-/// green to the right and red to the left (the effect rows of the policy dialog).
+/// A thin rounded bar. Plain: fill from the left (traffic, signature or party colour). Diverging: the fill grows from the centre, green to
+/// the right and red to the left (effect rows). The fill eases in when the bar appears.
 /// </summary>
 public partial class Meter : Control
 {
@@ -358,16 +396,32 @@ public partial class Meter : Control
     private Color _color;
     private readonly bool _diverging;
     private readonly float _h;
+    private float _grow = 1;
     public Color TrackColor { get; set; } = AppTheme.TrackLight;
     /// <summary>Optional marker (0..1) drawn as an ink tick, e.g. the majority line.</summary>
     public float? Mark { get; set; }
+    public bool Animate { get; set; } = true;
+    public Color MarkColor { get; set; } = AppTheme.Ink;
 
-    public Meter(double value, double min, double max, Color color, float width = 120, bool diverging = false, float height = 8)
+    public Meter(double value, double min, double max, Color color, float width = 120, bool diverging = false, float height = 6)
     {
-        _value = value; _min = min; _max = max; _color = color; _diverging = diverging; _h = height;
-        CustomMinimumSize = new Vector2(width, Math.Max(height, 12));
+        _value = value; _min = min; _max = max; _color = color; _diverging = diverging; _h = Math.Min(height, 8);
+        CustomMinimumSize = new Vector2(width, Math.Max(_h, 12));
         SizeFlagsVertical = SizeFlags.ShrinkCenter; MouseFilter = MouseFilterEnum.Ignore;
         if (diverging) TrackColor = AppTheme.Track;
+    }
+
+    public override void _Ready()
+    {
+        if (Animate && Main.Animations && !DisplaySettings.ReduceMotion) { _grow = 0; SetProcess(true); }
+        else SetProcess(false);
+    }
+
+    public override void _Process(double delta)
+    {
+        _grow = Math.Min(1, _grow + (float)delta / 0.35f);
+        QueueRedraw();
+        if (_grow >= 1) SetProcess(false);
     }
 
     public void Set(double value, Color color) { _value = value; _color = color; QueueRedraw(); }
@@ -375,23 +429,25 @@ public partial class Meter : Control
     public override void _Draw()
     {
         float y = (Size.Y - _h) / 2;
-        int r = (int)(_h / 2);
+        int r = (int)Math.Ceiling(_h / 2);
+        float ease = 1 - (1 - _grow) * (1 - _grow) * (1 - _grow);
         DrawStyleBox(AppTheme.Box(TrackColor, r), new Rect2(0, y, Size.X, _h));
         double span = Math.Max(_max - _min, 1e-12);
         float f = (float)Math.Clamp((_value - _min) / span, 0, 1);
         if (_diverging)
         {
             float mid = Size.X / 2, x = Size.X * f;
-            float w = Math.Abs(x - mid);
+            float w = Math.Abs(x - mid) * ease;
             if (w >= 0.5f || Math.Abs(_value) > 1e-9)
             {
-                w = Math.Max(w, _h * 0.9f);
+                w = Math.Max(w, _h);
                 var rect = x >= mid ? new Rect2(mid, y, w, _h) : new Rect2(mid - w, y, w, _h);
                 DrawStyleBox(AppTheme.Box(_color, r), rect);
             }
+            DrawRect(new Rect2(mid - 0.5f, y - 3, 1, _h + 6), new Color(AppTheme.Ink, 0.35f));
         }
-        else if (f > 0) DrawStyleBox(AppTheme.Box(_color, r), new Rect2(0, y, Math.Max(Size.X * f, _h), _h));
-        if (Mark is { } m) DrawRect(new Rect2(Size.X * m - 1, y - 3, 2, _h + 6), AppTheme.Ink);
+        else if (f > 0) DrawStyleBox(AppTheme.Box(_color, r), new Rect2(0, y, Math.Max(Size.X * f * ease, _h), _h));
+        if (Mark is { } m) DrawRect(new Rect2(Size.X * m - 1, y - 4, 2, _h + 8), MarkColor);
     }
 }
 

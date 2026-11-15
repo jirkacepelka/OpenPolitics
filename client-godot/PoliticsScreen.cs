@@ -25,7 +25,7 @@ public sealed class PoliticsScreen : Screen
     private static Control Card(string title, Control body)
     {
         var box = Ui.VBox(10);
-        box.AddChild(Ui.L(title, Tx.Overline, AppTheme.Chrome));
+        box.AddChild(Ui.L(title, Tx.Overline, AppTheme.Ink3));
         box.AddChild(body);
         return Ui.Panel(box, "Card");
     }

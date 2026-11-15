@@ -64,7 +64,7 @@ public sealed class PartyScreen : Screen
         void Tile(string label, string value, string sub, IconKind icon, Color? color = null)
         {
             var box = Ui.VBox(2);
-            var head = Ui.HBox(6); head.AddChild(new IconView(icon, 16, AppTheme.Chrome)); head.AddChild(Ui.L(label, Tx.Overline, AppTheme.Chrome));
+            var head = Ui.HBox(6); head.AddChild(new IconView(icon, 16, AppTheme.Chrome)); head.AddChild(Ui.L(label, Tx.Overline, AppTheme.Ink3));
             box.AddChild(head);
             box.AddChild(Ui.L(value, Tx.FigureXl, color ?? AppTheme.Ink));
             if (sub.Length > 0) box.AddChild(Ui.L(sub, Tx.Small));
@@ -85,7 +85,7 @@ public sealed class PartyScreen : Screen
         var compass = new CompassView { CustomMinimumSize = new Vector2(240, 260), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         compass.Set(s, pol.PlayerParty);
         var right = Ui.VBox(8);
-        right.AddChild(Ui.L(t.T("ui.client.compass"), Tx.Overline, AppTheme.Chrome));
+        right.AddChild(Ui.L(t.T("ui.client.compass"), Tx.Overline, AppTheme.Ink3));
         right.AddChild(compass);
         body.AddChild(Detail.Columns(left, right, 1.5f));
     }
@@ -102,7 +102,7 @@ public sealed class PartyScreen : Screen
             {
                 string id = def.Id;
                 var row = Ui.HBox(10);
-                row.AddChild(new PictoDisc(Icons.For(id), 26, AppTheme.Chrome, Colors.White));
+                row.AddChild(new PictoDisc(Icons.For(id), 26));
                 var name = Ui.L(t.Name(id), Tx.BodyStrong);
                 name.CustomMinimumSize = new Vector2(Layout.Compact ? 120 : 190, 0);
                 name.ClipText = true; name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; name.TooltipText = t.Name(id);
@@ -178,7 +178,7 @@ public sealed class PartyScreen : Screen
     {
         var box = Ui.VBox(8);
         var head = Ui.HBox(10);
-        head.AddChild(new PictoDisc(icon, 34, AppTheme.Chrome, Colors.White));
+        head.AddChild(new PictoDisc(icon, 34));
         head.AddChild(Ui.L(title, Tx.Heading));
         box.AddChild(head);
         box.AddChild(controls);
@@ -259,7 +259,7 @@ public sealed class PartyScreen : Screen
         {
             if (s.Packs.Policies.FirstOrDefault(p => p.Id == m.PolicyId) is not { } def) continue;
             var row = Ui.HBox(10);
-            row.AddChild(new PictoDisc(Icons.For(m.PolicyId), 26, AppTheme.Chrome, Colors.White));
+            row.AddChild(new PictoDisc(Icons.For(m.PolicyId), 26));
             row.AddChild(Ui.L(Ui.Fix(t.T("ui.party.measure_line", m.Turn, t.Name(m.PolicyId), Fmt.Policy(def, m.From, t), Fmt.Policy(def, m.To, t))), Tx.Body, AppTheme.Ink, true));
             if (m.StanceTaken) row.AddChild(Ui.Pill(t.T("ui.party.stance_taken"), AppTheme.Ink3));
             else

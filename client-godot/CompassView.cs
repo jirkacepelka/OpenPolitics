@@ -50,7 +50,7 @@ public partial class CompassView : Control
     public override void _Draw()
     {
         var r = Plot;
-        DrawRect(r, new Color("f3f3f3"));
+        DrawStyleBox(AppTheme.Box(AppTheme.Panel, 12), r);
         for (int i = 1; i < 4; i++)
         {
             float x = r.Position.X + r.Size.X * i / 4, y = r.Position.Y + r.Size.Y * i / 4;

@@ -22,15 +22,15 @@ public partial class StartBackdrop : Control
                 var p = new Vector2(x + rng.RandfRange(-26, 26), y + rng.RandfRange(-26, 26));
                 float r = rng.RandfRange(12, 34);
                 bool policy = rng.Randf() < 0.4f;
-                DrawCircle(p, r, policy ? new Color(AppTheme.Chrome, 0.13f) : new Color("e3e3e1"));
-                DrawArc(p, r - 2, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * rng.RandfRange(0.3f, 1f), 40, policy ? new Color(AppTheme.Chrome, 0.22f) : new Color("d2d2cf"), 4, true);
+                DrawCircle(p, r, policy ? new Color(AppTheme.ChromeTint, 0.8f) : new Color(1, 1, 1, 0.7f));
+                DrawArc(p, r - 2, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * rng.RandfRange(0.3f, 1f), 40, policy ? new Color(AppTheme.Chrome, 0.25f) : new Color("dcd7ce"), 2, true);
             }
         var c = Size / 2;
         for (int i = 0; i < 3; i++)
         {
             float a = -Mathf.Pi / 2 + Mathf.Tau * (i + 0.5f) / 3;
             var u = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-            for (float d = 80; d < Size.Length(); d += 18) DrawLine(c + u * d, c + u * (d + 10), new Color("cfcfcb"), 2);
+            for (float d = 80; d < Size.Length(); d += 12) DrawLine(c + u * d, c + u * (d + 5), new Color("d6d0c6"), 1.2f, true);
         }
     }
     public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
@@ -47,7 +47,7 @@ public static class StartScreen
         main.AddChild(backdrop);
 
         bool compact = Layout.Compact || Layout.Short;
-        var veil = new ColorRect { Color = new Color(1, 1, 1, 0.35f), MouseFilter = Control.MouseFilterEnum.Ignore };
+        var veil = new ColorRect { Color = new Color(0.93f, 0.92f, 0.89f, 0.45f), MouseFilter = Control.MouseFilterEnum.Ignore };
         veil.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         main.AddChild(veil);
 
@@ -70,7 +70,7 @@ public static class StartScreen
         // New game.
         var game = Ui.VBox(12);
         game.AddChild(Ui.Section(t.T("ui.client.new_game")));
-        game.AddChild(Ui.L(t.T("ui.client.scenario"), Tx.Label, AppTheme.Chrome));
+        game.AddChild(Ui.L(t.T("ui.client.scenario"), Tx.Small, AppTheme.Ink3));
         var scenarios = packs.Scenarios.OrderByDescending(s => s.Politics != null).ThenBy(s => s.Id, StringComparer.Ordinal).ToList();
         int chosen = 0;
         var cards = Ui.VBox(8);
@@ -95,11 +95,11 @@ public static class StartScreen
         game.AddChild(cards);
         var opts = compact ? (BoxContainer)Ui.VBox(12) : Ui.HBox(24);
         var langCol = Ui.VBox(6);
-        langCol.AddChild(Ui.L(t.T("ui.client.language"), Tx.Label, AppTheme.Chrome));
+        langCol.AddChild(Ui.L(t.T("ui.client.language"), Tx.Small, AppTheme.Ink3));
         langCol.AddChild(Ui.Segmented(new[] { "Čeština", "English" }, language == "cs" ? 0 : 1, i => setLanguage(i == 0 ? "cs" : "en"), 32));
         opts.AddChild(langCol);
         var seedCol = Ui.VBox(6);
-        seedCol.AddChild(Ui.L(t.T("ui.client.seed"), Tx.Label, AppTheme.Chrome));
+        seedCol.AddChild(Ui.L(t.T("ui.client.seed"), Tx.Small, AppTheme.Ink3));
         var seedRow = Ui.HBox(4);
         var seed = new LineEdit { Text = ((Time.GetTicksMsec() % 99999) + 1).ToString(), CustomMinimumSize = new Vector2(120, 32), MaxLength = 9 };
         seedRow.AddChild(seed);
@@ -171,12 +171,22 @@ public static class StartScreen
     {
         var box = Ui.VBox(12);
         if (withHeading) box.AddChild(Ui.Section(t.T("ui.start.display")));
-        box.AddChild(Ui.L(t.T("ui.start.window_mode"), Tx.Label, AppTheme.Chrome));
+        box.AddChild(Ui.L(t.T("ui.start.window_mode"), Tx.Small, AppTheme.Ink3));
         var window = main.GetWindow();
         box.AddChild(Ui.Segmented(new[] { t.T("ui.start.mode.windowed"), t.T("ui.start.mode.borderless"), t.T("ui.start.mode.fullscreen") }, (int)DisplaySettings.Mode,
             i => DisplaySettings.SetMode(window, (WindowMode)i), 32));
+        box.AddChild(Ui.L(t.T("ui.start.resolution"), Tx.Small, AppTheme.Ink3));
+        var res = new OptionButton { FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            Disabled = DisplaySettings.Mode != WindowMode.Windowed, TooltipText = t.T("ui.start.resolution_hint") };
+        var choices = new List<string> { "fit" };
+        res.AddItem(t.T("ui.start.fit"));
+        foreach (var c in DisplaySettings.Choices(window)) { choices.Add($"{c.X}x{c.Y}"); res.AddItem($"{c.X} \u00d7 {c.Y}"); }
+        int sel = choices.IndexOf(DisplaySettings.Resolution);
+        res.Selected = sel >= 0 ? sel : 0;
+        res.ItemSelected += i => DisplaySettings.SetResolution(window, choices[(int)i]);
+        box.AddChild(res);
         var scaleHead = Ui.HBox(8);
-        scaleHead.AddChild(Ui.L(t.T("ui.start.ui_scale"), Tx.Label, AppTheme.Chrome));
+        scaleHead.AddChild(Ui.L(t.T("ui.start.ui_scale"), Tx.Small, AppTheme.Ink3));
         scaleHead.AddChild(Ui.Spacer());
         var value = Ui.L(Ui.Num(DisplaySettings.UiScale * 100, "0") + " %", Tx.Figure);
         scaleHead.AddChild(value);
