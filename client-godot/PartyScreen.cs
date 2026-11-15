@@ -26,7 +26,7 @@ public sealed class PartyScreen : Screen
         var pol = s.Politics;
         if (pol?.Party is not { } ps) { d.Body.AddChild(Ui.L(t.T("ui.err.no_politics"), Tx.Body)); return; }
         d.Title = t.Name(pol.PlayerParty);
-        var tabs = Ui.HBox(0);
+        var tabs = Ui.HBox(26);
         var group = new ButtonGroup();
         string[] keys = { "ui.pt.overview", "ui.pt.platform", "ui.pt.promises", "ui.pt.relations", "ui.pt.actions" };
         for (int i = 0; i < keys.Length; i++)
@@ -38,7 +38,7 @@ public sealed class PartyScreen : Screen
             tabs.AddChild(b);
         }
         var tabScroll = new ScrollContainer { VerticalScrollMode = ScrollContainer.ScrollMode.Disabled, CustomMinimumSize = new Vector2(0, 46) };
-        tabScroll.AddChild(Ui.Margin(tabs, 18, 0));
+        tabScroll.AddChild(Ui.Margin(tabs, 26, 0));
         d.Fixed.AddChild(tabScroll);
         d.Fixed.AddChild(new HairLine { CustomMinimumSize = new Vector2(0, 1) });
         d.Body.AddChild(Ui.Gap(4));
