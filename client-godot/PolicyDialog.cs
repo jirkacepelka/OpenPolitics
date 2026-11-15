@@ -205,11 +205,10 @@ public static class PolicyDialog
                 capText.AddChild(Ui.L("×" + Ui.Num(ps.PoliticalCapital, "0"), Tx.FigureXl));
                 capText.AddChild(Ui.L(t.T("ui.party.capital") + " · " + Ui.Signed(ps.Income) + " " + t.T("ui.party.per_quarter"), Tx.Small, AppTheme.Ink2, true));
             }
-            else capText.AddChild(Ui.L(t.T("ui.pd.no_capital"), Tx.Small, AppTheme.Ink2, true));
             capText.AddChild(Ui.L(t.T("ui.pd.capital_free"), Tx.Small, AppTheme.Ink3, true));
             capText.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             capBox.AddChild(capText);
-            var sliderBlock = Detail.Columns(sliderCol, capBox, 2.6f);
+            Control sliderBlock = s.Politics?.Party != null ? Detail.Columns(sliderCol, capBox, 2.6f) : sliderCol;
             d.Body.AddChild(sliderBlock);
             // In small windows the slider comes before the effect list so it is never below the fold.
             if (Layout.Compact || Layout.Short) d.Body.MoveChild(sliderBlock, effects.GetIndex());
