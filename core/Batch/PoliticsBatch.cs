@@ -15,7 +15,9 @@ public sealed record PoliticsBatchReport(
     int Governments, int GamesWithPartnerLoss, int PartnerDepartures, int Falls, int FallsWithNewMajority,
     int EarlyElections, double MeanTurnsToFirstPartnerLoss, int StuckGames,
     double MeanPlayerSupportAtEnd = 0, double MeanPlayerSeatsAtEnd = 0, int NegativeCapitalGames = 0,
-    double MeanPlayerSupportOverRun = 0)
+    double MeanPlayerSupportOverRun = 0,
+    double GoverningShare = 0, double PlayerLeadShare = 0, double MeanCapital = 0,
+    double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0)
 {
     public string ToText()
     {
@@ -33,6 +35,11 @@ public sealed record PoliticsBatchReport(
         sb.AppendLine($"  Player party at the end:     {(100 * MeanPlayerSupportAtEnd).ToString("0.0", inv)} % of the poll, {MeanPlayerSeatsAtEnd.ToString("0.0", inv)} seats (mean)");
         sb.AppendLine($"  Player poll over the whole run: {(100 * MeanPlayerSupportOverRun).ToString("0.0", inv)} % (mean of every quarter)");
         sb.AppendLine($"  Games with negative capital: {NegativeCapitalGames}");
+        sb.AppendLine($"  Quarters with a sitting government: {(100 * GoverningShare).ToString("0.0", inv)} %");
+        sb.AppendLine($"  Quarters the player leads:   {(100 * PlayerLeadShare).ToString("0.0", inv)} %");
+        sb.AppendLine($"  Games where the player lost the lead: {GamesLosingLead}");
+        sb.AppendLine($"  Player capital (mean):       {MeanCapital.ToString("0.0", inv)}");
+        sb.AppendLine($"  Policy changes per year:     {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
         return sb.ToString();
     }
 }
@@ -47,7 +54,9 @@ public static class PoliticsBatch
         int stuckLimit = 2 * rules.MaxFormationTurns + rules.CaretakerTurns + 2;
         int governments = 0, withLoss = 0, departures = 0, falls = 0, fallsOk = 0, early = 0, stuck = 0;
         double sumFirstLoss = 0, sumSupport = 0, sumSeats = 0, sumRun = 0;
-        int negativeCapital = 0;
+        int negativeCapital = 0, governingTurns = 0, leadTurns = 0, lostLead = 0;
+        double sumCapital = 0;
+        var counter = new PolicyCounter();
         var policies = packs.Policies.ToDictionary(p => p.Id, StringComparer.Ordinal);
 
         for (int i = 0; i < games; i++)
@@ -61,10 +70,11 @@ public static class PoliticsBatch
             int firstLoss = -1, sinceGoverning = 0;
             bool wasStuck = false, overspent = false;
             var memory = new ActivistMemory();
+            bool led = game.State.Countries.Values.Single().Politics!.PlayerRole == Role.Leader, lost = false;
 
             for (int t = 0; t < turns; t++)
             {
-                Act(game, strategy, packs, policies, rng, memory);
+                Act(game, strategy, packs, policies, rng, memory, counter);
                 var report = game.EndTurn();
                 foreach (var e in report.PoliticalEvents)
                 {
@@ -80,6 +90,10 @@ public static class PoliticsBatch
                 if (now.Party!.PoliticalCapital < -1e-9) overspent = true;
                 runShare += now.Support.GetValueOrDefault(now.PlayerParty);
                 var phase = now.Phase;
+                sumCapital += now.Party.PoliticalCapital;
+                if (phase == Phase.Governing) governingTurns++;
+                if (now.PlayerRole == Role.Leader) { leadTurns++; led = true; }
+                else if (led && phase == Phase.Governing) lost = true;
                 sinceGoverning = phase == Phase.Governing ? 0 : sinceGoverning + 1;
                 // After a fall the machinery may start several rounds (early elections), so only count a game
                 // as stuck when it stays out of Governing far longer than one full cycle (two rounds of that).
@@ -90,6 +104,7 @@ public static class PoliticsBatch
             sumSupport += end.Support.GetValueOrDefault(end.PlayerParty);
             sumSeats += end.Seats.GetValueOrDefault(end.PlayerParty);
             if (overspent) negativeCapital++;
+            if (lost) lostLead++;
             sumRun += turns > 0 ? runShare / turns : 0;
             if (firstLoss >= 0) withLoss++;
             sumFirstLoss += firstLoss >= 0 ? firstLoss : turns;
@@ -103,12 +118,32 @@ public static class PoliticsBatch
         return new PoliticsBatchReport(games, turns, strategy.ToString().ToLowerInvariant(), governments, withLoss, departures,
             falls, fallsOk, early, games > 0 ? sumFirstLoss / games : 0, stuck,
             games > 0 ? sumSupport / games : 0, games > 0 ? sumSeats / games : 0, negativeCapital,
-            games > 0 ? sumRun / games : 0);
+            games > 0 ? sumRun / games : 0,
+            Share(governingTurns, games, turns), Share(leadTurns, games, turns), games * turns > 0 ? sumCapital / (games * turns) : 0,
+            PerYear(counter.Accepted, packs, scenarioId, games, turns), PerYear(counter.Refused, packs, scenarioId, games, turns), lostLead);
+    }
+
+    private static double Share(int count, int games, int turns) => games * turns > 0 ? (double)count / (games * turns) : 0;
+
+    private static double PerYear(int count, PackSet packs, string scenarioId, int games, int turns) =>
+        games * turns > 0 ? count / (games * turns / (double)packs.GetScenario(scenarioId).TurnsPerYear) : 0;
+
+    /// <summary>Policy changes the scripted player tried as leader: accepted, and refused because they cost more capital than it had.</summary>
+    private sealed class PolicyCounter
+    {
+        public int Accepted, Refused;
+
+        public void Set(Game game, string policyId, double value)
+        {
+            var r = game.Apply(new SetPolicy(policyId, value));
+            if (r.Accepted) Accepted++;
+            else if (r.ErrorKey is "error.policy_cost" or "error.not_enough_capital") Refused++;
+        }
     }
 
     private sealed class ActivistMemory { public readonly List<IReadOnlyDictionary<string, double>> Values = new(); }
 
-    private static void Act(Game game, PoliticsStrategy strategy, PackSet packs, Dictionary<string, PolicyDef> policies, Pcg32 rng, ActivistMemory memory)
+    private static void Act(Game game, PoliticsStrategy strategy, PackSet packs, Dictionary<string, PolicyDef> policies, Pcg32 rng, ActivistMemory memory, PolicyCounter counter)
     {
         var state = game.State;
         var pol = state.Countries.Values.Single().Politics!;
@@ -126,13 +161,13 @@ public static class PoliticsBatch
             case PoliticsStrategy.Keeper:
                 if (pol.Government != null
                     && Governor.Move(pol.Government, id => LatestPolicy(game, current, id), _ => 0, policies, state.Turn) is { } m)
-                    game.Apply(new SetPolicy(m.PolicyId, m.Value));
+                    counter.Set(game, m.PolicyId, m.Value);
                 break;
             case PoliticsStrategy.Random:
                 if (state.Turn % 4 == 0 && packs.Policies.Count > 0)
                 {
                     var p = packs.Policies[rng.NextInt(packs.Policies.Count)];
-                    game.Apply(new SetPolicy(p.Id, p.Min + rng.NextDouble() * (p.Max - p.Min)));
+                    counter.Set(game, p.Id, p.Min + rng.NextDouble() * (p.Max - p.Min));
                 }
                 break;
             case PoliticsStrategy.Extreme:
@@ -140,7 +175,7 @@ public static class PoliticsBatch
                     for (int i = 0; i < packs.Policies.Count; i++)
                     {
                         var p = packs.Policies[i];
-                        game.Apply(new SetPolicy(p.Id, (state.Turn / 8 + i) % 2 == 0 ? p.Max : p.Min));
+                        counter.Set(game, p.Id, (state.Turn / 8 + i) % 2 == 0 ? p.Max : p.Min);
                     }
                 break;
         }
