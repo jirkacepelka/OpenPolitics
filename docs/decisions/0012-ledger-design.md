@@ -11,11 +11,28 @@ label placer. Before any Ledger code was written the user looked at that proposa
 AI-like**, and sent five Democracy 4 screenshots as the starting point. The client was therefore built to Democracy 4's structure
 and visual weight (`docs/design/addendum-democracy4.md`), keeping Ledger's machinery.
 
+## Refinement: Democracy 4's structure, a modern look of our own
+
+The user then asked for D4's clarity and airiness but "not so much like Democracy 4 ... a modern 2026 game from a big studio". The
+structure stayed; the look was replaced (tokens in the addendum's "Refinement" section): violet signature colour on warm neutrals with
+ink text, a graphite voter panel, soft radii and fine depth instead of square frames and flat saturated blue, actions in the dialog
+footer, thin rings, bars and pictograms, eased hover / dialog / bar / map-focus motion. The table below describes the structure; where
+it says "chrome", read "signature colour".
+
+## Display bug: the game could not run at Full HD
+
+Cause: the first-start window was capped at 1600 x 900 (`DisplaySettings.Apply` took min(1600, 92 % of the screen)) and
+`project.godot` overrode the window to 1600 x 900; there was no way to pick a size. Fix: no cap (the override is now only a 1920 x 1080
+fallback for the very first frame, `MaxSize` is cleared); the first start opens maximised ("Fit to the screen"); the display card offers
+a window size (fit, or 1280x720 / 1366x768 / 1600x900 / 1920x1080 / 2560x1440 / 3840x2160 where they fit the screen, plus the current
+size); borderless and full screen always use the screen's native resolution; the windowed size is remembered on close. Verified with
+`RES=1920x1080` (logical 1280 x 720, scale 1.5, regular) and `RES=2560x1440` (logical 1280 x 720, scale 2): the UI fills the window.
+
 ## What was built
 
 | Area | Result | Where |
 |---|---|---|
-| Tokens and theme | One flat saturated `Chrome` colour (`#1C8BE0`, swap in one line), white / light-grey surfaces, green Play, traffic lights, dark tracks, square corners, no shadows or gradients. One `Theme` in code with type variations: `T<Role>` for twelve text roles, `ButtonSecondary/Ghost/Play/Danger/Seg/Tab/Card`, `Dialog/Sheet/Inset/Card/Warn/Toast/Sidebar/TopBar` panels; PopupMenu, OptionButton, LineEdit, CheckBox, scrollbars, tooltips and sliders all themed. | `AppTheme.cs` |
+| Tokens and theme | One signature colour `Chrome` (violet `#5B45E0`, swap in one line), warm neutrals, graphite panel, traffic lights, soft radii, fine depth on floating surfaces only. One `Theme` in code with type variations: `T<Role>` for twelve text roles, `ButtonSecondary/Ghost/Play/Danger/Seg/Tab/Card`, `Dialog/Sheet/Inset/Card/Warn/Toast/Sidebar/TopBar` panels; PopupMenu, OptionButton, LineEdit, CheckBox, scrollbars, tooltips and sliders all themed. | `AppTheme.cs` |
 | Font | Inter 4.1 variable, bundled (SIL OFL, licence next to it), `.import` committed; `FontVariation` per role (wght 400/600/700, `cv05`/`cv08`, `tnum` for figures, +1 px tracking on uppercase labels). Fallback chain Inter → Noto Sans → Open Sans → Fira Sans → DejaVu Sans. | `AppTheme.cs`, `assets/fonts/` |
 | Display | Ledger's formula: automatic factor (small windows shrink the logical viewport toward 960 x 540, never the text), UI scale 80-140 %, window mode (window / borderless / full screen, F11), reduce motion; saved in `user://display.cfg`, applied live, refitted on every resize. | `DisplaySettings.cs` |
 | Size classes | `Layout`: compact < 1100 ≤ regular < 1600 ≤ wide, short < 640, tall ≥ 860, `Changed` event; the frame rebuilds on a class flip. | `DisplaySettings.cs`, `Main.cs` |
@@ -37,7 +54,7 @@ Deleted: the bottom dock, the floating glass panel and `Glass()`, `MapGlow`, the
 
 ## Deviations from the Ledger spec and why
 
-- **Palette, frame and map** follow the Democracy 4 addendum instead of Ledger (user's direct feedback). No yellow highlighter, no
+- **Palette, frame and map** follow the Democracy 4 structure with the refined look instead of Ledger (user's direct feedback). No yellow highlighter, no
   docked inspector, no ring-and-arcs map, no label placer at rest (labels were the clutter the user named). The label-placement idea
   survives in the compass.
 - **No zoom/pan on the map**: the packed full-window layout shows every node at a usable size at 960 x 540 and up; zoom would add chrome.

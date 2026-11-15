@@ -47,3 +47,28 @@ pictogram, uppercase label, traffic bar), the news, two full-width chrome button
 Type: one sans family (bundled Inter if present, else Noto Sans / Open Sans / Fira Sans / DejaVu Sans), weights 400/600/700, tabular
 figures for numbers, small labels in uppercase with +1 px tracking. Corners: 0 on chrome, dialogs and buttons; pills and bars are
 fully round. No shadows (dialogs too), no gradients, no glass, no yellow highlighter.
+
+## Refinement (same day): Democracy 4's structure, our own modern look
+
+The user: "OK, but not so much like Democracy 4 - I need its clarity and airiness, but with its own personality and a more modern
+design, like a 2026 game from a big studio." So the structure above stays (always-visible voter panel, top bar with key figures and
+icon tabs, full-bleed map without labels at rest, centred policy dialog with effect rows and a big slider, briefing with indicator
+pills, status rings), and the look is replaced. **These tokens supersede the table above.**
+
+| Token | Hex | Use |
+|---|---|---|
+| `Chrome` (signature) | `#5B45E0` violet | Primary action (Play, Apply, Start), selection, policy rings and pictograms, the slider, active tab tint. One line to swap. |
+| `ChromeDark` / `ChromeLight` / `ChromeTint` | `#4632BF` / `#A497F4` / `#EEEBFD` | Hover, accents on graphite, tinted discs and the active tab. |
+| `Graphite` / `Graphite2` / `Graphite3` | `#1D1C23` / `#2B2A33` / `#3A3944` | Voter panel, hub, tooltips, toasts, lens chip (depth and weight instead of a saturated blue sidebar). |
+| `MapBg` | `#EDEAE4` | Warm map field with a faint dot grid. |
+| `Surface` / `Panel` / `Panel2` | `#FBFAF8` / `#F2F0EC` / `#E8E5DF` | Dialogs and bars, insets and tiles, segment tracks. |
+| `Hairline` / `Border` / `TrackLight` | `#E6E2DB` / `#D8D3CA` / `#E6E2DB` | Separators, control borders, thin tracks. |
+| `Ink` / `Ink2` / `Ink3` | `#17161C` / `#4B4952` / `#75727B` | Text (high contrast, not beige). |
+| `Good` / `Warn` / `Bad` | `#2F9E66` / `#E0892C` / `#DC4B3E` | Rings and bars; text variants `#23784C` / `#A35C12` / `#B73A2F`. |
+
+Shape and depth: radius 10 on controls, 12-14 on tiles and cards, 16 on dialogs; tonal elevation (surface on warm canvas); a very light
+shadow only on dialogs, popovers, tooltips, the hub and a hovered node's contact shadow. The dialog veil is a 34 % graphite scrim.
+Actions sit in the dialog footer, primary rightmost. Rings 2-3.5 px, bars 4-6 px. Pictograms are thin strokes (1.8 units on the 24
+grid). Labels are small uppercase Ink3 with tracking; figures Inter semibold tabular. Motion: hover tiles ease (~120 ms), dialogs fade
+and scale in (180-220 ms), bars grow in (350 ms), map focus fades unrelated nodes and draws links with moving dashes (150 ms), all off
+with "reduce motion".
