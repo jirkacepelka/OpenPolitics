@@ -197,17 +197,31 @@ public static class PolicyDialog
             budBox.AddChild(Ui.L(t.T("ui.pd.budget_change"), Tx.Small, AppTheme.Ink3)); budBox.AddChild(budValue);
             money.AddChild(costBox); money.AddChild(budBox);
             if (p.CostPerUnit != 0 || p.RevenueBaseValueId != null) sliderCol.AddChild(money);
+            // Political capital (decision 0013): what the leader has, what the dialled change costs, the band the capital pays for.
             var capBox = Ui.HBox(12);
             capBox.AddChild(new PictoDisc(IconKind.Coin, 54));
             var capText = Ui.VBox(2);
+            var costLine = Ui.L("", Tx.Figure);
+            var costNote = Ui.L("", Tx.Small, AppTheme.Ink3, true);
+            double capital = s.Politics?.Party?.PoliticalCapital ?? 0;
             if (s.Politics?.Party is { } ps)
             {
                 capText.AddChild(Ui.L(Ui.Num(ps.PoliticalCapital, "0"), Tx.FigureXl));
                 capText.AddChild(Ui.L(t.T("ui.party.capital") + " · " + Ui.Signed(ps.Income) + " " + t.T("ui.party.per_quarter"), Tx.Small, AppTheme.Ink2, true));
+                if (blocked == null)
+                {
+                    var costRow = Ui.HBox(8);
+                    costRow.AddChild(Ui.L(t.T("ui.pd.capital_cost"), Tx.Small, AppTheme.Ink3));
+                    costRow.AddChild(costLine);
+                    capText.AddChild(costRow);
+                    capText.AddChild(costNote);
+                    var hint = Ui.L(t.T("ui.pd.capital_hint", Ui.Num(p.CapitalCost, "0.##")) + " " + t.T("ui.pd.affordable_band"), Tx.Small, AppTheme.Ink3, true);
+                    capText.AddChild(hint);
+                }
             }
-            capText.AddChild(Ui.L(t.T("ui.pd.capital_free"), Tx.Small, AppTheme.Ink3, true));
             capText.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             capBox.AddChild(capText);
+            if (blocked == null) slider.Affordable = s.Game.AffordableRange(id);
             Control sliderBlock = s.Politics?.Party != null ? Detail.Columns(sliderCol, capBox, 2.6f) : sliderCol;
             d.Body.AddChild(sliderBlock);
             // In small windows the slider comes before the effect list so it is never below the fold.
@@ -232,7 +246,15 @@ public static class PolicyDialog
             {
                 target = v;
                 bool changed = Math.Abs(v - latest) > step / 2;
-                apply.Disabled = blocked != null || !changed;
+                double cost = s.Game.PolicyChangeCost(id, v);
+                bool affordable = cost <= capital + 1e-9;
+                apply.Disabled = blocked != null || !changed || !affordable;
+                apply.Text = changed && cost > 0 && blocked == null ? t.T("ui.pd.apply") + " · " + Ui.Num(cost, "0") : t.T("ui.pd.apply");
+                costLine.Text = changed ? t.T("ui.pd.capital_points", Ui.Num(cost, "0")) : "–";
+                costLine.AddThemeColorOverride("font_color", changed && !affordable ? AppTheme.BadText : AppTheme.Ink);
+                costNote.Text = !changed ? t.T("ui.pd.capital_nochange") : affordable ? "" : t.T("ui.pd.capital_short", Ui.Num(Math.Floor(capital + 1e-9), "0"));
+                costNote.AddThemeColorOverride("font_color", changed && !affordable ? AppTheme.BadText : AppTheme.Ink3);
+                costNote.Visible = costNote.Text.Length > 0;
                 revert.Disabled = !changed;
                 double pop = Ui.Popularity(s, p, v);
                 popLabel.Text = Ui.Num(pop * 100, "0") + " %";

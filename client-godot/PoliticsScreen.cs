@@ -17,6 +17,17 @@ public sealed class PoliticsScreen : Screen
     public override float Width => 1200;
 
     private readonly HashSet<string> _invited = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _rsDrop = new(StringComparer.Ordinal), _rsAdd = new(StringComparer.Ordinal);
+    private readonly HashSet<(string Party, string Demand)> _rsAgreed = new();
+    private Control? _rsCard;
+
+    /// <summary>Scrolls the dialog so the reshuffle card is in view.</summary>
+    public void ScrollToReshuffle()
+    {
+        if (_rsCard == null || !GodotObject.IsInstanceValid(_rsCard)) return;
+        for (Node? n = _rsCard.GetParent(); n != null; n = n.GetParent())
+            if (n is ScrollContainer sc) { sc.EnsureControlVisible(_rsCard); return; }
+    }
     private readonly HashSet<(string Party, string Demand)> _agreed = new();
     private Session? _s; private Dialog? _d; private Main? _main;
 
@@ -56,6 +67,13 @@ public sealed class PoliticsScreen : Screen
         status.AddChild(Ui.Pill(t.T("ui.line.next_election") + ": " + (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection)), AppTheme.Chrome));
         parl.AddChild(status);
         if (pol.Leader != null) parl.AddChild(Ui.L($"{t.T("ui.politics.leader")}: {t.Name(pol.Leader)}", Tx.Body, AppTheme.Ink));
+        if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader)
+        {
+            // the reshuffle card sits below the grid: this jumps to it
+            var jump = Ui.Btn(t.T("ui.client.reshuffle"), ScrollToReshuffle, "ButtonSecondary", IconKind.Arrows);
+            jump.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            parl.AddChild(jump);
+        }
         foreach (var id in pol.GovernmentParties.Concat(pol.Seats.Keys.Where(k => !pol.GovernmentParties.Contains(k) && pol.Seats[k] > 0).OrderByDescending(k => pol.Seats[k])))
         {
             var row = Ui.HBox(8);
@@ -107,12 +125,130 @@ public sealed class PoliticsScreen : Screen
         var coal = Coalition(s, pol, main);
         if (coal != null) { coal.SetMeta("span", 2); grid.AddChild(coal); }
         d.Body.AddChild(grid);
+        if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader) { _rsCard = Reshuffle(s, pol); d.Body.AddChild(_rsCard); }
+        else { _rsDrop.Clear(); _rsAdd.Clear(); _rsAgreed.Clear(); }
         if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader)
         {
             var b = Ui.Btn(t.T("ui.client.early_election"), () => s.Do(new CallEarlyElection(), t.T("ui.formation.early_called")), "ButtonDanger", IconKind.Ballot);
             b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
             d.Body.AddChild(b);
         }
+    }
+
+    /// <summary>
+    /// The reshuffle card (decision 0013): partners to drop, outside parties to bring in with the demands they ask for, the seats the new
+    /// coalition would hold, what the parties would answer, cost and cooldown, and the confirm button.
+    /// </summary>
+    private Control Reshuffle(Session s, CountryPolitics pol)
+    {
+        var t = s.T;
+        var box = Ui.VBox(12);
+        var head = Ui.HBox(10);
+        head.AddChild(new PictoDisc(IconKind.Arrows, 34));
+        head.AddChild(Ui.L(t.T("ui.client.reshuffle"), Tx.Heading));
+        box.AddChild(head);
+        box.AddChild(Ui.L(t.T("ui.client.reshuffle_hint"), Tx.Small, AppTheme.Ink2, true));
+        var info = pol.Reshuffle;
+        if (info is { Queued: true })
+        {
+            box.AddChild(Ui.Panel(Ui.L(t.T("ui.err.already_queued"), Tx.BodyStrong, AppTheme.WarnText, true), "Warn"));
+            return Ui.Panel(box, "Card");
+        }
+        var partners = pol.GovernmentParties.Where(p => p != pol.PlayerParty).OrderBy(p => p, StringComparer.Ordinal).ToList();
+        var outside = pol.Seats.Where(kv => kv.Value > 0 && !pol.GovernmentParties.Contains(kv.Key)).OrderByDescending(kv => kv.Value)
+            .ThenBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Key).ToList();
+        _rsDrop.RemoveWhere(p => !partners.Contains(p)); _rsAdd.RemoveWhere(p => !outside.Contains(p)); _rsAgreed.RemoveWhere(a => !_rsAdd.Contains(a.Party));
+
+        var dropCol = Ui.VBox(6);
+        dropCol.AddChild(Ui.L(t.T("ui.client.reshuffle_drop"), Tx.Overline, AppTheme.Ink3));
+        foreach (var id in partners)
+        {
+            var line = Ui.HBox(8);
+            line.AddChild(new ColorDot(Ui.PartyColor(s, id)));
+            string loyalty = pol.Loyalty?.TryGetValue(id, out var l) == true ? " · " + Ui.Fix(t.T("ui.coalition.loyalty", Fmt.Number(l, "0"))) : "";
+            var cb = new CheckBox { Text = $"{t.Name(id)} · {pol.Seats.GetValueOrDefault(id)}{loyalty}", ButtonPressed = _rsDrop.Contains(id), FocusMode = Control.FocusModeEnum.None };
+            cb.Toggled += on => { if (on) _rsDrop.Add(id); else _rsDrop.Remove(id); Rebuild(); };
+            line.AddChild(cb);
+            dropCol.AddChild(line);
+        }
+        if (partners.Count == 0) dropCol.AddChild(Ui.L("–", Tx.Body, AppTheme.Ink3));
+
+        var addCol = Ui.VBox(6);
+        addCol.AddChild(Ui.L(t.T("ui.client.reshuffle_add"), Tx.Overline, AppTheme.Ink3));
+        foreach (var id in outside)
+        {
+            var def = s.Packs.Parties.First(p => p.Id == id);
+            var line = Ui.HBox(8);
+            line.AddChild(new ColorDot(Ui.PartyColor(s, id)));
+            double price = CoalitionRules.RequiredWeight(def, pol.Party?.Relations.GetValueOrDefault(id, 0.3) ?? 0.3,
+                pol.Grudge?.GetValueOrDefault(id + "|" + pol.PlayerParty) ?? 0);
+            var cb = new CheckBox { Text = $"{t.Name(id)}  ·  {Ui.Fix(t.T("ui.formation.party_line", pol.Seats[id], Fmt.Number(price)))}", ButtonPressed = _rsAdd.Contains(id), FocusMode = Control.FocusModeEnum.None };
+            cb.Toggled += on =>
+            {
+                if (on)
+                {
+                    _rsAdd.Add(id);
+                    foreach (var a in s.Game.SuggestReshuffle(_rsDrop.ToList(), new[] { id }) ?? Array.Empty<AgreedDemand>()) _rsAgreed.Add((a.PartyId, a.DemandId));
+                }
+                else { _rsAdd.Remove(id); _rsAgreed.RemoveWhere(a => a.Party == id); }
+                Rebuild();
+            };
+            line.AddChild(cb);
+            addCol.AddChild(line);
+            if (!_rsAdd.Contains(id)) continue;
+            foreach (var dm in def.Demands)
+            {
+                var dcb = new CheckBox { Text = $"{Ui.Fix(s.Texts.Demand(dm))}   ({Ui.Fix(t.T("ui.formation.weight", Fmt.Number(dm.Weight)))})", ButtonPressed = _rsAgreed.Contains((id, dm.Id)), FocusMode = Control.FocusModeEnum.None };
+                dcb.AddThemeColorOverride("font_color", AppTheme.Ink2);
+                dcb.Toggled += on => { if (on) _rsAgreed.Add((id, dm.Id)); else _rsAgreed.Remove((id, dm.Id)); Rebuild(); };
+                var indent = Ui.Margin(dcb, 0, 0);
+                indent.AddThemeConstantOverride("margin_left", 30);
+                addCol.AddChild(indent);
+            }
+        }
+        if (_rsAdd.Count > 0)
+        {
+            var auto = Ui.Btn(t.T("ui.client.reshuffle_auto"), () =>
+            {
+                _rsAgreed.Clear();
+                foreach (var a in s.Game.SuggestReshuffle(_rsDrop.ToList(), _rsAdd.ToList()) ?? Array.Empty<AgreedDemand>()) _rsAgreed.Add((a.PartyId, a.DemandId));
+                Rebuild();
+            }, "ButtonSecondary", IconKind.Check);
+            auto.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            addCol.AddChild(auto);
+        }
+        box.AddChild(Detail.Columns(dropCol, addCol, 1f));
+
+        // What would happen.
+        var drop = _rsDrop.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var add = _rsAdd.OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var agreements = _rsAgreed.OrderBy(a => a.Party, StringComparer.Ordinal).ThenBy(a => a.Demand, StringComparer.Ordinal).Select(a => new AgreedDemand(a.Party, a.Demand)).ToList();
+        var preview = s.Game.PreviewReshuffle(drop, add, agreements);
+        var status = Ui.VBox(6);
+        bool nothing = drop.Count == 0 && add.Count == 0;
+        if (!nothing)
+            status.AddChild(Ui.L(Ui.Fix(t.T("ui.reshuffle.seats", preview.SeatsHeld, preview.SeatsNeeded, t.T(preview.Majority ? "ui.politics.majority" : "ui.politics.no_majority"))),
+                Tx.BodyStrong, preview.Majority ? AppTheme.GoodText : AppTheme.BadText, true));
+        if (preview.ErrorKey != null && preview.ErrorKey != "error.no_change")
+            status.AddChild(Ui.L(s.Texts.Error(new ActionResult(false, preview.ErrorKey, preview.ErrorDetail)), Tx.Body, AppTheme.BadText, true));
+        else if (!nothing)
+            status.AddChild(Ui.L(preview.Refusals.Count == 0 ? t.T("ui.reshuffle.agree")
+                : t.T("ui.reshuffle.would_refuse", string.Join("; ", preview.Refusals.Select(r => (r.PartyId != null ? t.Name(r.PartyId) + ": " : "") + s.Texts.ReshuffleReason(r.Reason)))),
+                Tx.Body, preview.Refusals.Count == 0 ? AppTheme.GoodText : AppTheme.WarnText, true));
+        status.AddChild(Ui.L(Ui.Fix(t.T("ui.reshuffle.cost", Fmt.Number(preview.Cost, "0"), Fmt.Number(PoliticsLimits.ReshuffleRefusalCost, "0"), PoliticsLimits.ReshuffleCooldownTurns)), Tx.Small, AppTheme.Ink3, true));
+        status.AddChild(Ui.L(info is { CooldownLeft: > 0 } ? t.T("ui.reshuffle.cooldown_left", info.CooldownLeft) : t.T("ui.reshuffle.cooldown_now"), Tx.Small,
+            info is { CooldownLeft: > 0 } ? AppTheme.WarnText : AppTheme.Ink3, true));
+        bool can = preview.ErrorKey == null && preview.Affordable;
+        string? why = preview.ErrorKey != null ? s.Texts.Error(new ActionResult(false, preview.ErrorKey, preview.ErrorDetail)) : !preview.Affordable ? t.T("ui.err.not_enough_capital") : null;
+        var go = Ui.Costed(t.T("ui.client.reshuffle_go"), (int)preview.Cost, () =>
+        {
+            if (s.Do(new ReshuffleCoalition(drop, add, agreements), t.T("ui.reshuffle.ok", Fmt.Number(preview.Cost, "0"))))
+            { _rsDrop.Clear(); _rsAdd.Clear(); _rsAgreed.Clear(); }
+        }, why, !can, preview.Refusals.Count > 0 ? "ButtonDanger" : "");
+        go.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        status.AddChild(go);
+        box.AddChild(Ui.Panel(status, "Inset"));
+        return Ui.Panel(box, "Card");
     }
 
     private static Control PartyButton(Main main, string id, Control row)

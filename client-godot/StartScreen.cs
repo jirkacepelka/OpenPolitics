@@ -1,5 +1,7 @@
 using Godot;
+using OpenPolitics.Core.Gameplay;
 using OpenPolitics.Core.Packs;
+using OpenPolitics.Core.Politics;
 using OpenPolitics.Core.Presentation;
 
 using static Godot.Control;
@@ -36,7 +38,28 @@ public partial class StartBackdrop : Control
     public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
 }
 
-/// <summary>The start screen: title, new game (scenario cards, language, seed), the display card, load and start.</summary>
+/// <summary>A small compass square with one party's dot (start screen party cards).</summary>
+public partial class MiniCompass : Control
+{
+    private readonly Vector2 _pos; private readonly Color _color;
+    public MiniCompass(double x, double y, Color color, float zoom)
+    {
+        _pos = new Vector2((float)Math.Clamp(x * zoom, -1, 1), (float)Math.Clamp(y * zoom, -1, 1)); _color = color;
+        CustomMinimumSize = new Vector2(40, 40); MouseFilter = MouseFilterEnum.Ignore; SizeFlagsVertical = SizeFlags.ShrinkCenter;
+    }
+    public override void _Draw()
+    {
+        var r = new Rect2(Vector2.Zero, Size);
+        DrawStyleBox(AppTheme.Box(AppTheme.Panel, 6), r);
+        DrawLine(new Vector2(r.Size.X / 2, 3), new Vector2(r.Size.X / 2, r.Size.Y - 3), new Color("c9c4bb"), 1);
+        DrawLine(new Vector2(3, r.Size.Y / 2), new Vector2(r.Size.X - 3, r.Size.Y / 2), new Color("c9c4bb"), 1);
+        var p = new Vector2(r.Size.X * (_pos.X + 1) / 2, r.Size.Y * (1 - (_pos.Y + 1) / 2));
+        DrawCircle(p, 5.5f, new Color("ffffff"));
+        DrawCircle(p, 4.5f, _color);
+    }
+}
+
+/// <summary>The start screen: title, new game (scenario cards, party choice, language, seed), the display card, load and start.</summary>
 public static class StartScreen
 {
     public static void Build(Main main, PackSet packs, string language, Action<string> setLanguage)
@@ -73,6 +96,9 @@ public static class StartScreen
         game.AddChild(Ui.L(t.T("ui.client.scenario"), Tx.Small, AppTheme.Ink3));
         var scenarios = packs.Scenarios.OrderByDescending(s => s.Politics != null).ThenBy(s => s.Id, StringComparer.Ordinal).ToList();
         int chosen = 0;
+        string? party = scenarios.Count > 0 ? scenarios[0].Politics?.PlayerParty : null;
+        var partyBox = Ui.VBox(10);
+        void BuildParties() => PartyPicker(partyBox, packs, t, scenarios[chosen], party, id => { party = id; BuildParties(); });
         var cards = Ui.VBox(8);
         var group = new ButtonGroup();
         for (int i = 0; i < scenarios.Count; i++)
@@ -89,10 +115,12 @@ public static class StartScreen
             Detail.SetIgnore(m);
             b.AddChild(m);
             b.CustomMinimumSize = new Vector2(0, 64);
-            b.Pressed += () => chosen = k;
+            b.Pressed += () => { if (chosen == k) return; chosen = k; party = scenarios[k].Politics?.PlayerParty; BuildParties(); };
             cards.AddChild(b);
         }
         game.AddChild(cards);
+        game.AddChild(partyBox);
+        if (scenarios.Count > 0) BuildParties();
         var opts = compact ? (BoxContainer)Ui.VBox(12) : Ui.HBox(24);
         var langCol = Ui.VBox(6);
         langCol.AddChild(Ui.L(t.T("ui.client.language"), Tx.Small, AppTheme.Ink3));
@@ -137,7 +165,7 @@ public static class StartScreen
         var start = Ui.Btn(t.T("ui.client.start"), () =>
         {
             ulong value = ulong.TryParse(seed.Text, out var v) && v > 0 ? v : 1;
-            main.StartGame(scenarios[chosen].Id, value, language);
+            main.StartGame(scenarios[chosen].Id, value, language, scenarios[chosen].Politics != null ? party : null);
         }, "ButtonPlay", IconKind.Play, null, false, 44);
         start.AddThemeFontOverride("font", AppTheme.Bold); start.AddThemeFontSizeOverride("font_size", 15);
         load.AddThemeFontOverride("font", AppTheme.Bold);
@@ -165,6 +193,60 @@ public static class StartScreen
         Callable.From(Place).CallDeferred();
         main.GetTree().CreateTimer(0.05).Timeout += Place;
     }
+
+    /// <summary>
+    /// The party choice for a political scenario (decision 0013): one card per party with its colour, name, starting role, poll and seats and its
+    /// place on the compass, largest first; under the cards what the chosen role means. Empty for a scenario without politics.
+    /// </summary>
+    public static void PartyPicker(VBoxContainer box, PackSet packs, Localizer t, ScenarioDef scenario, string? chosen, Action<string> choose)
+    {
+        Ui.Clear(box);
+        var options = PartyChoice.Options(packs, scenario.Id);
+        if (options.Count == 0) return;
+        box.AddChild(Ui.L(t.T("ui.start.your_party"), Tx.Small, AppTheme.Ink3));
+        float far = (float)options.Max(o => Math.Max(Math.Abs(o.X), Math.Abs(o.Y)));
+        float zoom = far > 0.02f ? Math.Min(4f, 0.85f / far) : 1f;
+        var grid = new FlowGrid { MinColumn = 250, MaxColumns = 3, Gap = 8 };
+        var group = new ButtonGroup();
+        foreach (var o in options)
+        {
+            string id = o.PartyId;
+            var b = new Button { ToggleMode = true, ButtonGroup = group, ButtonPressed = id == chosen, ThemeTypeVariation = "ButtonCard", FocusMode = Control.FocusModeEnum.None,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseDefaultCursorShape = Control.CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 104),
+                TooltipText = t.Name(id) + " · " + t.T("ui.start.role." + o.Role.ToString().ToLowerInvariant()) };
+            var row = Ui.HBox(10);
+            var col = Ui.VBox(3);
+            col.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            var head = Ui.HBox(8);
+            head.AddChild(new ColorDot(Ui.PartyColor(packs, id), 6.5f));
+            var name = Ui.L(t.Name(id), Tx.BodyStrong);
+            name.ClipText = true; name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; name.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            head.AddChild(name);
+            col.AddChild(head);
+            var roleColor = o.Role == Role.Leader ? AppTheme.Chrome : o.Role == Role.Partner ? AppTheme.Good : AppTheme.Ink3;
+            col.AddChild(Ui.Pill(t.T("ui.start.role." + o.Role.ToString().ToLowerInvariant()), roleColor));
+            col.AddChild(Ui.L(Ui.Fix(t.T("ui.start.party_line", Ui.Num(o.Support * 100), o.Seats)), Tx.Small, AppTheme.Ink2));
+            col.AddChild(Ui.L(CompassWords(t, o), Tx.Small, AppTheme.Ink3));
+            row.AddChild(col);
+            row.AddChild(new MiniCompass(o.X, o.Y, Ui.PartyColor(packs, id), zoom));
+            var m = Ui.Margin(row, 12, 9);
+            m.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            Detail.SetIgnore(m);
+            b.AddChild(m);
+            b.Pressed += () => choose(id);
+            grid.AddChild(b);
+        }
+        box.AddChild(grid);
+        var pick = options.FirstOrDefault(o => o.PartyId == chosen) ?? options[0];
+        var hint = Ui.HBox(10);
+        hint.AddChild(new IconView(pick.Role == Role.Opposition ? IconKind.Alert : IconKind.Ballot, 18, AppTheme.Chrome));
+        hint.AddChild(Ui.L(t.T("ui.start.role_hint." + pick.Role.ToString().ToLowerInvariant(), t.Name(pick.PartyId)), Tx.Body, AppTheme.Ink2, true));
+        box.AddChild(Ui.Panel(hint, "Inset"));
+    }
+
+    private static string CompassWords(Localizer t, PartyOption o) =>
+        t.T(o.X < -0.15 ? "ui.start.econ.left" : o.X > 0.15 ? "ui.start.econ.right" : "ui.start.econ.centre") + ", " +
+        t.T(o.Y < -0.15 ? "ui.start.social.liberal" : o.Y > 0.15 ? "ui.start.social.authoritarian" : "ui.start.social.centre");
 
     /// <summary>Window mode, UI scale, automatic scaling, reduced motion and the resulting logical size. Applies live.</summary>
     public static Control DisplayCard(Main main, Localizer t, bool withHeading)

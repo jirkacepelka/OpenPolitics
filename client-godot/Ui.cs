@@ -160,10 +160,12 @@ public static class Ui
     };
 
     /// <summary>The colour of a party, fixed by id (the same in charts, compass, parliament and polls).</summary>
-    public static Color PartyColor(Session s, string id)
+    public static Color PartyColor(Session s, string id) => PartyColor(s.Packs, id);
+
+    public static Color PartyColor(OpenPolitics.Core.Packs.PackSet packs, string id)
     {
         if (Parties.TryGetValue(id, out var c)) return c;
-        var ids = s.Packs.Parties.Select(p => p.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
+        var ids = packs.Parties.Select(p => p.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
         return PaletteColor(ids.IndexOf(id));
     }
 

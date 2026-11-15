@@ -140,11 +140,12 @@ public partial class Main : Control
         AddChild(_dialogs);
     }
 
-    public void StartGame(string scenarioId, ulong seed, string language)
+    /// <param name="party">The player's party in a political scenario (null = the scenario's own).</param>
+    public void StartGame(string scenarioId, ulong seed, string language, string? party = null)
     {
         _language = language;
         Ui.Czech = language == "cs";
-        Session = new Session(Packs!, scenarioId, seed, language);
+        Session = new Session(Packs!, scenarioId, seed, language, party);
         _newsSeen = 0;
         _lastMessage = "";
         BuildGameUi();

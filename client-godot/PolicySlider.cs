@@ -17,6 +17,9 @@ public partial class PolicySlider : Control
     public double? Scheduled { get; private set; }
     public double Target { get; private set; }
     public double? GovMarker { get; set; }
+    /// <summary>The settings the player's political capital pays for now (decision 0013), drawn as a soft band around the track; null = none.</summary>
+    public (double Lo, double Hi)? Affordable { get => _affordable; set { _affordable = value; QueueRedraw(); } }
+    private (double Lo, double Hi)? _affordable;
     public bool Editable { get; set; } = true;
     public bool Compact { get; }
     public Func<double, string> Format { get; set; } = v => Ui.Num(v);
@@ -76,6 +79,11 @@ public partial class PolicySlider : Control
             }
         }
         float x0 = X(Min), x1 = X(Max);
+        if (!Compact && _affordable is { } band && band.Hi > band.Lo)
+        {
+            float a = X(Math.Max(Min, band.Lo)), b = X(Math.Min(Max, band.Hi));
+            DrawStyleBox(AppTheme.Box(new Color(AppTheme.Good, 0.20f), 7), new Rect2(a - 7, y - 7, b - a + 14, 14));
+        }
         DrawStyleBox(AppTheme.Box(AppTheme.TrackLight, (int)Math.Ceiling(r)), new Rect2(x0 - r, y - r, x1 - x0 + th, th));
         if (!Compact)
             for (int i = 0; i <= 10; i++)
