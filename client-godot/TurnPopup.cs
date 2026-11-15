@@ -1,118 +1,174 @@
 using Godot;
 using OpenPolitics.Core.Gameplay;
-using OpenPolitics.Core.Politics;
+using OpenPolitics.Core.Presentation;
+
+using static Godot.Control;
 
 namespace OpenPolitics.Client;
 
-/// <summary>The start-of-quarter briefing: what happened, and what needs a decision now.</summary>
-public partial class TurnPopup : Window
+/// <summary>A key indicator as a rounded grey pill: chrome disc with a white pictogram, uppercase label, traffic bar and value.</summary>
+public partial class IndicatorPill : Control
 {
-    private readonly Session _s;
-    private readonly Action? _openPolitics;
-    private readonly VBoxContainer _body = Ui.VBox(8);
-
-    public TurnPopup(Session s, Action? openPolitics)
+    private readonly IconKind _icon; private readonly string _label, _value; private readonly double _good;
+    public IndicatorPill(IconKind icon, string label, string value, double goodness, string tooltip)
     {
-        _s = s; _openPolitics = openPolitics;
-        Title = s.T.T("ui.popup.title", s.DateText());
-        Size = new Vector2I(680, 580);
-        Exclusive = true; Transient = true; Borderless = true; Transparent = true; TransparentBg = true;
-        Theme = AppTheme.Instance;
-        CloseRequested += Close;
-        var root = Ui.VBox(14);
-        root.AddChild(Ui.DialogHeader(IconKind.News, s.T.T("ui.popup.heading"), s.DateText(), Close, s.T.T("ui.client.close")));
-        var scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        _body.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        var inner = Ui.Margin(_body, 0); inner.AddThemeConstantOverride("margin_right", 12);
-        inner.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        scroll.AddChild(inner);
-        root.AddChild(scroll);
-        var done = Ui.Primary(s.T.T("ui.popup.continue"), Close);
-        done.CustomMinimumSize = new Vector2(200, 44);
-        done.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
-        root.AddChild(done);
-        Ui.FillWindow(this, root, 22);
-        Fill();
+        _icon = icon; _label = label.ToUpperInvariant(); _value = value; _good = goodness; TooltipText = tooltip;
+        CustomMinimumSize = new Vector2(220, 70); SizeFlagsHorizontal = SizeFlags.ExpandFill; MouseFilter = MouseFilterEnum.Pass;
     }
+    public override void _Draw()
+    {
+        float d = Size.Y - 4, r = d / 2;
+        var pill = new Rect2(r, 8, Size.X - r - 2, Size.Y - 16);
+        DrawStyleBox(AppTheme.Box(AppTheme.Panel, (int)(pill.Size.Y / 2)), pill);
+        var c = new Vector2(r + 1, Size.Y / 2);
+        DrawCircle(c, r, AppTheme.Chrome);
+        Icons.Draw(this, _icon, c, d * 0.5f, Colors.White);
+        float x = d + 12, w = Size.X - x - 18;
+        DrawString(AppTheme.Semi, new Vector2(x, Size.Y / 2 - 4), _label, HorizontalAlignment.Left, w - 60, 13, AppTheme.Ink);
+        DrawString(AppTheme.FigBold, new Vector2(x, Size.Y / 2 - 4), _value, HorizontalAlignment.Right, w, 13, AppTheme.Ink);
+        var bar = new Rect2(x, Size.Y / 2 + 6, w, 10);
+        DrawStyleBox(AppTheme.Box(AppTheme.Track, 5), bar);
+        DrawStyleBox(AppTheme.Box(AppTheme.Traffic(_good), 5), new Rect2(bar.Position, new Vector2(Math.Max(10, w * (float)Math.Clamp(_good, 0, 1)), 10)));
+    }
+    public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
+}
 
+/// <summary>
+/// The start-of-quarter briefing in the style of Democracy 4's intro modal: big centred title, a paragraph, the decisions, a grid of
+/// key indicator pills, the news, and two full-width buttons.
+/// </summary>
+public static class TurnPopup
+{
     /// <summary>True when there is anything to tell or decide.</summary>
-    public static bool HasContent(Session s) => s.Digest.Count > 0 || Decisions(s).Count > 0;
+    public static bool HasContent(Session s) => s.Digest.Count > 0 || DecisionCount(s) > 0;
 
-    /// <summary>True when the player must decide something (an offer to answer, a government to form, an ultimatum).</summary>
-    public static bool HasDecisions(Session s) => Decisions(s).Count > 0;
-
-    private static List<string> Decisions(Session s)
+    /// <summary>Decisions that wait: an offer to answer or a government to form, plus running ultimatums.</summary>
+    public static int DecisionCount(Session s)
     {
-        var list = new List<string>();
-        if (s.Politics is not { } pol) return list;
-        if (pol.Formation is { } f && (f.Offer != null || f.PlayerIsFormateur)) list.Add("formation");
-        if (pol.Ultimatums is { Count: > 0 }) list.Add("ultimatums");
-        return list;
+        if (s.Politics is not { } pol) return 0;
+        int n = 0;
+        if (pol.Formation is { } f && (f.Offer != null || f.PlayerIsFormateur)) n++;
+        n += pol.Ultimatums?.Count ?? 0;
+        return n;
     }
 
-    private void Fill()
+    public static bool HasDecisions(Session s) => DecisionCount(s) > 0;
+
+    private static Label Centred(Label l) { l.HorizontalAlignment = HorizontalAlignment.Center; return l; }
+
+    public static Dialog Open(Main main, Session s, bool welcome = false)
     {
-        var t = _s.T;
-        Ui.Clear(_body);
-        if (_s.Digest.Count > 0)
+        var t = s.T;
+        var pol = s.Politics;
+        string title = welcome ? t.T("ui.brief.welcome_title") : pol?.Formation?.Offer is { } o ? t.T("ui.event.offer_made", t.Name(o.Formateur))
+            : s.Digest.Count > 0 ? Shorten(s.Digest[0]) : t.T("ui.brief.quiet_title");
+        var d = main.NewDialog("", null, 900);
+        d.Key = "briefing";
+        d.Closed += () => s.Digest.Clear();
+        d.Blocking = Main.Blocking(s);
+        d.CloseEnabled = !d.Blocking;
+        d.Body.AddChild(Centred(Ui.L(t.T("ui.brief.overline", s.DateText()), Tx.Overline, AppTheme.Chrome)));
+        var head = Centred(Ui.L(Ui.Fix(title), Tx.Title, AppTheme.Ink, true));
+        head.AddThemeFontSizeOverride("font_size", 24);
+        d.Body.AddChild(head);
+        if (welcome) d.Body.AddChild(Ui.L(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
+
+        // Decisions first.
+        if (pol != null)
         {
-            _body.AddChild(Ui.Caption(t.T("ui.popup.news")));
-            var list = Ui.VBox(10);
-            bool first = true;
-            foreach (var line in _s.Digest)
+            if (pol.Formation is { Offer: { } offer })
             {
-                if (!first) list.AddChild(Ui.Rule());
-                first = false;
+                var box = Ui.VBox(8);
+                box.AddChild(Ui.L(t.T("ui.formation.offer", t.Name(offer.Formateur), string.Join(", ", offer.Partners.Select(t.Name))), Tx.BodyStrong, AppTheme.Ink, true));
+                foreach (var a in offer.Agreements)
+                    if (s.Texts.DemandOf(a.PartyId, a.DemandId) is { } dm) box.AddChild(Ui.PartyName(s, a.PartyId, $"{t.Name(a.PartyId)}: {Ui.Fix(s.Texts.Demand(dm))}", Tx.Body));
+                var row = Ui.HBox(1);
+                var acc = Ui.Btn(t.T("ui.client.accept"), () => { s.Do(new AcceptOffer(), t.T("ui.formation.joined")); Done(); }, "", IconKind.Check, null, false, 40);
+                var rej = Ui.Btn(t.T("ui.client.reject"), () => { s.Do(new RejectOffer(), t.T("ui.formation.rejected")); Done(); }, "ButtonSecondary", IconKind.Close, null, false, 40);
+                acc.SizeFlagsHorizontal = rej.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                row.AddChild(acc); row.AddChild(rej);
+                box.AddChild(row);
+                d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
+                d.Body.AddChild(Ui.Panel(box, "Inset"));
+            }
+            else if (pol.Formation is { PlayerIsFormateur: true })
+            {
+                var box = Ui.VBox(8);
+                box.AddChild(Ui.L(t.T("ui.popup.you_form", pol.Formation.TurnsLeft), Tx.BodyStrong, AppTheme.Ink, true));
+                var open = Ui.Btn(t.T("ui.popup.open_politics"), () => { Done(); main.OpenScreen<PoliticsScreen>(); }, "", IconKind.Politics, null, false, 38);
+                open.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+                box.AddChild(open);
+                d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
+                d.Body.AddChild(Ui.Panel(box, "Inset"));
+            }
+            if (pol.Ultimatums is { Count: > 0 } ultimatums)
+                foreach (var u in ultimatums)
+                {
+                    string text = u.DemandId != null && s.Texts.DemandOf(u.PartyId, u.DemandId) is { } dm
+                        ? t.T("ui.event.ultimatum_demand", t.Name(u.PartyId), u.TurnsLeft, s.Texts.Demand(dm))
+                        : t.T("ui.event.ultimatum", t.Name(u.PartyId), u.TurnsLeft);
+                    var row = Ui.HBox(10);
+                    row.AddChild(new IconView(IconKind.Alert, 18, AppTheme.WarnText));
+                    row.AddChild(Ui.L(Ui.Fix(text), Tx.BodyStrong, AppTheme.WarnText, true));
+                    d.Body.AddChild(Ui.Panel(row, "Warn"));
+                }
+        }
+
+        // Key indicators as pills.
+        var grid = new FlowGrid { MinColumn = 230, MaxColumns = 3, Gap = 14 };
+        foreach (var (id, key) in new[] { ("base:gdp", "ui.hud.gdp"), ("base:unemployment", "ui.hud.unemployment"), ("base:inflation", "ui.hud.inflation"),
+                     ("base:deficit_pct", "ui.hud.deficit"), ("base:debt", "ui.fig.debt"), ("base:crime", "") })
+        {
+            var def = s.Packs.Values.FirstOrDefault(v => v.Id == id);
+            if (def == null) continue;
+            string label = key.Length > 0 ? t.T(key) : t.Name(id);
+            string value = Ui.Fix(Fmt.Value(def, s.Country.Values.GetValueOrDefault(id)));
+            if (id == "base:debt" && s.Figures.DebtPercentOfGdp is { } dr) value = Ui.Num(dr, "0") + " " + t.T("ui.unit.gdp_short");
+            var change = s.Last?.Changes.FirstOrDefault(c => c.ValueId == id);
+            string tip = label + ": " + value + (change != null ? "  (" + Ui.Fix(Fmt.Value(def, change.Before)) + " → " + Ui.Fix(Fmt.Value(def, change.After)) + ")" : "");
+            grid.AddChild(new IndicatorPill(Icons.For(id), label, value, Ui.Goodness(s, id), tip));
+        }
+        d.Body.AddChild(grid);
+
+        // News.
+        if (s.Digest.Count > 0)
+        {
+            d.Body.AddChild(Ui.Section(t.T("ui.popup.news")));
+            foreach (var line in s.Digest.Take(5))
+            {
                 var row = Ui.HBox(12);
-                var icon = new IconView(IconKind.News, 16, AppTheme.Accent) { SizeFlagsVertical = Control.SizeFlags.ShrinkBegin };
-                row.AddChild(icon);
-                row.AddChild(Ui.Text(line, AppTheme.Text, 15, true));
-                list.AddChild(row);
+                bool alert = line.Contains("ultim", StringComparison.OrdinalIgnoreCase);
+                row.AddChild(new PictoDisc(alert ? IconKind.Alert : IconKind.News, 26, alert ? AppTheme.Warn : AppTheme.Panel2, alert ? Colors.White : AppTheme.Ink2) { SizeFlagsVertical = SizeFlags.ShrinkBegin });
+                row.AddChild(Ui.L(Ui.Fix(line), Tx.Body, AppTheme.Ink, true));
+                d.Body.AddChild(row);
             }
-            _body.AddChild(Ui.Card(list, AppTheme.Card, true, 16));
-        }
-        var pol = _s.Politics;
-        if (pol == null) return;
-        var decisions = Decisions(_s);
-        if (decisions.Count > 0) { _body.AddChild(Ui.Gap(4)); _body.AddChild(Ui.Caption(t.T("ui.popup.decisions"))); }
-        if (pol.Formation is { Offer: { } offer })
-        {
-            var box = Ui.VBox(8);
-            box.AddChild(Ui.Text(t.T("ui.event.offer_made", t.Name(offer.Formateur)), Colors.White, 16, true, AppTheme.Semi));
-            box.AddChild(Ui.Text(string.Join(", ", new[] { offer.Formateur }.Concat(offer.Partners).Select(t.Name)), AppTheme.Text2, 14, true));
-            foreach (var a in offer.Agreements)
-                if (_s.Texts.DemandOf(a.PartyId, a.DemandId) is { } d) box.AddChild(Ui.Text($"{t.Name(a.PartyId)}: {_s.Texts.Demand(d)}", Ui.Muted, 14, true));
-            var buttons = Ui.HBox();
-            buttons.AddChild(Ui.Primary(t.T("ui.client.accept"), () => { _s.Do(new AcceptOffer(), t.T("ui.formation.joined")); Close(); }));
-            buttons.AddChild(Ui.Btn(t.T("ui.client.reject"), () => { _s.Do(new RejectOffer(), t.T("ui.formation.rejected")); Close(); }));
-            box.AddChild(buttons);
-            _body.AddChild(Ui.Callout(box, AppTheme.Accent));
-        }
-        else if (pol.Formation is { PlayerIsFormateur: true })
-        {
-            var box = Ui.VBox(8);
-            box.AddChild(Ui.Text(t.T("ui.popup.you_form", pol.Formation.TurnsLeft), Colors.White, 16, true, AppTheme.Semi));
-            var open = Ui.Primary(t.T("ui.popup.open_politics"), () => { Close(); _openPolitics?.Invoke(); });
-            open.SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin;
-            box.AddChild(open);
-            _body.AddChild(Ui.Callout(box, AppTheme.Accent));
-        }
-        if (pol.Ultimatums is { Count: > 0 } ultimatums)
-            foreach (var u in ultimatums)
+            if (s.Digest.Count > 5)
             {
-                string text = u.DemandId != null && _s.Texts.DemandOf(u.PartyId, u.DemandId) is { } d
-                    ? t.T("ui.event.ultimatum_demand", t.Name(u.PartyId), u.TurnsLeft, _s.Texts.Demand(d))
-                    : t.T("ui.event.ultimatum", t.Name(u.PartyId), u.TurnsLeft);
-                var row = Ui.HBox(10);
-                row.AddChild(new IconView(IconKind.Alert, 18, Ui.Warn) { SizeFlagsVertical = Control.SizeFlags.ShrinkBegin });
-                row.AddChild(Ui.Text(text, AppTheme.Text, 15, true));
-                _body.AddChild(Ui.Callout(row, Ui.Warn));
+                var more = Ui.Btn(t.T("ui.brief.show_all", s.Digest.Count), () => { Done(); main.OpenScreen<NewsScreen>(); }, "ButtonGhost");
+                more.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+                d.Body.AddChild(more);
             }
+        }
+
+        var buttons = Ui.HBox(16);
+        var left = Ui.Btn(t.T(s.HasPolitics ? "ui.popup.open_politics" : "ui.brief.charts"), () => { Done(); if (s.HasPolitics) main.OpenScreen<PoliticsScreen>(); else main.OpenScreen<ChartsScreen>(); }, "", null, null, false, 40);
+        var right = Ui.Btn(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), Done, "", null, null, d.Blocking, 40);
+        left.SizeFlagsHorizontal = right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        left.AddThemeFontOverride("font", AppTheme.Bold); right.AddThemeFontOverride("font", AppTheme.Bold);
+        buttons.AddChild(left); buttons.AddChild(right);
+        d.Body.AddChild(Ui.Gap(4));
+        d.Body.AddChild(buttons);
+        if (d.Blocking) d.Body.AddChild(Centred(Ui.L(t.T("ui.brief.decide_hint"), Tx.Small, AppTheme.WarnText, true)));
+        d.Refit();
+        return d;
+
+        void Done() { s.Digest.Clear(); d.Close(); }
     }
 
-    private void Close()
+    private static string Shorten(string s)
     {
-        _s.Digest.Clear();
-        QueueFree();
+        int dot = s.IndexOfAny(new[] { '.', ':' });
+        string head = dot > 20 && dot < 90 ? s[..dot] : s;
+        return head.Length > 90 ? head[..87] + "…" : head;
     }
 }

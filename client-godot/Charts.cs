@@ -8,12 +8,10 @@ public sealed record ChartSpec(string Id, Func<Localizer, string> Title, string 
 
 public static class Charts
 {
-    private static readonly Color[] Palette =
-    {
-        new("6f9bff"), new("f2b84b"), new("4cc38a"), new("ef6b73"), new("b48cff"), new("5ed1d8"), new("ff9e5e"), new("c0c7d8"),
-    };
+    private static readonly Color[] Palette = Enumerable.Range(0, 8).Select(Ui.PaletteColor).ToArray();
+    private static readonly Color InkLine = AppTheme.Ink;
 
-    public static Color PaletteColor(int i) => Palette[((i % Palette.Length) + Palette.Length) % Palette.Length];
+    public static Color PaletteColor(int i) => Ui.PaletteColor(i);
 
     private static IReadOnlyList<(string, string, Color)> One(string key, string name, Color color) => new[] { (key, name, color) };
 
@@ -27,21 +25,26 @@ public static class Charts
             (History.ValueKey("base:gdp"), s.T.T("ui.chart.real"), Palette[0]),
             (History.ValueKey("base:gdp_nominal"), s.T.T("ui.chart.nominal"), Palette[1]),
         }),
-        Value("growth", "base:real_growth", "0.0", Palette[2]),
-        Value("unemployment", "base:unemployment", "0.0", Palette[1]),
-        Value("inflation", "base:inflation", "0.0", Palette[3]),
-        Value("deficit", "base:deficit_pct", "0.0", Palette[4]),
-        new("debt", t => t.T("ui.chart.debt_ratio"), "0", 1, s => One(History.DebtRatio, t(s, "ui.chart.debt_ratio"), Palette[3])),
-        new("mood", t => t.T("ui.line.mood"), "0.00", 1, s => One(History.Mood, s.T.T("ui.line.mood"), Palette[2])),
+        new("revenue", t => t.T("ui.chart.budget"), "0.00", 1e-12, s => new[]
+        {
+            (History.ValueKey("base:revenue"), s.T.T("ui.fig.income"), Palette[2]),
+            (History.ValueKey("base:spending"), s.T.T("ui.fig.expenditure"), Palette[7]),
+        }),
+        Value("growth", "base:real_growth", "0.0", InkLine),
+        Value("unemployment", "base:unemployment", "0.0", InkLine),
+        Value("inflation", "base:inflation", "0.0", InkLine),
+        Value("deficit", "base:deficit_pct", "0.0", InkLine),
+        new("debt", t => t.T("ui.chart.debt_ratio"), "0", 1, s => One(History.DebtRatio, t(s, "ui.chart.debt_ratio"), InkLine)),
+        new("mood", t => t.T("ui.line.mood"), "0.00", 1, s => One(History.Mood, s.T.T("ui.line.mood"), InkLine)),
         new("polls", t => t.T("ui.chart.polls"), "0.0", 100, s => Parties(s, History.PollKey, includeAll: true)),
         new("loyalty", t => t.T("ui.chart.loyalty"), "0", 1, s => Parties(s, History.LoyaltyKey, includeAll: false)),
         new("groups", t => t.T("ui.chart.groups"), "0.00", 1, s => s.Packs.VoterGroups.OrderBy(g => g.Id, StringComparer.Ordinal)
             .Select((g, i) => (History.GroupKey(g.Id), s.T.Name(g.Id), PaletteColor(i))).ToList()),
-        Value("health", "base:health", "0.0", Palette[2]),
-        Value("education", "base:education_level", "0.0", Palette[0]),
-        Value("crime", "base:crime", "0", Palette[3]),
-        Value("environment", "base:environment", "0.0", Palette[5]),
-        Value("inequality", "base:inequality", "0.0", Palette[6]),
+        Value("health", "base:health", "0.0", InkLine),
+        Value("education", "base:education_level", "0.0", InkLine),
+        Value("crime", "base:crime", "0", InkLine),
+        Value("environment", "base:environment", "0.0", InkLine),
+        Value("inequality", "base:inequality", "0.0", InkLine),
     };
 
     private static string t(Session s, string key) => s.T.T(key);
@@ -49,7 +52,7 @@ public static class Charts
     private static IReadOnlyList<(string, string, Color)> Parties(Session s, Func<string, string> key, bool includeAll)
     {
         var ids = s.Packs.Parties.Select(p => p.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
-        return ids.Select((id, i) => (key(id), s.T.Name(id), PaletteColor(i)))
+        return ids.Select(id => (key(id), s.T.Name(id), Ui.PartyColor(s, id)))
             .Where(x => includeAll || s.History.Series(x.Item1).Any(double.IsFinite)).ToList();
     }
 

@@ -5,415 +5,457 @@ using OpenPolitics.Core.Presentation;
 namespace OpenPolitics.Client;
 
 /// <summary>
-/// The living map behind everything, in the spirit of Democracy 4: the indicators of the country in the middle, the policies on an
-/// outer ring grouped by category, arrows for every effect. Each node carries a pictogram and a label; policies show how far their
-/// slider is turned as an arc. Hover a node to see its links; click it for what it does and why it moved.
+/// The map, in the structure of Democracy 4: a full-window field of round nodes, sized by importance, packed into three sectors
+/// (taxes, spending, regulation) that are separated by dashed radial lines from a central hub showing political capital. Policies are
+/// chrome discs with a white pictogram and a ring for the slider position; indicators are grey discs with a dark pictogram and a
+/// traffic-light ring for how they compare with the start of the term. No labels at rest: hover or select a node to see its name and
+/// its influences (thick green/red arrows with moving dashes). The layout is recomputed for every window shape so the field is always full.
 /// </summary>
 public partial class WorldMap : Control
 {
+    private sealed class Node
+    {
+        public string Id = "";
+        public bool Policy;
+        public int Group;
+        public float Weight = 1;
+        public float R;
+        public Vector2 P;
+        public IconKind Icon;
+    }
+
     private Session? _s;
-    private readonly Dictionary<string, Vector2> _unit = new(StringComparer.Ordinal); // values: unit disc; policies: point on the unit ellipse
-    private readonly Dictionary<string, Color> _color = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, IconKind> _icon = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _policyIds = new(StringComparer.Ordinal);
-    private readonly List<(int Group, float From, float To)> _sectors = new(); // perimeter fractions
-    private readonly List<Vector2> _ellipse = new(); // unit ellipse samples by perimeter fraction
+    private readonly List<Node> _nodes = new();
+    private readonly Dictionary<string, Node> _byId = new(StringComparer.Ordinal);
+    private readonly float[] _bounds = new float[4]; // sector boundary angles: b0 < b1 < b2 < b0 + tau
+    private Vector2 _laidOut = new(-1, -1);
+    private string _packKey = "";
     private string? _hover;
-    private float _insetLeft;
-    private readonly PanelContainer _card = new();
-    private readonly VBoxContainer _cardBody = Ui.VBox(10);
-    private ulong _layoutKey;
+    private float _flow;
+    private Vector2 _hub;
+    private float _hubW = 132, _hubH = 60;
 
     public string? SelectedId { get; private set; }
-    public event Action<string?>? Selected;
+    /// <summary>A voter group whose concerns the map highlights (null = off).</summary>
+    public string? LensGroup { get; private set; }
+    public event Action<string>? NodeClicked;
+    public event Action? HubClicked;
+    /// <summary>Space kept free on the right (an overlay drawer in compact).</summary>
+    public float RightInset { get; set; }
 
     public static int GroupOf(PolicyDef p) => p.RevenueBaseValueId != null ? 0 : p.CostPerUnit != 0 ? 1 : 2;
-    public static Color GroupColor(int g) => g == 0 ? AppTheme.Tax : g == 1 ? AppTheme.Spend : AppTheme.Regulation;
     public static IconKind GroupIcon(int g) => g == 0 ? IconKind.Percent : g == 1 ? IconKind.CoinOut : IconKind.Scale;
 
     public WorldMap()
     {
         MouseFilter = MouseFilterEnum.Stop;
         ClipContents = true;
-        _card.AddThemeStyleboxOverride("panel", AppTheme.Glass(0.985f, 16));
-        _card.Visible = false;
-        var scroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        scroll.AddChild(Ui.Margin(_cardBody, 20));
-        _cardBody.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        ((Control)_cardBody.GetParent()).SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _card.AddChild(scroll);
-        AddChild(_card);
-        _card.SetAnchorsPreset(LayoutPreset.RightWide);
-        _card.OffsetLeft = -392; _card.OffsetRight = -16; _card.OffsetTop = 76; _card.OffsetBottom = -100;
+        TextureRepeat = TextureRepeatEnum.Enabled;
     }
 
     public void Setup(Session s)
     {
         _s = s;
-        EnsureLayout();
-        if (SelectedId != null) FillCard();
+        string key = $"{s.Packs.Values.Count}/{s.Packs.Policies.Count}/{s.Packs.Edges.Count}/{s.ScenarioId}";
+        if (key != _packKey) { _packKey = key; BuildNodes(); _laidOut = new Vector2(-1, -1); }
         QueueRedraw();
     }
 
-    /// <summary>Keeps the map out from under a panel docked on the left.</summary>
-    public void SetInset(float left) { _insetLeft = left; QueueRedraw(); }
+    public void Select(string? id) { SelectedId = id; QueueRedraw(); }
+    public void SetLens(string? groupId) { LensGroup = groupId; QueueRedraw(); }
 
-    public void Select(string? id)
+    // ---- nodes and layout ------------------------------------------------------------------------------
+
+    private void BuildNodes()
     {
-        SelectedId = id;
-        _card.Visible = id != null;
-        if (id != null) FillCard();
-        QueueRedraw();
-        Selected?.Invoke(id);
+        _nodes.Clear(); _byId.Clear();
+        var s = _s!;
+        var degree = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var e in s.Packs.Edges) { degree[e.From] = degree.GetValueOrDefault(e.From) + 1; degree[e.To] = degree.GetValueOrDefault(e.To) + 1; }
+        int maxDeg = Math.Max(1, degree.Values.DefaultIfEmpty(1).Max());
+        var groupOfPolicy = s.Packs.Policies.ToDictionary(p => p.Id, GroupOf, StringComparer.Ordinal);
+        foreach (var p in s.Packs.Policies.OrderBy(p => p.Id, StringComparer.Ordinal))
+        {
+            float imp = (float)Math.Sqrt(degree.GetValueOrDefault(p.Id) / (double)maxDeg);
+            Add(new Node { Id = p.Id, Policy = true, Group = GroupOf(p), Weight = 0.78f + 0.5f * imp, Icon = Icons.For(p.Id) });
+        }
+        foreach (var v in s.Packs.Values.OrderBy(v => v.Id, StringComparer.Ordinal))
+        {
+            // An indicator sits in the sector whose policies act on it most.
+            var counts = new int[3];
+            foreach (var e in s.Packs.Edges.Where(e => e.To == v.Id && groupOfPolicy.ContainsKey(e.From))) counts[groupOfPolicy[e.From]]++;
+            int g = counts.Max() == 0 ? (Math.Abs(v.Id.GetHashCode() % 3)) : Array.IndexOf(counts, counts.Max());
+            float imp = (float)Math.Sqrt(degree.GetValueOrDefault(v.Id) / (double)maxDeg);
+            bool headline = v.Id is "base:gdp" or "base:unemployment" or "base:inflation" or "base:debt" or "base:deficit_pct";
+            Add(new Node { Id = v.Id, Policy = false, Group = g, Weight = 0.9f + 0.55f * imp + (headline ? 0.35f : 0), Icon = Icons.For(v.Id) });
+        }
+        void Add(Node n) { _nodes.Add(n); _byId[n.Id] = n; }
     }
 
-    // ---- layout ----------------------------------------------------------------------------------------
+    private Rect2 Field => new(0, 0, Math.Max(Size.X - RightInset, 200), Size.Y);
 
-    private const float Aspect = 1.7f; // the ring is an ellipse: the window is wide
-    private const float ValueSpreadX = 0.76f, ValueSpreadY = 0.74f; // the indicators fill this much of the ring
+    private static float Hash(string s, int salt)
+    {
+        unchecked
+        {
+            uint h = 2166136261u ^ (uint)salt;
+            foreach (char c in s) h = (h ^ c) * 16777619u;
+            return (h % 10000) / 10000f;
+        }
+    }
 
     private void EnsureLayout()
     {
-        if (_s == null) return;
-        ulong key = (ulong)(_s.Packs.Values.Count * 1000 + _s.Packs.Policies.Count * 10 + _s.Packs.Edges.Count);
-        if (key == _layoutKey && _unit.Count > 0) return;
-        _layoutKey = key;
-        _unit.Clear(); _color.Clear(); _icon.Clear(); _policyIds.Clear(); _sectors.Clear(); _ellipse.Clear();
-        var t = _s.T;
-        var values = _s.Packs.Values.Select(v => v.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
-        var policies = _s.Packs.Policies.OrderBy(GroupOf).ThenBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();
+        var field = Field;
+        if (_nodes.Count == 0 || (Math.Abs(field.Size.X - _laidOut.X) < 1 && Math.Abs(field.Size.Y - _laidOut.Y) < 1)) return;
+        _laidOut = field.Size;
+        float W = field.Size.X, H = field.Size.Y;
+        _hub = new Vector2(W / 2, H / 2);
+        _hubW = Math.Clamp(W * 0.085f, 96, 150); _hubH = _hubW * 0.46f;
 
-        // Indicators: a small force layout in a disc that is later stretched to the ellipse.
-        var pos = new Dictionary<string, Vector2>(StringComparer.Ordinal);
-        for (int i = 0; i < values.Count; i++)
+        // Radii: the nodes cover about 30 % of the field.
+        float area = W * H;
+        float sumW2 = _nodes.Sum(n => n.Weight * n.Weight);
+        float k = Mathf.Clamp(Mathf.Sqrt(0.30f * area / (Mathf.Pi * sumW2)), 14f, 46f);
+        foreach (var n in _nodes) n.R = k * n.Weight;
+
+        // Sector boundaries: wedge areas proportional to the node area in each sector; taxes centred at the top.
+        var need = new float[3];
+        foreach (var n in _nodes) need[n.Group] += n.R * n.R;
+        float total = need.Sum();
+        const int samples = 1440;
+        var cum = new float[samples + 1];
+        float start = -Mathf.Pi / 2 - Mathf.Pi; // integrate from the bottom so the top is in the middle
+        for (int i = 0; i < samples; i++)
         {
-            float a = Mathf.Tau * i / values.Count;
-            pos[values[i]] = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 0.5f;
+            float a = start + Mathf.Tau * (i + 0.5f) / samples;
+            float d = EdgeDistance(a, W, H);
+            cum[i + 1] = cum[i] + 0.5f * d * d * Mathf.Tau / samples;
         }
-        var links = _s.Packs.Edges.Where(e => pos.ContainsKey(e.From) && pos.ContainsKey(e.To) && e.From != e.To).ToList();
-        for (int it = 0; it < 320; it++)
+        float AngleAt(float areaFrom) // angle reached after areaFrom of the integral
         {
-            var force = values.ToDictionary(v => v, _ => Vector2.Zero, StringComparer.Ordinal);
-            for (int i = 0; i < values.Count; i++)
-                for (int j = i + 1; j < values.Count; j++)
+            int lo = 0;
+            while (lo < samples && cum[lo + 1] < areaFrom) lo++;
+            return start + Mathf.Tau * lo / samples;
+        }
+        float full = cum[samples];
+        float half = full / 2; // the top (-pi/2) sits at half of the integral
+        float tax = need[0] / total * full, spend = need[1] / total * full;
+        _bounds[0] = AngleAt(half - tax / 2);
+        _bounds[1] = AngleAt(half + tax / 2);
+        _bounds[2] = AngleAt(Math.Min(half + tax / 2 + spend, full - 1));
+        _bounds[3] = _bounds[0] + Mathf.Tau;
+
+        // Initial positions: a jittered spread over each wedge, larger nodes nearer the hub.
+        for (int g = 0; g < 3; g++)
+        {
+            var list = _nodes.Where(n => n.Group == g).OrderByDescending(n => n.R).ThenBy(n => n.Id, StringComparer.Ordinal).ToList();
+            float a0 = _bounds[g], a1 = _bounds[g + 1];
+            for (int i = 0; i < list.Count; i++)
+            {
+                float fa = (i * 0.618034f + Hash(list[i].Id, 1) * 0.2f) % 1f;
+                float a = a0 + (a1 - a0) * (0.12f + 0.76f * fa);
+                float d = EdgeDistance(a, W, H);
+                float fr = 0.3f + 0.6f * Mathf.Sqrt((i + 0.5f) / list.Count);
+                list[i].P = _hub + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * d * fr;
+            }
+        }
+
+        // Relaxation: soft repulsion that spreads the nodes over the field, kept in their wedge, off the hub and inside the field.
+        const float gap = 8;
+        float hubR = _hubW / 2 + 6;
+        for (int it = 0; it < 260; it++)
+        {
+            float reach = it < 200 ? 1.9f : 1.25f;
+            var move = new Vector2[_nodes.Count];
+            for (int i = 0; i < _nodes.Count; i++)
+                for (int j = i + 1; j < _nodes.Count; j++)
                 {
-                    var d = pos[values[i]] - pos[values[j]];
-                    d.Y *= 1.6f; // labels sit under the nodes: keep rows apart
-                    float len = Math.Max(d.Length(), 0.02f);
-                    var f = d / len * (0.03f / (len * len));
-                    force[values[i]] += f; force[values[j]] -= f;
+                    var a = _nodes[i]; var b = _nodes[j];
+                    var d = b.P - a.P;
+                    float len = d.Length();
+                    float want = (a.R + b.R + gap) * (a.Group == b.Group ? reach : 1.05f);
+                    if (len >= want) continue;
+                    var dir = len < 0.01f ? new Vector2(Hash(a.Id, j) - 0.5f, Hash(b.Id, i) - 0.5f).Normalized() : d / len;
+                    float push = (want - len) * 0.5f * (len < a.R + b.R + gap ? 1f : 0.25f);
+                    float wa = b.R / (a.R + b.R), wb = a.R / (a.R + b.R);
+                    move[i] -= dir * push * wa; move[j] += dir * push * wb;
                 }
-            foreach (var e in links)
+            for (int i = 0; i < _nodes.Count; i++)
             {
-                var d = pos[e.To] - pos[e.From];
-                float len = Math.Max(d.Length(), 0.02f);
-                var f = d / len * (len - 0.3f) * 0.04f;
-                force[e.From] += f; force[e.To] -= f;
+                var n = _nodes[i];
+                var p = n.P + move[i].LimitLength(24);
+                p = KeepInWedge(p, n.R + 6, n.Group);
+                var fromHub = p - _hub;
+                float minHub = Math.Max(hubR, _hubH / 2 + 6) + n.R;
+                // the hub is a pill: keep an ellipse around it clear
+                var e = new Vector2(fromHub.X / (_hubW / 2 + 8 + n.R), fromHub.Y / (_hubH / 2 + 8 + n.R));
+                if (e.Length() < 1) p = _hub + (e.Length() < 0.01f ? new Vector2(0, -1) : e.Normalized()) * new Vector2(_hubW / 2 + 8 + n.R, _hubH / 2 + 8 + n.R);
+                _ = minHub;
+                p.X = Math.Clamp(p.X, n.R + 6, W - n.R - 6);
+                p.Y = Math.Clamp(p.Y, n.R + 6, H - n.R - 6);
+                n.P = p;
             }
-            foreach (var v in values) pos[v] += (force[v] - pos[v] * 0.08f).LimitLength(0.05f);
         }
-        float far = Math.Max(values.Max(v => pos[v].Length()), 0.01f);
-        foreach (var v in values) pos[v] /= far;
+    }
 
-        // Then make room for the labels: in screen-like units (a reference ring of 250 px), no two node+label boxes may overlap.
-        float A = 250 * Aspect * ValueSpreadX, B = 250 * ValueSpreadY;
-        var box = values.ToDictionary(v => v, v => new Vector2(Math.Max(56, Math.Min(130, AppTheme.Semi.GetStringSize(t.Name(v), HorizontalAlignment.Left, -1, AppTheme.Caption).X) + 16), 68), StringComparer.Ordinal);
-        var sp = values.ToDictionary(v => v, v => new Vector2(pos[v].X * A, pos[v].Y * B), StringComparer.Ordinal);
-        for (int it = 0; it < 400; it++)
+    private Vector2 KeepInWedge(Vector2 p, float margin, int g)
+    {
+        float a0 = _bounds[g], a1 = _bounds[g + 1];
+        var rel = p - _hub;
+        float ang = Mathf.Atan2(rel.Y, rel.X);
+        while (ang < a0 - Mathf.Pi * 0.5f) ang += Mathf.Tau;
+        while (ang > a0 + Mathf.Tau - Mathf.Pi * 0.5f) ang -= Mathf.Tau;
+        float mid = (a0 + a1) / 2;
+        // outside the wedge entirely: rotate it in
+        float span = a1 - a0;
+        float off = Mathf.Wrap(ang - mid, -Mathf.Pi, Mathf.Pi);
+        if (Math.Abs(off) > span / 2)
         {
-            bool moved = false;
-            for (int i = 0; i < values.Count; i++)
-                for (int j = i + 1; j < values.Count; j++)
-                {
-                    var a = values[i]; var b = values[j];
-                    var d = sp[b] - sp[a];
-                    float ox = (box[a].X + box[b].X) / 2 - Math.Abs(d.X), oy = (box[a].Y + box[b].Y) / 2 - Math.Abs(d.Y);
-                    if (ox <= 0 || oy <= 0) continue;
-                    moved = true;
-                    if (ox / box[a].X < oy / box[a].Y) { float m = ox / 2 * Math.Sign(d.X == 0 ? i - j : d.X); sp[a] -= new Vector2(m, 0); sp[b] += new Vector2(m, 0); }
-                    else { float m = oy / 2 * Math.Sign(d.Y == 0 ? i - j : d.Y); sp[a] -= new Vector2(0, m); sp[b] += new Vector2(0, m); }
-                }
-            foreach (var v in values)
+            float target = mid + Math.Sign(off) * span / 2 * 0.9f;
+            float len = Math.Max(rel.Length(), margin * 2);
+            return _hub + new Vector2(Mathf.Cos(target), Mathf.Sin(target)) * len;
+        }
+        // inside: keep a perpendicular distance from both boundary lines
+        foreach (var (b, sign) in new[] { (a0, 1f), (a1, -1f) })
+        {
+            var u = new Vector2(Mathf.Cos(b), Mathf.Sin(b));
+            if (u.Dot(rel) <= 0) continue;
+            float cross = u.X * rel.Y - u.Y * rel.X; // positive = clockwise of the line
+            float wantMin = margin;
+            if (sign * cross < wantMin)
             {
-                float e = (sp[v].X / A) * (sp[v].X / A) + (sp[v].Y / B) * (sp[v].Y / B);
-                if (e > 1) sp[v] /= Mathf.Sqrt(e);
+                var normal = new Vector2(-u.Y, u.X) * sign;
+                rel += normal * (wantMin - sign * cross);
             }
-            if (!moved) break;
         }
-        foreach (var v in values) _unit[v] = new Vector2(sp[v].X / A, sp[v].Y / B);
-
-        // The unit ellipse, sampled evenly by arc length so the policies are evenly spaced on screen.
-        const int samples = 720;
-        var raw = new List<Vector2>(); var cum = new List<float> { 0 };
-        for (int i = 0; i <= samples; i++) { float a = -Mathf.Pi * 0.75f + Mathf.Tau * i / samples; raw.Add(new Vector2(Mathf.Cos(a) * Aspect, Mathf.Sin(a))); }
-        for (int i = 1; i < raw.Count; i++) cum.Add(cum[^1] + raw[i].DistanceTo(raw[i - 1]));
-        float total = cum[^1];
-        int j2 = 0;
-        for (int k = 0; k < 400; k++)
-        {
-            float target = total * k / 400f;
-            while (j2 < cum.Count - 2 && cum[j2 + 1] < target) j2++;
-            _ellipse.Add(raw[j2]);
-        }
-
-        // Policies: in category order around the ring, with a gap between categories.
-        const float gapSlots = 1.6f;
-        int groups = policies.Select(GroupOf).Distinct().Count();
-        float slots = policies.Count + gapSlots * groups;
-        float cursor = gapSlots / 2;
-        int lastGroup = -1; float sectorStart = 0;
-        foreach (var p in policies)
-        {
-            int g = GroupOf(p);
-            if (g != lastGroup)
-            {
-                if (lastGroup >= 0) { _sectors.Add((lastGroup, sectorStart / slots, (cursor - 1) / slots)); cursor += gapSlots; }
-                sectorStart = cursor; lastGroup = g;
-            }
-            _unit[p.Id] = EllipseAt(cursor / slots);
-            _policyIds.Add(p.Id);
-            cursor += 1;
-        }
-        if (lastGroup >= 0) _sectors.Add((lastGroup, sectorStart / slots, (cursor - 1) / slots));
-
-        foreach (var v in values) { _color[v] = AppTheme.ValueNode; _icon[v] = Icons.For(v); }
-        foreach (var p in policies) { _color[p.Id] = GroupColor(GroupOf(p)); _icon[p.Id] = Icons.For(p.Id); }
+        return _hub + rel;
     }
 
-    private Vector2 EllipseAt(float fraction)
+    /// <summary>Distance from the hub to the edge of the field in direction <paramref name="a"/>.</summary>
+    private static float EdgeDistance(float a, float W, float H)
     {
-        float f = ((fraction % 1f) + 1f) % 1f;
-        return _ellipse[Math.Clamp((int)(f * _ellipse.Count), 0, _ellipse.Count - 1)];
+        float cx = Mathf.Cos(a), cy = Mathf.Sin(a);
+        float tx = Math.Abs(cx) < 1e-6f ? float.MaxValue : (W / 2) / Math.Abs(cx);
+        float ty = Math.Abs(cy) < 1e-6f ? float.MaxValue : (H / 2) / Math.Abs(cy);
+        return Math.Min(tx, ty);
     }
 
-    private const float Top = 64, Bottom = 96;
-    private Vector2 Center => new((_insetLeft + Size.X) / 2f, (Top + Size.Y - Bottom) / 2f);
-    private float RadiusY => Math.Max(60f, Math.Min((Size.Y - Top - Bottom) / 2f - 70, ((Size.X - _insetLeft) / 2f - 170) / Aspect));
-    private bool Compact => RadiusY < 200;
+    // ---- drawing -----------------------------------------------------------------------------------------
 
-    private Vector2 At(string id)
+    private bool Focused(out string? focus)
     {
-        float ry = RadiusY, rx = ry; // _unit of policies already carries the aspect
-        if (_policyIds.Contains(id)) return Center + _unit[id] * new Vector2(rx, ry);
-        return Center + _unit[id] * new Vector2(ry * Aspect * ValueSpreadX, ry * ValueSpreadY);
+        focus = _hover ?? SelectedId;
+        return focus != null && _byId.ContainsKey(focus);
     }
 
-    // ---- drawing ---------------------------------------------------------------------------------------
-
-    private double VoterLike(string valueId) =>
-        _s!.Packs.VoterGroups.Sum(g => g.Size * g.Weight * g.ValueWeights.GetValueOrDefault(valueId));
-
-    private static string Fit(Font font, string text, int size, float width)
+    public override void _Process(double delta)
     {
-        if (font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X <= width) return text;
-        while (text.Length > 3 && font.GetStringSize(text + "…", HorizontalAlignment.Left, -1, size).X > width) text = text[..^1];
-        return text.TrimEnd() + "…";
+        if (Focused(out _) && !DisplaySettings.ReduceMotion && Main.Animations) { _flow = (_flow + (float)delta * 40f) % 1000f; QueueRedraw(); }
     }
-
-    private readonly List<Rect2> _placed = new();
-
-    private static Rect2 LabelRect(Font font, Vector2 pos, string text, HorizontalAlignment align)
-    {
-        float w = font.GetStringSize(text, HorizontalAlignment.Left, -1, AppTheme.Caption).X;
-        float x = align == HorizontalAlignment.Right ? pos.X - w : align == HorizontalAlignment.Center ? pos.X - w / 2 : pos.X;
-        return new Rect2(x - 3, pos.Y - 13, w + 6, 17);
-    }
-
-    private void Label(Font font, Vector2 pos, string text, HorizontalAlignment align, float width, int size, Color color)
-    {
-        float x = align == HorizontalAlignment.Right ? pos.X - width : align == HorizontalAlignment.Center ? pos.X - width / 2 : pos.X;
-        DrawStringOutline(font, new Vector2(x, pos.Y), text, align, width, size, 5, new Color(AppTheme.Bg, 0.92f));
-        DrawString(font, new Vector2(x, pos.Y), text, align, width, size, color);
-    }
-
-    /// <summary>True when an open panel leaves too little room for a readable map; the map then steps back entirely.</summary>
-    private bool Hidden => Size.X - _insetLeft < 600;
-
-    private bool _ghost;
 
     public override void _Draw()
     {
-        if (_s == null || _unit.Count == 0) return;
-        // Behind a wide panel the map is only a quiet backdrop: full width, dimmed, no labels, not clickable.
-        float inset = _insetLeft;
-        _ghost = Hidden;
-        if (_ghost) _insetLeft = 0;
-        try { DrawMap(); } finally { _insetLeft = inset; }
-    }
+        DrawRect(new Rect2(Vector2.Zero, Size), AppTheme.MapBg);
+        DrawTextureRect(AppTheme.GridDot, new Rect2(Vector2.Zero, Size), true);
+        if (_s == null || _nodes.Count == 0) return;
+        EnsureLayout();
+        var s = _s; var t = s.T;
+        var field = Field;
 
-    private void DrawMap()
-    {
-        var c = Center; float ry = RadiusY, rx = ry * Aspect;
-        var t = _s.T;
-
-        // Rings and category bands.
-        DrawEllipse(c, rx * 0.84f, ry * 0.84f, new Color(AppTheme.ValueNode, 0.03f), true);
-        DrawEllipse(c, rx, ry, new Color(AppTheme.BorderStrong, 0.35f), false, 1.2f);
-        foreach (var (g, from, to) in _sectors)
+        // Sector names as faint watermarks, then the dashed radial separators.
+        for (int g = 0; g < 3; g++)
         {
-            var col = GroupColor(g);
-            int n = Math.Max(2, (int)((to - from) * 200));
-            var pts = new Vector2[n + 1];
-            for (int i = 0; i <= n; i++) pts[i] = c + EllipseAt(from + (to - from) * i / n) * new Vector2(ry, ry);
-            DrawPolyline(pts, new Color(col, 0.10f), 34f, true);
+            float mid = (_bounds[g] + _bounds[g + 1]) / 2;
+            float d = EdgeDistance(mid, field.Size.X, field.Size.Y);
+            var at = _hub + new Vector2(Mathf.Cos(mid), Mathf.Sin(mid)) * d * 0.62f;
+            string name = t.T("ui.client.group." + g).ToUpperInvariant();
+            int fs = (int)Math.Clamp(field.Size.X / 34, 22, 44);
+            float w = AppTheme.Bold.GetStringSize(name, HorizontalAlignment.Left, -1, fs).X;
+            DrawString(AppTheme.Bold, at - new Vector2(w / 2, -fs / 3f), name, HorizontalAlignment.Left, -1, fs, new Color("e4e4e0"));
+        }
+        for (int b = 0; b < 3; b++)
+        {
+            var u = new Vector2(Mathf.Cos(_bounds[b]), Mathf.Sin(_bounds[b]));
+            float d = EdgeDistance(_bounds[b], field.Size.X, field.Size.Y);
+            float from = _hubW / 2 + 10;
+            for (float x = from; x < d; x += 18) DrawLine(_hub + u * x, _hub + u * Math.Min(x + 10, d), new Color("b8b8b4"), 2f);
         }
 
+        bool focused = Focused(out var focus);
         var neighbours = new HashSet<string>(StringComparer.Ordinal);
-        string? focus = _ghost ? null : SelectedId ?? _hover;
-        foreach (var e in _s.Packs.Edges)
-        {
-            if (!_unit.ContainsKey(e.From) || !_unit.ContainsKey(e.To) || e.From == e.To) continue;
-            bool hot = focus != null && (e.From == focus || e.To == focus);
-            if (hot) { neighbours.Add(e.From); neighbours.Add(e.To); }
-        }
-        foreach (var e in _s.Packs.Edges)
-        {
-            if (!_unit.ContainsKey(e.From) || !_unit.ContainsKey(e.To) || e.From == e.To) continue;
-            bool hot = focus != null && (e.From == focus || e.To == focus);
-            if (focus != null && !hot) continue;
-            var col = hot ? (e.Strength >= 0 ? AppTheme.Good : AppTheme.Bad) : new Color(AppTheme.Text2, 0.10f);
-            var a = At(e.From); var b = At(e.To);
-            var mid = (a + b) / 2f; var ctrl = mid + (c - mid) * 0.35f;
-            var pts = new Vector2[20];
-            for (int k = 0; k < pts.Length; k++)
-            {
-                float tt = k / (float)(pts.Length - 1);
-                pts[k] = (1 - tt) * (1 - tt) * a + 2 * (1 - tt) * tt * ctrl + tt * tt * b;
-            }
-            float endR = _policyIds.Contains(e.To) ? 17 : 23;
-            int cut = pts.Length - 1;
-            while (cut > 1 && pts[cut].DistanceTo(b) < endR + 2) cut--;
-            var line = pts[..(cut + 1)];
-            DrawPolyline(line, col, hot ? 2.4f : 1.0f, true);
-            if (hot)
-            {
-                var dir = (line[^1] - line[^2]).Normalized(); var tip = line[^1]; var side = new Vector2(-dir.Y, dir.X) * 5.5f;
-                DrawColoredPolygon(new[] { tip, tip - dir * 10 + side, tip - dir * 10 - side }, col);
-            }
-        }
+        if (focused)
+            foreach (var e in s.Packs.Edges)
+                if ((e.From == focus || e.To == focus) && _byId.ContainsKey(e.From) && _byId.ContainsKey(e.To)) { neighbours.Add(e.From); neighbours.Add(e.To); }
 
-        var changes = _s.Last?.Changes.ToDictionary(x => x.ValueId, StringComparer.Ordinal);
-        // Obstacles for the policy labels: every node, and the indicator labels (they are fixed under their nodes).
-        _placed.Clear();
-        _placed.Add(new Rect2(-1000, -1000, Size.X + 2000, 1000 + Top + 6)); // the top bar
-        _placed.Add(new Rect2(Size.X / 2 - 330, Size.Y - Bottom + 6, 660, 1000)); // the toolbar
-        foreach (var (oid, _) in _unit)
-        {
-            var op = At(oid); float orad = _policyIds.Contains(oid) ? 17 : 23;
-            _placed.Add(new Rect2(op - new Vector2(orad, orad), new Vector2(orad, orad) * 2));
-            if (!_policyIds.Contains(oid) && !_ghost)
-                _placed.Add(LabelRect(AppTheme.Semi, new Vector2(op.X, op.Y + 21 + 17), Fit(AppTheme.Semi, t.Name(oid), AppTheme.Caption, 130), HorizontalAlignment.Center));
-        }
-        var pending = _s.Game.PendingPolicies.Select(p => p.PolicyId).ToHashSet(StringComparer.Ordinal);
-        var font = AppTheme.Semi;
-        int index = 0;
-        foreach (var (id, _) in _unit.OrderBy(kv => _policyIds.Contains(kv.Key) ? 0 : 1))
-        {
-            var p = At(id);
-            bool isPolicy = _policyIds.Contains(id);
-            bool sel = id == SelectedId, hov = id == _hover, dim = _ghost || (focus != null && id != focus && !neighbours.Contains(id));
-            float alpha = dim ? 0.28f : 1f;
-            var baseColor = _color[id];
-            if (isPolicy)
+        // Influence arrows for the focused node only.
+        if (focused)
+            foreach (var e in s.Packs.Edges)
             {
-                var def = _s.Packs.Policies.First(x => x.Id == id);
-                double frac = def.Max > def.Min ? (_s.Country.Policies.GetValueOrDefault(id, def.Default) - def.Min) / (def.Max - def.Min) : 0;
-                float r = sel || hov ? 17 : 15;
-                DrawCircle(p, r + 3, new Color(AppTheme.Bg, alpha * 0.9f));
-                DrawCircle(p, r, new Color(AppTheme.Surface, alpha));
-                DrawArc(p, r, 0, Mathf.Tau, 40, new Color(baseColor, 0.28f * alpha), 3f, true);
-                if (frac > 0.005) DrawArc(p, r, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (float)frac, 40, new Color(baseColor, alpha), 3f, true);
-                Icons.Draw(this, _icon[id], p, r * 1.05f, new Color(sel || hov ? Colors.White : baseColor, alpha));
-                if (pending.Contains(id)) { DrawCircle(p + new Vector2(r * 0.75f, -r * 0.75f), 5, AppTheme.Bg); DrawCircle(p + new Vector2(r * 0.75f, -r * 0.75f), 3.5f, AppTheme.Warn); }
-                if (!_ghost && (!Compact || sel || hov))
+                if (e.From == e.To || (e.From != focus && e.To != focus)) continue;
+                if (!_byId.TryGetValue(e.From, out var a) || !_byId.TryGetValue(e.To, out var b)) continue;
+                DrawEdge(a, b, e.Strength >= 0 ? AppTheme.Good : AppTheme.Bad, Math.Abs(e.Strength));
+            }
+
+        var group = LensGroup == null ? null : s.Packs.VoterGroups.FirstOrDefault(g => g.Id == LensGroup);
+        var pending = s.Game.PendingPolicies.GroupBy(p => p.PolicyId).ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal);
+        foreach (var n in _nodes.OrderBy(n => n.Id == focus ? 1 : 0))
+        {
+            float alpha = 1f;
+            if (focused && n.Id != focus && !neighbours.Contains(n.Id)) alpha = 0.3f;
+            bool relevant = true;
+            if (group != null)
+            {
+                relevant = n.Policy ? group.PolicyWeights.ContainsKey(n.Id) : group.ValueWeights.ContainsKey(n.Id) || (group.LevelWeights?.ContainsKey(n.Id) ?? false);
+                if (!relevant) alpha = Math.Min(alpha, 0.22f);
+            }
+            DrawNode(n, alpha, group, pending, n.Id == focus);
+        }
+        DrawHub();
+        if (focused && _byId.TryGetValue(focus!, out var fn)) DrawTag(fn);
+    }
+
+    private void DrawEdge(Node a, Node b, Color color, double strength)
+    {
+        var p0 = a.P; var p2 = b.P;
+        var d = p2 - p0; float len = d.Length();
+        if (len < 1) return;
+        var normal = new Vector2(-d.Y, d.X) / len;
+        var ctrl = (p0 + p2) / 2 + normal * len * 0.12f;
+        const int n = 28;
+        var pts = new List<Vector2>(n + 1);
+        for (int i = 0; i <= n; i++)
+        {
+            float tt = i / (float)n;
+            var p = (1 - tt) * (1 - tt) * p0 + 2 * (1 - tt) * tt * ctrl + tt * tt * p2;
+            if (p.DistanceTo(p0) < a.R + 2) continue;
+            if (p.DistanceTo(p2) < b.R + 4) break;
+            pts.Add(p);
+        }
+        if (pts.Count < 2) return;
+        float w = strength >= 0.5 ? 4.5f : strength >= 0.2 ? 3.5f : 2.5f;
+        var col = new Color(color, 0.9f);
+        if (DisplaySettings.ReduceMotion || !Main.Animations) DrawPolyline(pts.ToArray(), col, w, true);
+        else
+        {
+            // moving dashes: walk the polyline, draw 14 on / 7 off with an offset that advances with time
+            float period = 21, phase = _flow * (0.6f + (float)Math.Min(strength, 1.0)) % period, acc = -phase;
+            for (int i = 1; i < pts.Count; i++)
+            {
+                var s0 = pts[i - 1]; var s1 = pts[i]; float seg = s0.DistanceTo(s1);
+                float pos = 0;
+                while (pos < seg)
                 {
-                    var outward = new Vector2(_unit[id].X / Aspect, _unit[id].Y).Normalized();
-                    string name = t.Name(id);
-                    var col = new Color(sel || hov ? Colors.White : AppTheme.Text2, dim ? 0.35f : 1f);
-                    bool side = Math.Abs(outward.X) > 0.5f;
-                    float w = sel || hov ? 220 : side ? 150 : 100;
-                    string text = sel || hov ? name : Fit(font, name, AppTheme.Caption, w);
-                    var align = side ? (outward.X < 0 ? HorizontalAlignment.Right : HorizontalAlignment.Left) : HorizontalAlignment.Center;
-                    var candidates = new List<Vector2>();
-                    if (side)
-                    {
-                        var at = p + outward * (r + 9) + new Vector2(0, 5 + outward.Y * 4);
-                        foreach (float dy in new[] { 0f, 9f, -9f, 17f, -17f }) candidates.Add(at + new Vector2(0, dy));
-                    }
-                    else
-                    {
-                        bool up = outward.Y < 0;
-                        Vector2 Out(int k) => new(p.X, up ? p.Y - r - 8 - k * 16 : p.Y + r + 18 + k * 16);
-                        Vector2 In(int k) => new(p.X, up ? p.Y + r + 18 + k * 16 : p.Y - r - 8 - k * 16);
-                        candidates.AddRange(new[] { Out(0), Out(1), In(0), Out(2), In(1) });
-                    }
-                    Vector2 best = candidates[0]; float bestOverlap = float.MaxValue;
-                    foreach (var cand in candidates)
-                    {
-                        var rect = LabelRect(font, cand, text, align);
-                        float overlap = 0;
-                        foreach (var o in _placed) if (o.Intersects(rect)) { var i2 = o.Intersection(rect); overlap += i2.Area; }
-                        if (overlap < bestOverlap - 0.5f) { bestOverlap = overlap; best = cand; }
-                        if (overlap <= 0) break;
-                    }
-                    _placed.Add(LabelRect(font, best, text, align));
-                    Label(font, best, text, align, w, AppTheme.Caption, col);
+                    float m = ((acc % period) + period) % period;
+                    bool on = m < 14;
+                    float step = Math.Min(seg - pos, on ? 14 - m : period - m);
+                    if (on) DrawLine(s0.Lerp(s1, pos / seg), s0.Lerp(s1, (pos + step) / seg), col, w, true);
+                    pos += step; acc += step;
+                    if (step <= 0.001f) break;
                 }
-                index++;
-            }
-            else
-            {
-                var ring = AppTheme.BorderStrong;
-                if (changes != null && changes.TryGetValue(id, out var ch) && Math.Abs(ch.After - ch.Before) > 1e-9)
-                    ring = Math.Sign(VoterLike(id)) == 0 ? AppTheme.Muted : Math.Sign(ch.After - ch.Before) * Math.Sign(VoterLike(id)) > 0 ? AppTheme.Good : AppTheme.Bad;
-                float r = sel || hov ? 24 : 21;
-                var glow = new Color(ring == AppTheme.BorderStrong ? AppTheme.ValueNode : ring, 0.10f * alpha);
-                DrawCircle(p, r + 8, glow);
-                DrawCircle(p, r, new Color(AppTheme.Card, alpha));
-                DrawArc(p, r, 0, Mathf.Tau, 48, new Color(ring, alpha), 3f, true);
-                Icons.Draw(this, _icon[id], p, r * 0.95f, new Color(sel || hov ? Colors.White : baseColor, alpha));
-                if (_ghost) continue;
-                string name = t.Name(id);
-                float w = sel || hov ? 220 : 130;
-                Label(AppTheme.Semi, new Vector2(p.X, p.Y + r + 17), sel || hov ? name : Fit(AppTheme.Semi, name, AppTheme.Caption, w), HorizontalAlignment.Center, w, AppTheme.Caption,
-                    new Color(sel || hov ? Colors.White : AppTheme.Text, dim ? 0.35f : 1f));
             }
         }
-        if (!_ghost) DrawLegend();
+        var tip = pts[^1]; var dir = (pts[^1] - pts[^2]).Normalized(); var side = new Vector2(-dir.Y, dir.X) * (w + 4);
+        DrawColoredPolygon(new[] { tip + dir * 4, tip - dir * (w * 2.6f) + side, tip - dir * (w * 2.6f) - side }, col);
     }
 
-    private void DrawEllipse(Vector2 c, float rx, float ry, Color color, bool filled, float width = 1f)
+    private void DrawNode(Node n, float alpha, VoterGroupDef? group, Dictionary<string, double> pending, bool focus)
     {
-        var pts = new Vector2[97];
-        for (int i = 0; i <= 96; i++) { float a = Mathf.Tau * i / 96; pts[i] = c + new Vector2(Mathf.Cos(a) * rx, Mathf.Sin(a) * ry); }
-        if (filled) DrawColoredPolygon(pts[..96], color);
-        else DrawPolyline(pts, color, width, true);
-    }
-
-    private void DrawLegend()
-    {
-        if (_s == null) return;
-        float x = 24, y = Size.Y - 108;
-        foreach (var (color, icon, key) in new[] { (AppTheme.Tax, IconKind.Percent, "ui.map.taxes"), (AppTheme.Spend, IconKind.CoinOut, "ui.map.spending"),
-                     (AppTheme.Regulation, IconKind.Scale, "ui.map.regulation"), (AppTheme.ValueNode, IconKind.Gauge, "ui.map.values") })
+        var s = _s!;
+        float r = n.R * (focus ? 1.06f : 1f);
+        float ring = Math.Max(3f, r * 0.14f);
+        var p = n.P;
+        if (n.Id == SelectedId) DrawArc(p, r + 6, 0, Mathf.Tau, 64, new Color(AppTheme.Ink, alpha), 3f, true);
+        DrawCircle(p, r + 1.5f, new Color(AppTheme.Surface, alpha));
+        if (n.Policy)
         {
-            if (_insetLeft == 0)
+            var def = s.Packs.Policies.First(x => x.Id == n.Id);
+            double v = s.Country.Policies.GetValueOrDefault(n.Id, def.Default);
+            double frac = def.Max > def.Min ? (v - def.Min) / (def.Max - def.Min) : 0;
+            var arcColor = AppTheme.Chrome;
+            if (group != null && group.PolicyWeights.ContainsKey(n.Id)) { arcColor = AppTheme.Traffic(0.5 + 0.5 * Ui.Opinion(s, group, def)); frac = 1; }
+            DrawArc(p, r - ring / 2, 0, Mathf.Tau, 64, new Color(AppTheme.TrackLight, alpha), ring, true);
+            if (frac > 0.004) DrawArc(p, r - ring / 2, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (float)frac, 64, new Color(arcColor, alpha), ring, true);
+            DrawCircle(p, r - ring - 2, new Color(AppTheme.Chrome, alpha));
+            Icons.Draw(this, n.Icon, p, (r - ring) * 1.05f, new Color(1, 1, 1, alpha));
+            if (pending.TryGetValue(n.Id, out var target) && Math.Abs(target - v) > 1e-9)
             {
-                DrawCircle(new Vector2(x + 8, y - 5), 9, AppTheme.Tint(color, 0.18f));
-                Icons.Draw(this, icon, new Vector2(x + 8, y - 5), 12, color);
-                Label(AppTheme.Medium, new Vector2(x + 24, y), _s.T.T(key), HorizontalAlignment.Left, 200, AppTheme.Caption, AppTheme.Text2);
+                double tf = def.Max > def.Min ? (target - def.Min) / (def.Max - def.Min) : 0;
+                float a = -Mathf.Pi / 2 + Mathf.Tau * (float)tf;
+                var m = p + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * (r - ring / 2);
+                DrawCircle(m, ring * 0.9f + 2, new Color(AppTheme.Ink, alpha));
+                DrawCircle(m, ring * 0.9f, new Color(AppTheme.Surface, alpha));
             }
-            y += 24;
+        }
+        else
+        {
+            double good = Ui.Goodness(s, n.Id);
+            bool cares = Math.Abs(Ui.VoterLike(s, n.Id)) > 1e-12;
+            if (group != null && (group.ValueWeights.ContainsKey(n.Id) || (group.LevelWeights?.ContainsKey(n.Id) ?? false)))
+            {
+                double like = group.ValueWeights.GetValueOrDefault(n.Id) + (group.LevelWeights?.GetValueOrDefault(n.Id) ?? 0);
+                double g0 = Ui.Goodness(s, n.Id);
+                good = Math.Sign(like) == Math.Sign(Ui.VoterLike(s, n.Id)) ? g0 : 1 - g0;
+                cares = true;
+            }
+            DrawArc(p, r - ring / 2, 0, Mathf.Tau, 64, new Color(AppTheme.TrackLight, alpha), ring, true);
+            if (cares)
+            {
+                var c = AppTheme.Traffic(good);
+                float frac = (float)Math.Clamp(0.15 + 0.85 * good, 0.15, 1);
+                DrawArc(p, r - ring / 2, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * frac, 64, new Color(c, alpha), ring, true);
+            }
+            else DrawArc(p, r - ring / 2, 0, Mathf.Tau, 64, new Color("b9b9b9", alpha), ring, true);
+            DrawCircle(p, r - ring - 2, new Color(AppTheme.Panel, alpha));
+            Icons.Draw(this, n.Icon, p, (r - ring) * 1.05f, new Color(AppTheme.Ink2, alpha));
         }
     }
 
-    // ---- interaction -----------------------------------------------------------------------------------
+    private Rect2 HubRect => new(_hub - new Vector2(_hubW, _hubH) / 2, new Vector2(_hubW, _hubH));
+
+    private void DrawHub()
+    {
+        var s = _s!;
+        var rect = HubRect;
+        DrawStyleBox(AppTheme.Box(AppTheme.Chrome, (int)(_hubH / 2)), rect);
+        float icon = _hubH * 0.72f;
+        var ic = new Vector2(rect.Position.X + _hubH / 2, rect.GetCenter().Y);
+        DrawCircle(ic, icon / 2, AppTheme.Surface);
+        bool politics = s.Politics?.Party is not null;
+        Icons.Draw(this, politics ? IconKind.Coin : IconKind.Calendar, ic, icon * 0.62f, AppTheme.Chrome);
+        string text = politics ? "×" + Ui.Num(s.Politics!.Party!.PoliticalCapital, "0") : $"{s.Turn}/{Session.HorizonTurns}";
+        int fs = (int)(_hubH * 0.42f);
+        DrawString(AppTheme.FigBold, new Vector2(ic.X + icon / 2 + 6, rect.GetCenter().Y + fs * 0.36f), text, HorizontalAlignment.Left, rect.End.X - ic.X - icon / 2 - 10, fs, Colors.White);
+    }
+
+    private void DrawTag(Node n)
+    {
+        var s = _s!; var t = s.T;
+        string name = t.Name(n.Id);
+        string sub = "";
+        if (n.Policy && s.Packs.Policies.FirstOrDefault(x => x.Id == n.Id) is { } pd) sub = Ui.Fix(Fmt.Policy(pd, s.Country.Policies.GetValueOrDefault(n.Id, pd.Default), t));
+        else if (s.Packs.Values.FirstOrDefault(x => x.Id == n.Id) is { } vd) sub = Ui.Fix(Fmt.Value(vd, s.Country.Values.GetValueOrDefault(n.Id)));
+        var f1 = AppTheme.Bold; var f2 = AppTheme.FigSemi;
+        float w = Math.Max(f1.GetStringSize(name, HorizontalAlignment.Left, -1, 14).X, f2.GetStringSize(sub, HorizontalAlignment.Left, -1, 13).X) + 24;
+        float h = sub.Length > 0 ? 46 : 30;
+        var pos = new Vector2(n.P.X - w / 2, n.P.Y - n.R - 10 - h);
+        if (pos.Y < 4) pos.Y = n.P.Y + n.R + 10;
+        pos.X = Math.Clamp(pos.X, 4, Size.X - w - 4);
+        DrawStyleBox(AppTheme.Box(new Color("222222"), 3), new Rect2(pos, new Vector2(w, h)));
+        DrawString(f1, pos + new Vector2(12, 20), name, HorizontalAlignment.Left, -1, 14, Colors.White);
+        if (sub.Length > 0) DrawString(f2, pos + new Vector2(12, 38), sub, HorizontalAlignment.Left, -1, 13, new Color("c8c8c8"));
+    }
+
+    // ---- interaction -------------------------------------------------------------------------------------
 
     private string? Hit(Vector2 mouse)
     {
-        if (Hidden) return null;
-        string? best = null; float bestD = 26;
-        foreach (var (id, _) in _unit) { float d = At(id).DistanceTo(mouse); if (d < bestD) { bestD = d; best = id; } }
+        string? best = null; float bestD = float.MaxValue;
+        foreach (var n in _nodes)
+        {
+            float d = n.P.DistanceTo(mouse);
+            if (d <= n.R + 4 && d < bestD) { bestD = d; best = n.Id; }
+        }
         return best;
     }
 
@@ -422,97 +464,29 @@ public partial class WorldMap : Control
         if (@event is InputEventMouseMotion mm)
         {
             var h = Hit(mm.Position);
-            if (h != _hover) { _hover = h; MouseDefaultCursorShape = h != null ? CursorShape.PointingHand : CursorShape.Arrow; QueueRedraw(); }
+            bool hub = HubRect.HasPoint(mm.Position);
+            if (h != _hover) { _hover = h; QueueRedraw(); }
+            MouseDefaultCursorShape = h != null || hub ? CursorShape.PointingHand : CursorShape.Arrow;
+            TooltipText = hub && _s != null ? (_s.Politics?.Party != null ? _s.T.T("ui.party.capital") : _s.DateText()) : "";
         }
         else if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mb)
         {
+            if (HubRect.HasPoint(mb.Position)) { HubClicked?.Invoke(); return; }
             var h = Hit(mb.Position);
-            Select(h == SelectedId ? null : h);
+            if (h != null) { Select(h); NodeClicked?.Invoke(h); }
+            else Select(null);
         }
     }
+
+    /// <summary>Screen position of a node (for scripted runs and tests).</summary>
+    public Vector2? PositionOf(string id) { EnsureLayout(); return _byId.TryGetValue(id, out var n) ? n.P : null; }
+
+    /// <summary>Hovers a node as the mouse would (scripted screenshots).</summary>
+    public void HoverForTest(string? id) { _hover = id; QueueRedraw(); }
 
     public override void _Notification(int what)
     {
         if (what == NotificationResized) QueueRedraw();
         else if (what == NotificationMouseExit && _hover != null) { _hover = null; QueueRedraw(); }
-    }
-
-    // ---- the card --------------------------------------------------------------------------------------
-
-    private void FillCard()
-    {
-        var s = _s!; var t = s.T;
-        Ui.Clear(_cardBody);
-        string id = SelectedId!;
-        bool isPolicy = _policyIds.Contains(id);
-        var color = _color.GetValueOrDefault(id, AppTheme.Accent);
-
-        var head = Ui.HBox(12);
-        head.AddChild(new IconBadge(_icon.GetValueOrDefault(id, IconKind.Gauge), color, 44));
-        var titles = Ui.VBox(2);
-        titles.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        titles.AddChild(Ui.Caption(t.T(isPolicy ? "ui.map.policy" : "ui.map.value"), color));
-        var name = Ui.Text(t.Name(id), Colors.White, AppTheme.SectionSize, true, AppTheme.Bold);
-        titles.AddChild(name);
-        head.AddChild(titles);
-        var close = new IconButton(IconKind.Close, "", t.T("ui.client.close"), new Vector2(32, 32));
-        close.SizeFlagsVertical = SizeFlags.ShrinkBegin;
-        close.Pressed += () => Select(null);
-        head.AddChild(close);
-        _cardBody.AddChild(head);
-
-        var value = s.Packs.Values.FirstOrDefault(v => v.Id == id);
-        if (value != null) _cardBody.AddChild(Ui.Big(Fmt.Value(value, s.Country.Values.GetValueOrDefault(id)), Colors.White, AppTheme.Display));
-        else if (s.Packs.Policies.FirstOrDefault(p => p.Id == id) is { } policy)
-        {
-            _cardBody.AddChild(Ui.Big(Fmt.Policy(policy, s.Country.Policies.GetValueOrDefault(id), t), Colors.White, AppTheme.Display));
-            double frac = policy.Max > policy.Min ? (s.Country.Policies.GetValueOrDefault(id) - policy.Min) / (policy.Max - policy.Min) : 0;
-            var m = new Meter(frac, 0, 1, color, 300) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            _cardBody.AddChild(m);
-        }
-        if (t.Description(id) is { } desc) _cardBody.AddChild(Ui.Text(desc, AppTheme.Text2, 14, true));
-
-        if (value != null)
-        {
-            var change = s.Last?.Changes.FirstOrDefault(c => c.ValueId == id);
-            _cardBody.AddChild(Ui.Section(t.T("ui.heading.why", t.Name(id))));
-            if (change == null) _cardBody.AddChild(Ui.Text(t.T("ui.why.none"), Ui.Muted, 14, true));
-            else
-            {
-                _cardBody.AddChild(Ui.Text(t.T("ui.info.change", Fmt.Value(value, change.Before), Fmt.Value(value, change.After)), AppTheme.Text2, 14, true));
-                var lines = change.Contributions.Where(c => Math.Abs(c.Amount) > 1e-9 * Math.Max(1.0, Math.Abs(change.Before)))
-                    .OrderByDescending(c => Math.Abs(c.Amount)).ThenBy(c => c.EdgeId, StringComparer.Ordinal).ToList();
-                foreach (var c in lines)
-                    _cardBody.AddChild(LinkRow(c.FromId, t.T("ui.why.line", t.Name(c.FromId), t.T(c.Amount > 0 ? "ui.why.up" : "ui.why.down")), c.Amount > 0));
-                if (lines.Count == 0 && value.Owner == null) _cardBody.AddChild(Ui.Text(t.T("ui.why.none"), Ui.Muted, 14, true));
-                if (value.Owner != null) _cardBody.AddChild(Ui.Text(t.T("ui.why.model"), Ui.Muted, AppTheme.Caption, true));
-            }
-            if (Charts.All.FirstOrDefault(c => c.Series(s).Any(x => x.Key == History.ValueKey(id))) is { } spec)
-            {
-                var b = Ui.Btn("  " + t.T("ui.map.open_chart"), () => ChartDialog.Open(this, s, spec));
-                b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-                _cardBody.AddChild(b);
-            }
-        }
-
-        void Links(string headKey, IEnumerable<EdgeDef> edges, Func<EdgeDef, string> other)
-        {
-            var list = edges.OrderBy(e => e.Id, StringComparer.Ordinal).ToList();
-            if (list.Count == 0) return;
-            _cardBody.AddChild(Ui.Section(t.T(headKey)));
-            foreach (var e in list) _cardBody.AddChild(LinkRow(other(e), t.Name(other(e)), e.Strength >= 0));
-        }
-        Links("ui.client.graph.influences", s.Packs.Edges.Where(e => e.From == id), e => e.To);
-        Links("ui.client.graph.influenced_by", s.Packs.Edges.Where(e => e.To == id), e => e.From);
-    }
-
-    private Control LinkRow(string otherId, string text, bool up)
-    {
-        var row = Ui.HBox(10);
-        row.AddChild(new IconView(_icon.GetValueOrDefault(otherId, IconKind.Gauge), 18, _color.GetValueOrDefault(otherId, AppTheme.Muted)));
-        var l = Ui.Text(text, AppTheme.Text, 14, true);
-        row.AddChild(l);
-        row.AddChild(Ui.Text(up ? "▲" : "▼", up ? Ui.Good : Ui.Bad, 14));
-        return row;
     }
 }

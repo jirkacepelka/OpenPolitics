@@ -2,17 +2,21 @@ using Godot;
 
 namespace OpenPolitics.Client;
 
-/// <summary>The political compass as a square: economic left to right, liberal (bottom) to authoritarian (top). Shows every party; the player's is ringed.</summary>
+/// <summary>
+/// The political compass as a square: economic left to right, liberal (bottom) to authoritarian (top). Party dots in their fixed colours,
+/// labels placed greedily (right, left, above, below, else hidden and shown on hover); the player's party is ringed in ink.
+/// </summary>
 public partial class CompassView : Control
 {
     private readonly List<(string Id, string Name, Vector2 Pos, Color Color)> _dots = new();
     private string? _player;
-    private string _left = "", _right = "", _top = "", _bottom = "";
+    private string _left = "", _right = "", _top = "", _bottom = "", _you = "";
     private int _hover = -1;
+    private float _scale = 1f;
 
     public CompassView()
     {
-        CustomMinimumSize = new Vector2(300, 290);
+        CustomMinimumSize = new Vector2(240, 240);
         MouseFilter = MouseFilterEnum.Stop;
     }
 
@@ -21,73 +25,85 @@ public partial class CompassView : Control
         _player = player;
         var t = s.T;
         (_left, _right, _top, _bottom) = (t.T("ui.compass.left"), t.T("ui.compass.right"), t.T("ui.compass.authoritarian"), t.T("ui.compass.liberal"));
+        _you = t.T("ui.politics.you");
         _dots.Clear();
-        _scale = 1f;
-        var ids = s.Packs.Parties.Select(p => p.Id).OrderBy(x => x, StringComparer.Ordinal).ToList();
         foreach (var (id, pos) in s.Game.Compass.OrderBy(kv => kv.Key, StringComparer.Ordinal))
-            _dots.Add((id, t.Name(id), new Vector2((float)pos.X, (float)pos.Y), Charts.PaletteColor(ids.IndexOf(id))));
-        // Parties cluster near the middle; stretch the picture so the outermost one sits near the edge (the numbers in tooltips stay true).
+            _dots.Add((id, t.Name(id), new Vector2((float)pos.X, (float)pos.Y), Ui.PartyColor(s, id)));
         float far = _dots.Count == 0 ? 0 : _dots.Max(d => Math.Max(Math.Abs(d.Pos.X), Math.Abs(d.Pos.Y)));
-        _scale = far > 0.02f ? Math.Min(4f, 0.85f / far) : 1f;
+        _scale = far > 0.02f ? Math.Min(4f, 0.82f / far) : 1f;
         QueueRedraw();
     }
 
-    private Rect2 Plot => new(0, 0, Math.Max(Size.X, 40), Math.Max(Size.Y, 40));
-    private float _scale = 1f;
+    private Rect2 Plot
+    {
+        get { float side = Math.Min(Size.X, Size.Y); return new Rect2((Size.X - side) / 2, (Size.Y - side) / 2, side, side); }
+    }
 
     private Vector2 ToScreen(Vector2 p)
     {
-        var r = Plot;
-        p *= _scale;
+        var r = Plot; p *= _scale;
         return new Vector2(r.Position.X + r.Size.X * (p.X + 1) / 2, r.Position.Y + r.Size.Y * (1 - (p.Y + 1) / 2));
     }
 
+    public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
+
     public override void _Draw()
     {
-        var font = AppTheme.Medium;
         var r = Plot;
-        DrawStyleBox(AppTheme.Box(new Color(AppTheme.Bg, 0.7f), 10), r);
-        var mid = r.Position + r.Size / 2;
-        // faint quadrant tints: authoritarian left/right, liberal left/right
-        DrawRect(new Rect2(r.Position, r.Size / 2), new Color(AppTheme.Bad, 0.05f));
-        DrawRect(new Rect2(new Vector2(mid.X, r.Position.Y), r.Size / 2), new Color(AppTheme.ValueNode, 0.05f));
-        DrawRect(new Rect2(new Vector2(r.Position.X, mid.Y), r.Size / 2), new Color(AppTheme.Good, 0.05f));
-        DrawRect(new Rect2(mid, r.Size / 2), new Color(AppTheme.Warn, 0.05f));
-        DrawLine(new Vector2(r.Position.X, mid.Y), new Vector2(r.End.X, mid.Y), AppTheme.Border, 1.2f);
-        DrawLine(new Vector2(mid.X, r.Position.Y), new Vector2(mid.X, r.End.Y), AppTheme.Border, 1.2f);
-        DrawString(font, new Vector2(r.Position.X + 8, mid.Y - 6), _left, HorizontalAlignment.Left, 120, AppTheme.Caption, AppTheme.Muted);
-        DrawString(font, new Vector2(r.End.X - 128, mid.Y - 6), _right, HorizontalAlignment.Right, 120, AppTheme.Caption, AppTheme.Muted);
-        DrawString(font, new Vector2(mid.X - 80, r.Position.Y + 18), _top, HorizontalAlignment.Center, 160, AppTheme.Caption, AppTheme.Muted);
-        DrawString(font, new Vector2(mid.X - 80, r.End.Y - 8), _bottom, HorizontalAlignment.Center, 160, AppTheme.Caption, AppTheme.Muted);
+        DrawRect(r, new Color("f3f3f3"));
+        for (int i = 1; i < 4; i++)
+        {
+            float x = r.Position.X + r.Size.X * i / 4, y = r.Position.Y + r.Size.Y * i / 4;
+            var col = i == 2 ? new Color("a8a8a8") : new Color("e2e2e2");
+            DrawLine(new Vector2(x, r.Position.Y), new Vector2(x, r.End.Y), col, 1);
+            DrawLine(new Vector2(r.Position.X, y), new Vector2(r.End.X, y), col, 1);
+        }
+        var ov = AppTheme.Face(700, false, 1);
+        var mid = r.GetCenter();
+        DrawString(ov, new Vector2(r.Position.X + 8, mid.Y - 6), _left.ToUpperInvariant(), HorizontalAlignment.Left, r.Size.X / 2, 10, AppTheme.Ink3);
+        DrawString(ov, new Vector2(mid.X, mid.Y - 6), _right.ToUpperInvariant(), HorizontalAlignment.Right, r.Size.X / 2 - 8, 10, AppTheme.Ink3);
+        DrawString(ov, new Vector2(r.Position.X, r.Position.Y + 16), _top.ToUpperInvariant(), HorizontalAlignment.Center, r.Size.X, 10, AppTheme.Ink3);
+        DrawString(ov, new Vector2(r.Position.X, r.End.Y - 8), _bottom.ToUpperInvariant(), HorizontalAlignment.Center, r.Size.X, 10, AppTheme.Ink3);
 
+        var placed = new List<Rect2>();
+        var font = AppTheme.Semi;
+        foreach (var d in _dots) { var p = ToScreen(d.Pos); placed.Add(new Rect2(p - new Vector2(8, 8), new Vector2(16, 16))); }
         for (int i = 0; i < _dots.Count; i++)
         {
-            var d = _dots[i];
-            var p = ToScreen(d.Pos);
+            var d = _dots[i]; var p = ToScreen(d.Pos);
             bool me = d.Id == _player;
-            if (me) DrawCircle(p, 14, new Color(d.Color, 0.25f));
-            DrawCircle(p, me ? 8 : 6, d.Color);
-            if (me) DrawArc(p, 11, 0, Mathf.Tau, 32, Colors.White, 2f, true);
-            if (i == _hover) DrawArc(p, 10, 0, Mathf.Tau, 32, AppTheme.Accent, 2f, true);
-            var label = d.Name.Length > 18 ? d.Name[..17] + "…" : d.Name;
-            var color = me ? Colors.White : AppTheme.Text2;
-            var f = me ? AppTheme.Bold : AppTheme.Semi;
-            var pos = p.X > Plot.GetCenter().X ? p + new Vector2(-162, 5) : p + new Vector2(12, 5);
-            var align = p.X > Plot.GetCenter().X ? HorizontalAlignment.Right : HorizontalAlignment.Left;
-            DrawStringOutline(f, pos, label, align, 150, AppTheme.Caption, 5, new Color(AppTheme.Bg, 0.9f));
-            DrawString(f, pos, label, align, 150, AppTheme.Caption, color);
+            float rad = me ? 7 : 5.5f;
+            DrawCircle(p, rad + 2, AppTheme.Surface);
+            DrawCircle(p, rad, d.Color);
+            if (me) DrawArc(p, rad + 4, 0, Mathf.Tau, 32, AppTheme.Ink, 2f, true);
+            if (i == _hover) DrawArc(p, rad + 4, 0, Mathf.Tau, 32, AppTheme.Chrome, 2f, true);
+            string label = me ? $"{d.Name} ({_you})" : d.Name;
+            var f = me ? AppTheme.Bold : font;
+            var size = f.GetStringSize(label, HorizontalAlignment.Left, -1, 12);
+            Rect2? spot = null;
+            foreach (var off in new[] { new Vector2(rad + 6, -size.Y / 2), new Vector2(-rad - 6 - size.X, -size.Y / 2), new Vector2(-size.X / 2, -rad - 4 - size.Y), new Vector2(-size.X / 2, rad + 4) })
+            {
+                var rect = new Rect2(p + off, size);
+                if (!r.Encloses(rect)) continue;
+                if (placed.Any(o => o.Intersects(rect) && !o.HasPoint(p))) continue;
+                spot = rect; break;
+            }
+            if (spot == null && i != _hover) continue;
+            var sp = spot ?? new Rect2(p + new Vector2(rad + 6, -size.Y / 2), size);
+            placed.Add(sp);
+            DrawString(f, new Vector2(sp.Position.X, sp.Position.Y + size.Y * 0.78f), label, HorizontalAlignment.Left, -1, 12, AppTheme.Ink);
         }
     }
 
     public override void _GuiInput(InputEvent @event)
     {
         if (@event is not InputEventMouseMotion mm) return;
-        int best = -1; float bestD = 16;
+        int best = -1; float bestD = 14;
         for (int i = 0; i < _dots.Count; i++) { float d = ToScreen(_dots[i].Pos).DistanceTo(mm.Position); if (d < bestD) { bestD = d; best = i; } }
         if (best != _hover)
         {
             _hover = best;
-            TooltipText = best >= 0 ? $"{_dots[best].Name}\n{_dots[best].Pos.X:0.00} / {_dots[best].Pos.Y:0.00}" : "";
+            TooltipText = best >= 0 ? $"{_dots[best].Name}\n{Ui.Num(_dots[best].Pos.X, "0.00")} / {Ui.Num(_dots[best].Pos.Y, "0.00")}" : "";
             QueueRedraw();
         }
     }

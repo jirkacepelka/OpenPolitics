@@ -4,171 +4,179 @@ using OpenPolitics.Core.Packs;
 using OpenPolitics.Core.Politics;
 using OpenPolitics.Core.Presentation;
 
+using static Godot.Control;
+
 namespace OpenPolitics.Client;
 
-/// <summary>Polls, the government, government formation (as formateur or when offered a place) and the coalition panel.</summary>
-public partial class PoliticsScreen : Screen
+/// <summary>Parliament, polls, the compass, government formation (as formateur or when offered a place) and the coalition.</summary>
+public sealed class PoliticsScreen : Screen
 {
     public override string TitleKey => "ui.client.tab.politics";
-    public override float PreferredWidth => 0.86f;
-    private readonly VBoxContainer _body;
-    private Session? _s;
+    public override IconKind Icon => IconKind.Politics;
+    public override string TabId => "politics";
+    public override float Width => 1200;
+
     private readonly HashSet<string> _invited = new(StringComparer.Ordinal);
     private readonly HashSet<(string Party, string Demand)> _agreed = new();
+    private Session? _s; private Dialog? _d; private Main? _main;
 
-    public PoliticsScreen()
+    private void Rebuild() { if (_s != null && _d != null && _main != null && GodotObject.IsInstanceValid(_d)) { Ui.Clear(_d.Body); Build(_s, _d, _main); } }
+
+    private static Control Card(string title, Control body)
     {
-        var (scroll, body) = Ui.Page();
-        _body = body;
-        AddChild(scroll);
-        scroll.SetAnchorsPreset(LayoutPreset.FullRect);
+        var box = Ui.VBox(10);
+        box.AddChild(Ui.L(title, Tx.Overline, AppTheme.Chrome));
+        box.AddChild(body);
+        return Ui.Panel(box, "Card");
     }
 
-    private void Rebuild() { if (_s != null) Refresh(_s); }
-
-    public override void Refresh(Session s)
+    public override void Build(Session s, Dialog d, Main main)
     {
-        _s = s;
-        Ui.Clear(_body);
+        _s = s; _d = d; _main = main;
         var t = s.T;
         var pol = s.Politics;
-        if (pol == null) { _body.AddChild(Ui.Text(t.T("ui.err.no_politics"), Ui.Muted)); return; }
+        if (pol == null) { d.Body.AddChild(Ui.L(t.T("ui.err.no_politics"), Tx.Body)); return; }
         if (pol.Formation is not { PlayerIsFormateur: true }) { _invited.Clear(); _agreed.Clear(); }
-
-        int total = pol.Seats.Values.Sum(), held = pol.GovernmentParties.Sum(p => pol.Seats.GetValueOrDefault(p));
         var rules = s.Packs.Countries.First(c => c.Politics != null).Politics!;
+        int total = pol.Seats.Values.Sum(), held = pol.GovernmentParties.Sum(p => pol.Seats.GetValueOrDefault(p));
         bool majority = held > total * rules.MajorityFraction;
 
-        // Parliament and government, next to the compass.
-        var top = Ui.HBox(12);
-        var gov = Ui.VBox(10);
-        var head = Ui.HBox(12);
-        var titles = Ui.VBox(2);
-        titles.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        titles.AddChild(Ui.Caption(t.T("ui.politics.government")));
-        titles.AddChild(Ui.Big($"{held} / {total}", majority ? Ui.Good : Ui.Bad, AppTheme.Title));
-        head.AddChild(titles);
-        var side = Ui.VBox(6);
-        side.AddChild(Ui.Pill(t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority"), majority ? Ui.Good : Ui.Bad));
-        side.AddChild(Ui.Pill(t.T("ui.line.next_election") + ": " + (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection)), AppTheme.Accent));
-        head.AddChild(side);
-        gov.AddChild(head);
-        var hemi = new Hemicycle { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(300, 170) };
-        hemi.Set(s.Packs.Parties.Select(p => p.Id).OrderBy(id => s.Game.Compass.TryGetValue(id, out var c) ? c.X : 0).ThenBy(id => id, StringComparer.Ordinal)
-            .Select(id => (Ui.PartyColor(s, id), pol.GovernmentParties.Contains(id), pol.Seats.GetValueOrDefault(id))), (float)rules.MajorityFraction);
-        gov.AddChild(hemi);
-        if (pol.Leader != null) gov.AddChild(Ui.Text($"{t.T("ui.politics.leader")}: {t.Name(pol.Leader)}", AppTheme.Text, 14));
-        var members = new HFlowContainer();
-        members.AddThemeConstantOverride("h_separation", 14);
-        foreach (var id in pol.GovernmentParties) members.AddChild(Ui.PartyName(s, id, null, null, 14));
-        gov.AddChild(members);
-        top.AddChild(Ui.Card(gov));
-        var compassCard = Ui.VBox(8);
-        compassCard.AddChild(Ui.Caption(t.T("ui.client.compass")));
-        var compass = new CompassView();
-        compass.Set(s, pol.PlayerParty);
-        compassCard.AddChild(compass);
-        top.AddChild(Ui.Card(compassCard, null, false));
-        _body.AddChild(top);
+        Formation(s, pol, d.Body, main);
 
-        var pollBox = Ui.VBox(8);
-        Polls(s, pol, pollBox);
-        _body.AddChild(Ui.Card(pollBox));
-        Formation(s, pol);
-        Coalition(s, pol);
-    }
+        var grid = new FlowGrid { MinColumn = 330, MaxColumns = 3, Gap = 12 };
+        // Parliament
+        var parl = Ui.VBox(8);
+        var hemi = new Hemicycle { CustomMinimumSize = new Vector2(260, 160) };
+        var order = s.Packs.Parties.Select(p => p.Id).OrderBy(id => s.Game.Compass.TryGetValue(id, out var c) ? c.X : 0).ThenBy(id => id, StringComparer.Ordinal);
+        hemi.Set(order.Select(id => (Ui.PartyColor(s, id), pol.GovernmentParties.Contains(id), pol.Seats.GetValueOrDefault(id), t.Name(id))), (float)rules.MajorityFraction,
+            $"/ {total} · " + t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority"));
+        parl.AddChild(hemi);
+        var status = Ui.HBox(8);
+        status.AddChild(Ui.Pill(t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority"), majority ? AppTheme.Good : AppTheme.Bad));
+        status.AddChild(Ui.Pill(t.T("ui.line.next_election") + ": " + (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection)), AppTheme.Chrome));
+        parl.AddChild(status);
+        if (pol.Leader != null) parl.AddChild(Ui.L($"{t.T("ui.politics.leader")}: {t.Name(pol.Leader)}", Tx.Body, AppTheme.Ink));
+        foreach (var id in pol.GovernmentParties.Concat(pol.Seats.Keys.Where(k => !pol.GovernmentParties.Contains(k) && pol.Seats[k] > 0).OrderByDescending(k => pol.Seats[k])))
+        {
+            var row = Ui.HBox(8);
+            var pn = Ui.PartyName(s, id, t.Name(id) + (pol.GovernmentParties.Contains(id) ? "  ★" : ""), Tx.Label);
+            pn.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            row.AddChild(pn);
+            row.AddChild(Ui.L(pol.Seats.GetValueOrDefault(id).ToString(), Tx.Data));
+            parl.AddChild(PartyButton(main, id, row));
+        }
+        grid.AddChild(Card(t.T("ui.pp.parliament"), parl));
 
-    private void Polls(Session s, CountryPolitics pol, VBoxContainer parent)
-    {
-        var t = s.T;
-        parent.AddChild(Ui.Text(t.T("ui.politics.polls"), Colors.White, AppTheme.Subhead, false, AppTheme.Semi));
-        double max = Math.Max(0.35, pol.Support.Values.Max());
-        int total = pol.Seats.Values.Sum();
+        // Polls
+        var polls = Ui.VBox(4);
+        double max = Math.Max(0.3, pol.Support.Values.DefaultIfEmpty(0).Max());
+        double threshold = s.Game.ElectoralThreshold ?? 0;
         foreach (var (id, share) in pol.Support.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
         {
-            var row = Ui.HBox(12);
-            bool gov = pol.GovernmentParties.Contains(id), me = id == pol.PlayerParty;
-            var name = Ui.PartyName(s, id, t.Name(id) + (me ? "  (" + t.T("ui.politics.you") + ")" : ""), me ? AppTheme.Accent : null);
-            name.CustomMinimumSize = new Vector2(250, 0);
+            var row = Ui.HBox(8);
+            bool me = id == pol.PlayerParty;
+            var name = Ui.PartyName(s, id, t.Name(id) + (me ? " (" + t.T("ui.politics.you") + ")" : ""), me ? Tx.BodyStrong : Tx.Label);
+            name.CustomMinimumSize = new Vector2(Layout.Compact ? 130 : 170, 0);
+            foreach (var l in name.GetChildren().OfType<Label>()) { l.ClipText = true; l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; l.SizeFlagsHorizontal = SizeFlags.ExpandFill; l.CustomMinimumSize = new Vector2(40, 0); }
             row.AddChild(name);
-            var star = Ui.Text(gov ? "★" : "", Ui.Warn, 14);
-            star.CustomMinimumSize = new Vector2(16, 0);
-            star.TooltipText = gov ? t.T("ui.politics.government") : "";
-            row.AddChild(star);
-            var bar = new Meter(share, 0, max, Ui.PartyColor(s, id), 160, false, 10) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var bar = new Meter(share, 0, max, Ui.PartyColor(s, id), 60, false, 12) { SizeFlagsHorizontal = SizeFlags.ExpandFill, Mark = threshold > 0 ? (float)(threshold / max) : null };
             row.AddChild(bar);
-            var pct = Ui.Text(Fmt.Number(share * 100) + " %", Colors.White, 15, false, AppTheme.Semi);
-            pct.CustomMinimumSize = new Vector2(64, 0); pct.HorizontalAlignment = HorizontalAlignment.Right;
+            var pct = Ui.Right(Ui.L(Ui.Num(share * 100) + " %", Tx.Data));
+            pct.CustomMinimumSize = new Vector2(54, 0);
             row.AddChild(pct);
-            var seats = Ui.Text(t.T("ui.politics.seats_of", pol.Seats.GetValueOrDefault(id), total), Ui.Muted, AppTheme.Caption);
-            seats.CustomMinimumSize = new Vector2(120, 0); seats.HorizontalAlignment = HorizontalAlignment.Right;
+            var seats = Ui.Right(Ui.L(pol.Seats.GetValueOrDefault(id).ToString(), Tx.Data, AppTheme.Ink3));
+            seats.CustomMinimumSize = new Vector2(30, 0);
             row.AddChild(seats);
-            parent.AddChild(row);
+            polls.AddChild(PartyButton(main, id, row));
+        }
+        if (threshold > 0) polls.AddChild(Ui.L(t.T("ui.pp.threshold", Ui.Num(threshold * 100, "0.#")), Tx.Small));
+        if (Charts.All.FirstOrDefault(c => c.Id == "polls") is { } pspec)
+        {
+            var b = Ui.Btn(t.T("ui.map.open_chart"), () => main.OpenChart(pspec), "ButtonSecondary", IconKind.Chart);
+            b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            polls.AddChild(b);
+        }
+        grid.AddChild(Card(t.T("ui.politics.polls"), polls));
+
+        // Compass
+        var compass = new CompassView { CustomMinimumSize = new Vector2(240, 260), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        compass.Set(s, pol.PlayerParty);
+        grid.AddChild(Card(t.T("ui.client.compass"), compass));
+
+        // Coalition
+        var coal = Coalition(s, pol, main);
+        if (coal != null) { coal.SetMeta("span", 2); grid.AddChild(coal); }
+        d.Body.AddChild(grid);
+        if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader)
+        {
+            var b = Ui.Btn(t.T("ui.client.early_election"), () => s.Do(new CallEarlyElection(), t.T("ui.formation.early_called")), "ButtonDanger", IconKind.Ballot);
+            b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            d.Body.AddChild(b);
         }
     }
 
-    // ---- formation ------------------------------------------------------------
+    private static Control PartyButton(Main main, string id, Control row)
+    {
+        var b = new Button { ThemeTypeVariation = "ButtonGhost", CustomMinimumSize = new Vector2(0, 28), FocusMode = Control.FocusModeEnum.None, MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        b.AddChild(row); row.SetAnchorsPreset(Control.LayoutPreset.FullRect); Detail.SetIgnore(row);
+        b.Pressed += () => main.OpenDetail("party", id);
+        return b;
+    }
 
-    private void Formation(Session s, CountryPolitics pol)
+    private void Formation(Session s, CountryPolitics pol, VBoxContainer body, Main main)
     {
         var t = s.T;
         if (pol.Phase == Phase.Caretaker)
         {
-            _body.AddChild(Ui.Callout(Ui.Text(t.T("ui.formation.caretaker"), Ui.Warn, 15, true), Ui.Warn));
+            body.AddChild(Ui.Panel(Ui.L(t.T("ui.formation.caretaker"), Tx.BodyStrong, AppTheme.WarnText, true), "Warn"));
             return;
         }
         if (pol.Phase != Phase.Formation || pol.Formation == null) return;
         var f = pol.Formation;
-        _body.AddChild(Ui.Section(t.T("ui.formation.heading")));
-        if (f.Offer != null) { Offer(s, f.Offer); return; }
-        if (!f.PlayerIsFormateur)
-        {
-            _body.AddChild(Ui.Callout(Ui.Text(t.T("ui.formation.ai_forms", t.Name(f.Formateur), f.Attempt), AppTheme.Text, 14, true), AppTheme.Accent));
-            return;
-        }
-        var head = Ui.HBox(12);
-        head.AddChild(Ui.Text(t.T("ui.formation.you_form", f.TurnsLeft), Ui.Warn, 15, true));
-        var auto = Ui.Btn(t.T("ui.client.auto_proposal"), () =>
-        {
-            if (s.Game.SuggestCoalition() is { } sug) s.Do(new ProposeCoalition(sug.Partners, sug.Agreements), t.T("ui.formation.proposed"));
-        }, t.T("ui.client.auto_hint"));
-        head.AddChild(auto);
-        _body.AddChild(Ui.Callout(head, Ui.Warn));
-        Draft(s, pol);
-    }
-
-    private void Offer(Session s, CoalitionProposal offer)
-    {
-        var t = s.T;
         var box = Ui.VBox(10);
-        box.AddChild(Ui.Text(t.T("ui.formation.offer", t.Name(offer.Formateur), string.Join(", ", offer.Partners.Select(t.Name))), Colors.White, 15, true, AppTheme.Semi));
-        foreach (var a in offer.Agreements)
-            if (s.Texts.DemandOf(a.PartyId, a.DemandId) is { } d) box.AddChild(Ui.PartyName(s, a.PartyId, $"{t.Name(a.PartyId)}: {s.Texts.Demand(d)}", AppTheme.Text2, 14));
-        var row = Ui.HBox();
-        row.AddChild(Ui.Primary(t.T("ui.client.accept"), () => s.Do(new AcceptOffer(), t.T("ui.formation.joined"))));
-        row.AddChild(Ui.Btn(t.T("ui.client.reject"), () => s.Do(new RejectOffer(), t.T("ui.formation.rejected"))));
-        box.AddChild(row);
-        box.AddChild(Ui.Text(t.T("ui.formation.offer_hint"), Ui.Muted, AppTheme.Caption, true));
-        _body.AddChild(Ui.Callout(box, Ui.Warn));
+        box.AddChild(Ui.L(t.T("ui.formation.heading"), Tx.Heading));
+        if (f.Offer != null)
+        {
+            box.AddChild(Ui.L(t.T("ui.formation.offer", t.Name(f.Offer.Formateur), string.Join(", ", f.Offer.Partners.Select(t.Name))), Tx.BodyStrong, AppTheme.Ink, true));
+            foreach (var a in f.Offer.Agreements)
+                if (s.Texts.DemandOf(a.PartyId, a.DemandId) is { } dm) box.AddChild(Ui.PartyName(s, a.PartyId, $"{t.Name(a.PartyId)}: {Ui.Fix(s.Texts.Demand(dm))}", Tx.Body));
+            var row = Ui.HBox(1);
+            row.AddChild(Ui.Btn(t.T("ui.client.accept"), () => s.Do(new AcceptOffer(), t.T("ui.formation.joined")), "", IconKind.Check));
+            row.AddChild(Ui.Btn(t.T("ui.client.reject"), () => s.Do(new RejectOffer(), t.T("ui.formation.rejected")), "ButtonSecondary", IconKind.Close));
+            box.AddChild(row);
+            box.AddChild(Ui.L(t.T("ui.formation.offer_hint"), Tx.Small, AppTheme.Ink3, true));
+        }
+        else if (!f.PlayerIsFormateur) box.AddChild(Ui.L(t.T("ui.formation.ai_forms", t.Name(f.Formateur), f.Attempt), Tx.Body, AppTheme.Ink, true));
+        else
+        {
+            var head = Ui.HBox(12);
+            head.AddChild(Ui.L(t.T("ui.formation.you_form", f.TurnsLeft), Tx.BodyStrong, AppTheme.WarnText, true));
+            head.AddChild(Ui.Btn(t.T("ui.client.auto_proposal"), () =>
+            {
+                if (s.Game.SuggestCoalition() is { } sug) s.Do(new ProposeCoalition(sug.Partners, sug.Agreements), t.T("ui.formation.proposed"));
+            }, "", IconKind.Check, t.T("ui.client.auto_hint")));
+            box.AddChild(head);
+            Draft(s, pol, box);
+        }
+        body.AddChild(Ui.Panel(box, "Inset"));
     }
 
-    private void Draft(Session s, CountryPolitics pol)
+    private void Draft(Session s, CountryPolitics pol, VBoxContainer card)
     {
         var t = s.T;
         var rules = s.Packs.Countries.First(c => c.Politics != null).Politics!;
         int total = pol.Seats.Values.Sum();
         int held = pol.Seats.GetValueOrDefault(pol.PlayerParty) + _invited.Sum(p => pol.Seats.GetValueOrDefault(p));
-        var card = Ui.VBox(6);
-        card.AddChild(Ui.Text(t.T("ui.formation.majority_needed", (int)Math.Floor(rules.MajorityFraction * total), held, rules.ProgramSlots),
-            held > total * rules.MajorityFraction ? Ui.Good : AppTheme.Text2, 14, true));
+        card.AddChild(Ui.L(t.T("ui.formation.majority_needed", (int)Math.Floor(rules.MajorityFraction * total), held, rules.ProgramSlots),
+            Tx.BodyStrong, held > total * rules.MajorityFraction ? AppTheme.GoodText : AppTheme.Ink2, true));
         foreach (var party in s.Packs.Parties.Where(p => p.Id != pol.PlayerParty && pol.Seats.GetValueOrDefault(p.Id) > 0).OrderBy(p => p.Id, StringComparer.Ordinal))
         {
             var line = Ui.HBox(8);
             line.AddChild(new ColorDot(Ui.PartyColor(s, party.Id)));
             var invite = new CheckBox
             {
-                Text = $"{t.Name(party.Id)}  ·  {t.T("ui.formation.party_line", pol.Seats[party.Id], Fmt.Number(CoalitionRules.RequiredWeight(party, pol.Party?.Relations.GetValueOrDefault(party.Id, 0.3) ?? 0.3)))}",
-                ButtonPressed = _invited.Contains(party.Id), FocusMode = FocusModeEnum.None,
+                Text = $"{t.Name(party.Id)}  ·  {Ui.Fix(t.T("ui.formation.party_line", pol.Seats[party.Id], Fmt.Number(CoalitionRules.RequiredWeight(party, pol.Party?.Relations.GetValueOrDefault(party.Id, 0.3) ?? 0.3))))}",
+                ButtonPressed = _invited.Contains(party.Id), FocusMode = Control.FocusModeEnum.None,
             };
             invite.Toggled += on =>
             {
@@ -178,86 +186,70 @@ public partial class PoliticsScreen : Screen
             line.AddChild(invite);
             card.AddChild(line);
             if (!_invited.Contains(party.Id)) continue;
-            foreach (var d in party.Demands)
+            foreach (var dm in party.Demands)
             {
                 var box = new CheckBox
                 {
-                    Text = $"{s.Texts.Demand(d)}   ({t.T("ui.formation.weight", Fmt.Number(d.Weight))})",
-                    ButtonPressed = _agreed.Contains((party.Id, d.Id)), FocusMode = FocusModeEnum.None,
+                    Text = $"{Ui.Fix(s.Texts.Demand(dm))}   ({Ui.Fix(t.T("ui.formation.weight", Fmt.Number(dm.Weight)))})",
+                    ButtonPressed = _agreed.Contains((party.Id, dm.Id)), FocusMode = Control.FocusModeEnum.None,
                 };
-                box.AddThemeColorOverride("font_color", AppTheme.Text2);
-                var margin = Ui.Margin(box, 0);
-                margin.AddThemeConstantOverride("margin_left", 40);
-                box.Toggled += on => { if (on) _agreed.Add((party.Id, d.Id)); else _agreed.Remove((party.Id, d.Id)); Rebuild(); };
-                card.AddChild(margin);
+                box.AddThemeColorOverride("font_color", AppTheme.Ink2);
+                box.Toggled += on => { if (on) _agreed.Add((party.Id, dm.Id)); else _agreed.Remove((party.Id, dm.Id)); Rebuild(); };
+                var indent = Ui.Margin(box, 0, 0);
+                indent.AddThemeConstantOverride("margin_left", 36);
+                card.AddChild(indent);
             }
         }
-        var submit = Ui.Primary(t.T("ui.client.submit"), () =>
+        var submit = Ui.Btn(t.T("ui.client.submit"), () =>
             s.Do(new ProposeCoalition(_invited.OrderBy(x => x, StringComparer.Ordinal).ToList(),
                 _agreed.OrderBy(a => a.Party, StringComparer.Ordinal).ThenBy(a => a.Demand, StringComparer.Ordinal)
-                    .Select(a => new AgreedDemand(a.Party, a.Demand)).ToList()), t.T("ui.formation.proposed")));
+                    .Select(a => new AgreedDemand(a.Party, a.Demand)).ToList()), t.T("ui.formation.proposed")), "", IconKind.Check);
         submit.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        card.AddChild(Ui.Gap(4));
         card.AddChild(submit);
-        _body.AddChild(Ui.Card(card));
     }
 
-    // ---- coalition -------------------------------------------------------------
-
-    private void Coalition(Session s, CountryPolitics pol)
+    private static Control? Coalition(Session s, CountryPolitics pol, Main main)
     {
         var t = s.T;
-        if (pol.Phase != Phase.Governing || pol.Loyalty is not { Count: > 0 })
-        {
-            if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader) EarlyElectionButton(s);
-            return;
-        }
-        _body.AddChild(Ui.Section(t.T("ui.heading.coalition")));
-        var grid = new GridContainer { Columns = 2, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        grid.AddThemeConstantOverride("h_separation", 12); grid.AddThemeConstantOverride("v_separation", 12);
+        if (pol.Phase != Phase.Governing || pol.Loyalty is not { Count: > 0 }) return null;
+        var list = Ui.VBox(14);
         foreach (var (party, loyalty) in pol.Loyalty)
         {
             bool ult = pol.Ultimatums?.Any(u => u.PartyId == party) == true;
-            var color = ult ? Ui.Bad : loyalty < 60 ? Ui.Warn : Ui.Good;
-            var box = Ui.VBox(8);
+            var color = ult ? AppTheme.Bad : loyalty < 60 ? AppTheme.Warn : AppTheme.Good;
+            var box = Ui.VBox(6);
             var head = Ui.HBox(10);
-            var name = Ui.PartyName(s, party, null, Colors.White, 16);
+            var name = Ui.PartyName(s, party, null, Tx.Heading);
             name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             head.AddChild(name);
             head.AddChild(Ui.Pill(t.T(ult ? "ui.loyalty.ultimatum" : loyalty < 60 ? "ui.loyalty.uneasy" : "ui.loyalty.stable"), color));
             box.AddChild(head);
             var meter = Ui.HBox(10);
-            var m = new Meter(loyalty, 0, 100, color, 160) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            meter.AddChild(m);
-            meter.AddChild(Ui.Text(t.T("ui.coalition.loyalty", Fmt.Number(loyalty, "0")), AppTheme.Text2, AppTheme.Caption));
+            meter.AddChild(new Meter(loyalty, 0, 100, color, 120, false, 12) { SizeFlagsHorizontal = SizeFlags.ExpandFill, TrackColor = AppTheme.TrackLight });
+            meter.AddChild(Ui.L(Ui.Fix(t.T("ui.coalition.loyalty", Fmt.Number(loyalty, "0"))), Tx.Small));
             box.AddChild(meter);
             if (pol.Ultimatums?.FirstOrDefault(u => u.PartyId == party) is { } u)
             {
-                var d = u.DemandId == null ? null : s.Texts.DemandOf(party, u.DemandId);
-                box.AddChild(Ui.Text("⚠ " + t.T("ui.coalition.ultimatum", u.TurnsLeft, d == null ? "" : s.Texts.Demand(d)), Ui.Bad, 14, true));
+                var dm = u.DemandId == null ? null : s.Texts.DemandOf(party, u.DemandId);
+                var w = Ui.HBox(8);
+                w.AddChild(new IconView(IconKind.Alert, 16, AppTheme.BadText));
+                w.AddChild(Ui.L(Ui.Fix(t.T("ui.coalition.ultimatum", u.TurnsLeft, dm == null ? "" : s.Texts.Demand(dm))), Tx.BodyStrong, AppTheme.BadText, true));
+                box.AddChild(w);
             }
             var mine = pol.Commitments?.Where(c => c.PartyId == party).ToList() ?? new();
-            if (mine.Count == 0) box.AddChild(Ui.Text(t.T("ui.coalition.no_commitments"), Ui.Muted, AppTheme.Caption, true));
+            if (mine.Count == 0) box.AddChild(Ui.L(t.T("ui.coalition.no_commitments"), Tx.Small, AppTheme.Ink3, true));
             foreach (var c in mine)
             {
-                var d = s.Texts.DemandOf(party, c.DemandId);
+                var dm = s.Texts.DemandOf(party, c.DemandId);
                 string status = c.Progress >= 0.999 ? "ui.commitment.done" : c.Progress + 0.05 >= c.Expected ? "ui.commitment.on_track" : "ui.commitment.late";
-                var sc = status == "ui.commitment.late" ? Ui.Bad : status == "ui.commitment.done" ? Ui.Good : AppTheme.Accent;
+                var sc = status == "ui.commitment.late" ? AppTheme.Bad : status == "ui.commitment.done" ? AppTheme.Good : AppTheme.Chrome;
                 var line = Ui.HBox(8);
                 line.AddChild(Ui.Pill(t.T(status), sc));
-                line.AddChild(Ui.Text($"{(d == null ? c.DemandId : s.Texts.Demand(d))}  ({Fmt.Number(c.Progress * 100 + 0.0, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)", AppTheme.Text2, AppTheme.Caption, true));
+                line.AddChild(Ui.L(Ui.Fix($"{(dm == null ? c.DemandId : s.Texts.Demand(dm))}  ({Fmt.Number(c.Progress * 100, "0")} % / {Fmt.Number(c.Expected * 100, "0")} %)"), Tx.Small, AppTheme.Ink2, true));
                 box.AddChild(line);
             }
-            grid.AddChild(Ui.Card(box, null, true, 14));
+            list.AddChild(box);
         }
-        _body.AddChild(grid);
-        if (pol.PlayerRole == Role.Leader) EarlyElectionButton(s);
-    }
-
-    private void EarlyElectionButton(Session s)
-    {
-        var b = Ui.Btn(s.T.T("ui.client.early_election"), () => s.Do(new CallEarlyElection(), s.T.T("ui.formation.early_called")));
-        b.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        _body.AddChild(b);
+        return Card(t.T("ui.heading.coalition"), list);
     }
 }

@@ -9,7 +9,7 @@ cd "$(dirname "$0")/../client-godot"
 export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}" DOTNET_CLI_TELEMETRY_OPTOUT=1
 "$GODOT" --headless --path . --build-solutions --quit
 if [ $# -ge 1 ]; then
-  "$GODOT" --path . --resolution "${RES:-1600x900}" -- --smoke --screenshots "$1" ${UISCALE:+--ui-scale $UISCALE}
+  "$GODOT" --path . --resolution "${RES:-1600x900}" -- --smoke --screenshots "$1" --res "${RES:-1600x900}" ${UISCALE:+--ui-scale $UISCALE}
 else
   "$GODOT" --headless --path . -- --smoke
 fi

@@ -7,7 +7,7 @@ public enum IconKind
     Overview, Policies, Voters, Politics, Party, News, Coin, Menu, Save, Play, FastForward,
     Percent, Tag, Factory, House, Leaf, Arrows, Pill, Ballot, Target, Star, Bus, Family, Briefcase, Wheat, Wifi, Key, Globe, Clock,
     Bolt, Eye, Hand, Health, Education, Shield, Flask, Road, Columns, Alert, Scale, ChartUp, Gear, Users, Bank, CoinIn, CoinOut, Gauge,
-    Chart, Close,
+    Chart, Close, Map, Grid, Check, Plus, Minus, Fit, Undo, SortAz, SortSize, Smile, Back, Search, Calendar,
 }
 
 /// <summary>
@@ -47,7 +47,7 @@ public static class Icons
     {
         float u = size / 24f;
         Vector2 P(float x, float y) => center + new Vector2(x, y) * u;
-        float w = Math.Max(1.4f, 1.9f * u);
+        float w = Math.Max(1.5f, 2.3f * u);
         void L(float x1, float y1, float x2, float y2) => c.DrawLine(P(x1, y1), P(x2, y2), color, w, true);
         void Poly(params float[] xy)
         {
@@ -84,7 +84,13 @@ public static class Icons
                 foreach (float y in new[] { -4f, -0.5f }) L(2, y, 7, y);
                 L(-7, 3.5f, 7, 3.5f);
                 break;
-            case IconKind.Coin: Ring(0, 0, 9); L(0, -5, 0, 5); Arc(0, -1.6f, 3, Mathf.Pi * 0.9f, Mathf.Pi * 2.1f); break;
+            case IconKind.Coin:
+            {
+                void Ell(float y, float from, float to) { var pts = new Vector2[25]; for (int i = 0; i <= 24; i++) { float a = from + (to - from) * i / 24; pts[i] = P(Mathf.Cos(a) * 9, y + Mathf.Sin(a) * 3.5f); } c.DrawPolyline(pts, color, w, true); }
+                Ell(-6, 0, Mathf.Tau); L(-9, -6, -9, 6); L(9, -6, 9, 6);
+                Ell(-1, 0, Mathf.Pi); Ell(3, 0, Mathf.Pi); Ell(6, 0, Mathf.Pi);
+                break;
+            }
             case IconKind.Menu: foreach (float y in new[] { -6f, 0f, 6f }) L(-8, y, 8, y); break;
             case IconKind.Save: Poly(-9, -9, 5, -9, 9, -5, 9, 9, -9, 9, -9, -9); Box(-5, -9, 8, 5); Box(-5, 2, 10, 7); break;
             case IconKind.Play: c.DrawColoredPolygon(new[] { P(-6, -9), P(9, 0), P(-6, 9) }, color); break;
@@ -167,205 +173,23 @@ public static class Icons
             case IconKind.CoinIn: Box(-11, -1, 22, 12); Ring(0, 5, 2.8f); L(0, -11, 0, -4); Poly(-3.5f, -7, 0, -3.5f, 3.5f, -7); break;
             case IconKind.CoinOut: Box(-11, -1, 22, 12); Ring(0, 5, 2.8f); L(0, -4, 0, -11); Poly(-3.5f, -8, 0, -11.5f, 3.5f, -8); break;
             case IconKind.Gauge: Arc(0, 4, 10, Mathf.Pi, Mathf.Tau); L(-10, 4, 10, 4); L(0, 4, 5, -3); Dot(0, 4, 1.8f); break;
+            case IconKind.Map:
+                L(-7, -6, 6, -8); L(-7, -6, -2, 6); L(6, -8, -2, 6); L(6, -8, 8, 5); L(-2, 6, 8, 5);
+                Dot(-7, -6, 3.2f); Dot(6, -8, 2.6f); Dot(-2, 6, 3.6f); Dot(8, 5, 2.4f);
+                break;
+            case IconKind.Grid: Box(-9, -9, 7.5f, 7.5f); Box(1.5f, -9, 7.5f, 7.5f); Box(-9, 1.5f, 7.5f, 7.5f); Box(1.5f, 1.5f, 7.5f, 7.5f); break;
+            case IconKind.Check: Poly(-8, 0, -3, 6, 9, -7); break;
+            case IconKind.Plus: L(-8, 0, 8, 0); L(0, -8, 0, 8); break;
+            case IconKind.Minus: L(-8, 0, 8, 0); break;
+            case IconKind.Fit: Poly(-9, -4, -9, -9, -4, -9); Poly(4, -9, 9, -9, 9, -4); Poly(9, 4, 9, 9, 4, 9); Poly(-4, 9, -9, 9, -9, 4); break;
+            case IconKind.Undo: Arc(1, 2, 8, -Mathf.Pi * 0.95f, Mathf.Pi * 0.75f); Poly(-11, -6, -7, -1, -2, -5); break;
+            case IconKind.SortAz: L(-8, -8, -8, 8); Poly(-11, 5, -8, 8, -5, 5); L(0, -7, 9, -7); L(0, -1, 7, -1); L(0, 5, 5, 5); break;
+            case IconKind.SortSize: Fill(-9, 2, 4, 7); Fill(-2, -2, 4, 11); Fill(5, -7, 4, 16); break;
+            case IconKind.Smile: Ring(0, 0, 9.5f); Dot(-3.5f, -3, 1.6f); Dot(3.5f, -3, 1.6f); Arc(0, 1, 5, Mathf.Pi * 0.15f, Mathf.Pi * 0.85f); break;
+            case IconKind.Back: L(-8, 0, 9, 0); Poly(-2, -6, -8, 0, -2, 6); break;
+            case IconKind.Search: Ring(-2, -2, 6.5f); L(3, 3, 9, 9); break;
+            case IconKind.Calendar: Box(-9, -7, 18, 16); L(-9, -2, 9, -2); L(-4, -10, -4, -5); L(4, -10, 4, -5); break;
         }
     }
 }
 
-/// <summary>
-/// A button with a pictogram. Three looks: a toolbar tile (icon above a caption), an icon-only square, and an inline pill (icon then
-/// caption, sized to the text). Primary paints it in the accent colour. Optional notification dot.
-/// </summary>
-public partial class IconButton : Control
-{
-    private readonly IconKind _kind;
-    private bool _hover, _down;
-    private string _caption;
-    private float _anim; // 0..1 hover/active highlight, eased
-    public string Caption { get => _caption; set { _caption = value; Fit(); QueueRedraw(); } }
-    public bool Active { get; set; }
-    public bool Badge { get; set; }
-    public bool Primary { get; set; }
-    /// <summary>Inline look: icon and caption on one line (sized to the caption).</summary>
-    public bool Round { get; set; }
-    public Color? IconColor { get; set; }
-    public string SubCaption { get; set; } = "";
-    public event Action? Pressed;
-
-    public IconButton(IconKind kind, string caption, string tooltip = "", Vector2? size = null)
-    {
-        _kind = kind; _caption = caption; TooltipText = tooltip;
-        CustomMinimumSize = size ?? new Vector2(88, 64);
-        MouseFilter = MouseFilterEnum.Stop;
-        MouseDefaultCursorShape = CursorShape.PointingHand;
-        FocusMode = FocusModeEnum.None;
-    }
-
-    private float _baseWidth = -1;
-
-    /// <summary>Inline buttons grow to fit their caption.</summary>
-    private void Fit()
-    {
-        if (!Round || _caption.Length == 0) return;
-        if (_baseWidth < 0) _baseWidth = CustomMinimumSize.X;
-        float h = CustomMinimumSize.Y;
-        float text = AppTheme.Bold.GetStringSize(_caption, HorizontalAlignment.Left, -1, AppTheme.Body).X;
-        if (SubCaption.Length > 0) text = Math.Max(text, AppTheme.Regular.GetStringSize(SubCaption, HorizontalAlignment.Left, -1, 12).X);
-        CustomMinimumSize = new Vector2(Math.Max(_baseWidth, h * 0.9f + text + 18), h);
-    }
-
-    public override void _Ready() => Fit();
-
-    public override void _Process(double delta)
-    {
-        float target = _hover || Active ? 1f : 0f;
-        if (Math.Abs(_anim - target) < 0.01f) { if (_anim != target) { _anim = target; QueueRedraw(); } return; }
-        _anim = Mathf.MoveToward(_anim, target, (float)delta * 7f);
-        QueueRedraw();
-    }
-
-    public override void _Draw()
-    {
-        bool tile = _caption.Length > 0 && !Round, inline = _caption.Length > 0 && Round;
-        var rect = new Rect2(Vector2.Zero, Size);
-        Color ink;
-        if (Primary)
-        {
-            var fill = (_down ? AppTheme.Accent.Darkened(0.12f) : AppTheme.Accent).Lerp(AppTheme.Accent.Lightened(0.15f), _hover ? 1 : 0);
-            var box = AppTheme.Box(fill, 10);
-            box.ShadowColor = new Color(AppTheme.Accent, 0.25f + 0.15f * _anim); box.ShadowSize = 10;
-            DrawStyleBox(box, rect);
-            ink = AppTheme.AccentInk;
-        }
-        else if (tile)
-        {
-            var fill = Active ? AppTheme.Tint(AppTheme.Accent, 0.18f) : new Color(AppTheme.CardHover, 0.9f * _anim);
-            DrawStyleBox(AppTheme.Box(fill, 12, Active ? new Color(AppTheme.Accent, 0.6f) : null, 1), rect);
-            if (Active) DrawStyleBox(AppTheme.Box(AppTheme.Accent, 2), new Rect2(Size.X / 2 - 14, 3, 28, 3));
-            ink = Active ? Colors.White : AppTheme.Text2.Lerp(Colors.White, _anim);
-        }
-        else
-        {
-            var fill = new Color(AppTheme.Card, 0.55f).Lerp(AppTheme.CardHover, _anim);
-            DrawStyleBox(AppTheme.Box(fill, 10, new Color(AppTheme.BorderStrong, 0.35f + 0.4f * _anim), 1), rect);
-            ink = AppTheme.Text2.Lerp(Colors.White, _anim);
-        }
-        var iconInk = IconColor ?? ink;
-        if (tile)
-        {
-            Icons.Draw(this, _kind, new Vector2(Size.X / 2, Size.Y * 0.38f), 24, iconInk);
-            var font = Active ? AppTheme.Semi : AppTheme.Medium;
-            DrawString(font, new Vector2(2, Size.Y - 11), _caption, HorizontalAlignment.Center, Size.X - 4, AppTheme.Caption, ink);
-        }
-        else if (inline)
-        {
-            float icon = Math.Min(22, Size.Y * 0.46f);
-            Icons.Draw(this, _kind, new Vector2(14 + icon / 2, Size.Y / 2), icon, iconInk);
-            float x = 14 + icon + 10;
-            if (SubCaption.Length > 0)
-            {
-                DrawString(AppTheme.Bold, new Vector2(x, Size.Y / 2 - 2), _caption, HorizontalAlignment.Left, Size.X - x - 8, AppTheme.Body, ink);
-                DrawString(AppTheme.Regular, new Vector2(x, Size.Y / 2 + 14), SubCaption, HorizontalAlignment.Left, Size.X - x - 8, 12, Primary ? ink : AppTheme.Muted);
-            }
-            else DrawString(AppTheme.Bold, new Vector2(x, Size.Y / 2 + 6), _caption, HorizontalAlignment.Left, Size.X - x - 8, AppTheme.Body, ink);
-        }
-        else Icons.Draw(this, _kind, Size / 2, Math.Min(22, Math.Min(Size.X, Size.Y) * 0.5f), iconInk);
-        if (Badge) { DrawCircle(new Vector2(Size.X - 13, 13), 7f, AppTheme.Surface); DrawCircle(new Vector2(Size.X - 13, 13), 5f, AppTheme.Bad); }
-    }
-
-    public override void _GuiInput(InputEvent @event)
-    {
-        if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left } mb)
-        {
-            if (mb.Pressed) _down = true;
-            else { if (_down && new Rect2(Vector2.Zero, Size).HasPoint(mb.Position)) Pressed?.Invoke(); _down = false; }
-            QueueRedraw();
-        }
-    }
-
-    public override void _Notification(int what)
-    {
-        if (what == NotificationMouseEnter) { _hover = true; QueueRedraw(); }
-        else if (what == NotificationMouseExit) { _hover = false; _down = false; QueueRedraw(); }
-    }
-}
-
-/// <summary>An indicator in the top bar: a caption, a big number, a coloured trend and a status underline. Clicking opens its chart.</summary>
-public partial class HudChip : Control
-{
-    private string _caption = "", _value = "", _delta = "";
-    private Color _color = Colors.White;
-    private bool _hover;
-    public event Action? Pressed;
-
-    public HudChip()
-    {
-        CustomMinimumSize = new Vector2(96, 48);
-        SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        MouseFilter = MouseFilterEnum.Stop; MouseDefaultCursorShape = CursorShape.PointingHand;
-    }
-
-    public void Set(string caption, string value, string delta, Color color, string tooltip = "")
-    {
-        _caption = caption; _value = value; _delta = delta; _color = color; TooltipText = tooltip;
-        QueueRedraw();
-    }
-
-    public override void _Draw()
-    {
-        if (_hover) DrawStyleBox(AppTheme.Box(AppTheme.CardHover, 10), new Rect2(Vector2.Zero, Size));
-        float x = 12;
-        DrawString(AppTheme.Medium, new Vector2(x, 18), _caption, HorizontalAlignment.Left, Size.X - x - 6, AppTheme.Caption, AppTheme.Muted);
-        DrawString(AppTheme.Bold, new Vector2(x, 40), _value, HorizontalAlignment.Left, Size.X - x - 4, 20, Colors.White);
-        float vw = AppTheme.Bold.GetStringSize(_value, HorizontalAlignment.Left, -1, 20).X;
-        float dw = AppTheme.Semi.GetStringSize(_delta, HorizontalAlignment.Left, -1, AppTheme.Caption).X;
-        if (_delta.Length > 0 && x + vw + 6 + dw <= Size.X - 4)
-            DrawString(AppTheme.Semi, new Vector2(x + vw + 6, 40), _delta, HorizontalAlignment.Left, -1, AppTheme.Caption, _color);
-        DrawStyleBox(AppTheme.Box(_color, 1), new Rect2(x, Size.Y - 4, 22, 2.5f));
-    }
-
-    public override void _GuiInput(InputEvent @event)
-    {
-        if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) Pressed?.Invoke();
-    }
-
-    public override void _Notification(int what)
-    {
-        if (what == NotificationMouseEnter) { _hover = true; QueueRedraw(); }
-        else if (what == NotificationMouseExit) { _hover = false; QueueRedraw(); }
-    }
-}
-
-/// <summary>A rounded bar for a value in a range. Diverging meters fill from the middle (for -1..1 moods).</summary>
-public partial class Meter : Control
-{
-    private readonly double _value, _min, _max;
-    private readonly Color _color;
-    private readonly bool _diverging;
-
-    public Meter(double value, double min, double max, Color color, float width, bool diverging = false, float height = 8)
-    {
-        _value = value; _min = min; _max = max; _color = color; _diverging = diverging;
-        CustomMinimumSize = new Vector2(width, Math.Max(height, 14));
-        SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        MouseFilter = MouseFilterEnum.Ignore;
-        _h = height;
-    }
-    private readonly float _h;
-
-    public override void _Draw()
-    {
-        float y = (Size.Y - _h) / 2;
-        var track = new Rect2(0, y, Size.X, _h);
-        DrawStyleBox(AppTheme.Box(new Color(AppTheme.Bg, 0.85f), (int)(_h / 2)), track);
-        double span = Math.Max(_max - _min, 1e-12);
-        float f = (float)Math.Clamp((_value - _min) / span, 0, 1);
-        if (_diverging)
-        {
-            float mid = Size.X / 2, x = Size.X * f;
-            var r = new Rect2(Math.Min(mid, x), y, Math.Max(Math.Abs(x - mid), 3), _h);
-            DrawStyleBox(AppTheme.Box(_color, (int)(_h / 2)), r);
-            DrawLine(new Vector2(mid, y - 3), new Vector2(mid, y + _h + 3), AppTheme.Muted, 1.5f);
-        }
-        else if (f > 0) DrawStyleBox(AppTheme.Box(_color, (int)(_h / 2)), new Rect2(0, y, Math.Max(Size.X * f, _h), _h));
-    }
-}
