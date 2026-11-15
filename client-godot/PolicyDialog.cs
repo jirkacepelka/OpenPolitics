@@ -22,14 +22,14 @@ public static class Detail
         if (icon != null) row.AddChild(group ? new PictoDisc(icon.Value, 24, AppTheme.Panel2, AppTheme.Ink2) : new PictoDisc(icon.Value, 24, AppTheme.Chrome, Colors.White));
         else row.AddChild(Ui.Gap(24));
         var l = Ui.L(name, Tx.BodyStrong);
-        l.CustomMinimumSize = new Vector2(Layout.Compact ? 130 : 210, 0);
+        l.CustomMinimumSize = new Vector2(Layout.Compact ? 120 : Layout.Wide ? 210 : 165, 0);
         l.ClipText = true; l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         l.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         row.AddChild(l);
-        var bar = new Meter(Math.Clamp(fill, -1, 1), -1, 1, fill >= 0 ? AppTheme.Good : AppTheme.Bad, 120, true, 14) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        var bar = new Meter(Math.Clamp(fill, -1, 1), -1, 1, fill >= 0 ? AppTheme.Good : AppTheme.Bad, 60, true, 14) { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         row.AddChild(bar);
         var n = Ui.Right(Ui.L(number, Tx.Data, AppTheme.Signed(fill)));
-        n.CustomMinimumSize = new Vector2(70, 0);
+        n.CustomMinimumSize = new Vector2(58, 0);
         n.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         row.AddChild(n);
         row.TooltipText = tooltip.Length > 0 ? tooltip : name;
@@ -209,7 +209,10 @@ public static class PolicyDialog
             capText.AddChild(Ui.L(t.T("ui.pd.capital_free"), Tx.Small, AppTheme.Ink3, true));
             capText.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             capBox.AddChild(capText);
-            d.Body.AddChild(Detail.Columns(sliderCol, capBox, 2.6f));
+            var sliderBlock = Detail.Columns(sliderCol, capBox, 2.6f);
+            d.Body.AddChild(sliderBlock);
+            // In small windows the slider comes before the effect list so it is never below the fold.
+            if (Layout.Compact || Layout.Short) d.Body.MoveChild(sliderBlock, effects.GetIndex());
 
             var apply = d.AddAction(t.T("ui.pd.apply"), IconKind.Check, () =>
             {

@@ -73,7 +73,7 @@ public static class StartScreen
         game.AddChild(Ui.L(t.T("ui.client.scenario"), Tx.Label, AppTheme.Chrome));
         var scenarios = packs.Scenarios.OrderByDescending(s => s.Politics != null).ThenBy(s => s.Id, StringComparer.Ordinal).ToList();
         int chosen = 0;
-        var cards = compact ? (BoxContainer)Ui.VBox(8) : Ui.HBox(10);
+        var cards = Ui.VBox(8);
         var group = new ButtonGroup();
         for (int i = 0; i < scenarios.Count; i++)
         {
@@ -81,14 +81,14 @@ public static class StartScreen
             var b = new Button { ToggleMode = true, ButtonGroup = group, ButtonPressed = i == 0, ThemeTypeVariation = "ButtonCard", FocusMode = Control.FocusModeEnum.None,
                 SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseDefaultCursorShape = Control.CursorShape.PointingHand };
             var col = Ui.VBox(2);
-            col.AddChild(Ui.L(t.T("name." + scenarios[i].Id), Tx.Heading));
+            col.AddChild(Ui.L(t.T("name." + scenarios[i].Id), Tx.Heading, null, true));
             if (t.Description(scenarios[i].Id) is { } desc) col.AddChild(Ui.L(desc, Tx.Small, AppTheme.Ink2, true));
             else col.AddChild(Ui.L(t.T(scenarios[i].Politics != null ? "ui.start.politics_desc" : "ui.start.sandbox_desc"), Tx.Small, AppTheme.Ink2, true));
             var m = Ui.Margin(col, 14, 10);
             m.SetAnchorsPreset(Control.LayoutPreset.FullRect);
             Detail.SetIgnore(m);
             b.AddChild(m);
-            b.CustomMinimumSize = new Vector2(0, 76);
+            b.CustomMinimumSize = new Vector2(0, 64);
             b.Pressed += () => chosen = k;
             cards.AddChild(b);
         }

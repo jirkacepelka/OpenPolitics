@@ -439,7 +439,8 @@ public partial class WorldMap : Control
         float w = Math.Max(f1.GetStringSize(name, HorizontalAlignment.Left, -1, 14).X, f2.GetStringSize(sub, HorizontalAlignment.Left, -1, 13).X) + 24;
         float h = sub.Length > 0 ? 46 : 30;
         var pos = new Vector2(n.P.X - w / 2, n.P.Y - n.R - 10 - h);
-        if (pos.Y < 4) pos.Y = n.P.Y + n.R + 10;
+        if (pos.Y < 4 || new Rect2(pos, new Vector2(w, h)).Intersects(HubRect.Grow(4))) pos.Y = n.P.Y + n.R + 10;
+        if (pos.Y + h > Size.Y - 4) pos.Y = n.P.Y - n.R - 10 - h;
         pos.X = Math.Clamp(pos.X, 4, Size.X - w - 4);
         DrawStyleBox(AppTheme.Box(new Color("222222"), 3), new Rect2(pos, new Vector2(w, h)));
         DrawString(f1, pos + new Vector2(12, 20), name, HorizontalAlignment.Left, -1, 14, Colors.White);

@@ -271,10 +271,13 @@ public partial class TopBar : PanelContainer
             double v = Last(key), d = v - Prev(key);
             if (!double.IsFinite(v)) { cell.Set(t.T(labelKey), "", "", "", AppTheme.Ink3, false, ""); return; }
             var (val, unit) = fmt(v);
+            bool showNumber = Layout.Wide;
             int decimals = fmtDelta.Contains('.') ? fmtDelta.Length - fmtDelta.IndexOf('.') - 1 : 0;
             string delta = Math.Abs(d * deltaScale) < 0.5 * Math.Pow(10, -decimals) ? "" : (d > 0 ? "▲ " : "▼ ") + Ui.Num(Math.Abs(d * deltaScale), fmtDelta);
             var color = Math.Abs(d) < 1e-12 ? AppTheme.Ink3 : (d > 0) == higherIsGood ? AppTheme.GoodText : AppTheme.BadText;
-            cell.Set(t.T(labelKey), val, unit, delta, color, alert?.Invoke(v) ?? false, t.T(labelKey) + ": " + val + " " + unit);
+            string full = delta;
+            if (!showNumber && delta.Length > 0) delta = delta[..1];
+            cell.Set(t.T(labelKey), val, unit, delta, color, alert?.Invoke(v) ?? false, t.T(labelKey) + ": " + val + " " + unit + (full.Length > 0 ? "  (" + full + ")" : ""));
         }
         (string, string) Money(double v) => Ui.Money(t, v);
         Cell("revenue", "ui.fig.income", History.ValueKey("base:revenue"), Money, true, null, "0.00", 1e-12);

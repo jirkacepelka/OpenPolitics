@@ -8,6 +8,7 @@ public enum IconKind
     Percent, Tag, Factory, House, Leaf, Arrows, Pill, Ballot, Target, Star, Bus, Family, Briefcase, Wheat, Wifi, Key, Globe, Clock,
     Bolt, Eye, Hand, Health, Education, Shield, Flask, Road, Columns, Alert, Scale, ChartUp, Gear, Users, Bank, CoinIn, CoinOut, Gauge,
     Chart, Close, Map, Grid, Check, Plus, Minus, Fit, Undo, SortAz, SortSize, Smile, Back, Search, Calendar,
+    Cloud, Sun, Tree, Chimney, Cart, Gavel, Bricks, Contract, Pie, HousePercent, Diamond, Banknote, Bottle, Threshold, Elder, Pram,
 }
 
 /// <summary>
@@ -22,6 +23,11 @@ public static class Icons
         string k = id.Contains(':') ? id[(id.IndexOf(':') + 1)..] : id;
         (string Key, IconKind Icon)[] map =
         {
+            ("carbon", IconKind.Cloud), ("green_subsidies", IconKind.Sun), ("environment_regulation", IconKind.Chimney), ("environment", IconKind.Tree),
+            ("price_level", IconKind.Cart), ("business_regulation", IconKind.Gavel), ("capital", IconKind.Bricks), ("labour_flexibility", IconKind.Contract),
+            ("gdp_nominal", IconKind.Overview), ("real_growth", IconKind.ChartUp), ("gdp", IconKind.Pie), ("property_tax", IconKind.HousePercent),
+            ("wealth", IconKind.Diamond), ("minimum_wage", IconKind.Banknote), ("excise", IconKind.Bottle), ("electoral_threshold", IconKind.Threshold),
+            ("pensions", IconKind.Elder), ("childcare", IconKind.Pram),
             ("pensioners", IconKind.Clock), ("rural_conservative", IconKind.Wheat), ("young_urban", IconKind.Users), ("middle_class", IconKind.House),
             ("low_income", IconKind.Hand), ("high_income", IconKind.Briefcase),
             ("income_tax", IconKind.Percent), ("vat", IconKind.Tag), ("corporate", IconKind.Factory), ("property", IconKind.House),
@@ -188,6 +194,35 @@ public static class Icons
             case IconKind.Smile: Ring(0, 0, 9.5f); Dot(-3.5f, -3, 1.6f); Dot(3.5f, -3, 1.6f); Arc(0, 1, 5, Mathf.Pi * 0.15f, Mathf.Pi * 0.85f); break;
             case IconKind.Back: L(-8, 0, 9, 0); Poly(-2, -6, -8, 0, -2, 6); break;
             case IconKind.Search: Ring(-2, -2, 6.5f); L(3, 3, 9, 9); break;
+            case IconKind.Cloud: Arc(-4, 2, 5, Mathf.Pi * 0.5f, Mathf.Pi * 1.55f); Arc(1, -2, 6, Mathf.Pi * 1.1f, Mathf.Pi * 1.95f); Arc(6, 2, 5, -Mathf.Pi * 0.5f, Mathf.Pi * 0.5f); L(-4, 7, 6, 7); break;
+            case IconKind.Sun: Ring(0, 0, 4.5f); for (int i = 0; i < 8; i++) { float a = i * Mathf.Tau / 8; L(Mathf.Cos(a) * 7, Mathf.Sin(a) * 7, Mathf.Cos(a) * 10.5f, Mathf.Sin(a) * 10.5f); } break;
+            case IconKind.Tree: Ring(0, -3, 7); L(0, 4, 0, 11); L(0, 1, -3, -2); L(0, 3, 3, 0); break;
+            case IconKind.Chimney: Poly(-10, 10, -10, 0, -3, -4, -3, 0, 4, -4, 4, 10, -10, 10); Poly(6, 10, 6, -6, 10, -6, 10, 10); Arc(9, -10, 2.5f, Mathf.Pi, Mathf.Tau); break;
+            case IconKind.Cart: Poly(-11, -8, -7, -8, -4, 5, 8, 5, 10, -4, -6, -4); Dot(-3, 9, 1.8f); Dot(7, 9, 1.8f); break;
+            case IconKind.Gavel:
+                c.DrawSetTransform(center, -Mathf.Pi / 4, Vector2.One);
+                c.DrawRect(new Rect2(new Vector2(-7, -9) * u, new Vector2(14, 7) * u), color, false, w);
+                c.DrawLine(new Vector2(0, -2) * u, new Vector2(0, 11) * u, color, w, true);
+                c.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+                L(-10, 10, 2, 10);
+                break;
+            case IconKind.Bricks: Box(-10, 2, 9, 7); Box(1, 2, 9, 7); Box(-5, -6, 10, 7); break;
+            case IconKind.Contract: Poly(-7, -10, 4, -10, 8, -6, 8, 10, -7, 10, -7, -10); L(-4, -4, 4, -4); L(-4, 0, 4, 0); L(-4, 5, 0, 5); break;
+            case IconKind.Pie:
+            {
+                Ring(0, 0, 9.5f);
+                var wedge = new List<Vector2> { P(1.5f, -1.5f) };
+                for (int i = 0; i <= 10; i++) { float a = -Mathf.Pi / 2 + Mathf.Pi * 0.6f * i / 10; wedge.Add(P(1.5f + Mathf.Cos(a) * 10.5f, -1.5f + Mathf.Sin(a) * 10.5f)); }
+                c.DrawColoredPolygon(wedge.ToArray(), color);
+                break;
+            }
+            case IconKind.HousePercent: Poly(-10, 0, 0, -9, 10, 0); Poly(-7, -2, -7, 9, 7, 9, 7, -2); L(3, 0, -3, 7); Dot(-2.5f, 1, 1.2f); Dot(2.5f, 6, 1.2f); break;
+            case IconKind.Diamond: Poly(-10, -3, -5, -9, 5, -9, 10, -3, 0, 10, -10, -3); L(-10, -3, 10, -3); L(-3, -9, 0, 10); L(3, -9, 0, 10); break;
+            case IconKind.Banknote: Box(-11, -6, 22, 12); Ring(0, 0, 3.2f); Dot(-7, 0, 1.2f); Dot(7, 0, 1.2f); break;
+            case IconKind.Bottle: Poly(-2, -10, 2, -10, 2, -5, 5, -1, 5, 10, -5, 10, -5, -1, -2, -5, -2, -10); L(-5, 3, 5, 3); break;
+            case IconKind.Threshold: Fill(-9, 2, 4, 7); Fill(-2, -4, 4, 13); Fill(5, 5, 4, 4); L(-11, 0, 11, 0); break;
+            case IconKind.Elder: Ring(-1, -8, 2.8f); Poly(-1, -4, 0, 3, -3, 10); L(0, 3, 3, 10); L(-1, -2, 5, 1); L(5, 1, 6, 10); break;
+            case IconKind.Pram: Arc(0, 0, 8, Mathf.Pi, Mathf.Pi * 1.5f); L(-8, 0, 8, 0); L(0, -8, 0, 0); Poly(-8, 0, -5, 5, 5, 5, 8, 0); Dot(-4, 8, 1.8f); Dot(4, 8, 1.8f); L(8, 0, 11, -6); break;
             case IconKind.Calendar: Box(-9, -7, 18, 16); L(-9, -2, 9, -2); L(-4, -10, -4, -5); L(4, -10, 4, -5); break;
         }
     }

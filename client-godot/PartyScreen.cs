@@ -28,7 +28,7 @@ public sealed class PartyScreen : Screen
         d.Title = t.Name(pol.PlayerParty);
         var tabs = Ui.HBox(0);
         var group = new ButtonGroup();
-        string[] keys = { "ui.pt.overview", "ui.party.platform", "ui.party.promises_heading", "ui.party.relations", "ui.client.actions" };
+        string[] keys = { "ui.pt.overview", "ui.pt.platform", "ui.pt.promises", "ui.pt.relations", "ui.pt.actions" };
         for (int i = 0; i < keys.Length; i++)
         {
             int k = i;
