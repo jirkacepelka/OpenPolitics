@@ -45,6 +45,11 @@ public partial class Main : Control
         }
         Packs = loaded.Packs;
         var args = OS.GetCmdlineUserArgs();
+        DisplaySettings.Load();
+        DisplaySettings.Apply(GetWindow(), sizeWindow: !args.Contains("--smoke"));
+        var scaleArg = Array.IndexOf(args, "--ui-scale");
+        if (scaleArg >= 0 && scaleArg + 1 < args.Length && float.TryParse(args[scaleArg + 1], System.Globalization.CultureInfo.InvariantCulture, out var forced))
+            GetWindow().ContentScaleFactor = forced;
         if (args.Contains("--smoke"))
         {
             PopupsEnabled = false; Animations = false;
@@ -272,6 +277,15 @@ public partial class Main : Control
     public override void _Notification(int what)
     {
         if (what == NotificationResized) ResizePanel();
+    }
+
+    public override void _UnhandledKeyInput(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.F11 })
+        {
+            DisplaySettings.ToggleFullscreen(GetWindow());
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     /// <summary>Shows a panel (or hides the current one when <paramref name="screen"/> is null or already open).</summary>

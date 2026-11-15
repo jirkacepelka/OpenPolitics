@@ -1,0 +1,879 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenPolitics Ledger</title>
+<style>
+/* Inter by local name; bundled copy if the repo has it; system fallback otherwise. No network. */
+@font-face { font-family: "Ledger Inter"; font-weight: 100 900; font-style: normal;
+  src: local("Inter Variable"), local("Inter"), url("../../client-godot/assets/fonts/InterVariable.ttf") format("truetype"), url("InterVariable.ttf") format("truetype"); }
+
+:root {
+  --canvas:#ECE9E2; --surface:#FAF9F6; --surface-2:#F2F0EB; --surface-3:#E6E3DC; --field:#FFFFFF; --ink-surface:#1A1917;
+  --line-subtle:#E0DDD5; --line:#D3CFC6; --line-strong:#B9B4A9; --tick:#8F897F;
+  --ink:#1A1917; --ink-2:#57534C; --ink-3:#6B665E; --ink-dis:#A9A49A; --ink-inv:#F5F2EB; --ink-inv-2:#B8B2A7;
+  --accent:#FFD23F; --accent-hover:#FFC81A; --accent-pressed:#F2B900; --accent-tint:#FFF1BF;
+  --good:#1E7A46; --good-bg:#E3F0E6; --bad:#C8352B; --bad-bg:#F8E2DE; --warn:#A15200; --warn-bg:#F6E8D6;
+  --tax:#8B3D8C; --tax-bg:#F1E4F0; --spend:#0D6E78; --spend-bg:#DDEDEE; --reg:#8A6410; --reg-bg:#F3EAD3;
+  --c1:#1D3F9E; --c2:#D9730D; --c3:#0B9A5E; --c4:#C860B0; --c5:#86561C; --c6:#5A2E7A; --c7:#3F7FE0; --c8:#7E1F33;
+  --r-xs:4px; --r-sm:6px; --r-md:8px; --r-lg:12px; --r-xl:16px;
+  --sh-pop:0 6px 16px rgba(26,25,23,.14); --sh-tip:0 3px 8px rgba(26,25,23,.20); --sh-modal:0 16px 40px rgba(26,25,23,.22); --sh-drawer:-6px 0 24px rgba(26,25,23,.12);
+  --ease-out:cubic-bezier(.2,0,0,1);
+  font-family:"Ledger Inter", Inter, "Noto Sans", "DejaVu Sans", system-ui, sans-serif;
+  font-feature-settings:"cv05" 1, "cv08" 1;
+  color:var(--ink); background:var(--canvas);
+}
+* { box-sizing:border-box; }
+html,body { margin:0; }
+body { background:var(--canvas); font-size:14px; line-height:20px; -webkit-font-smoothing:antialiased; }
+.num, .fig { font-variant-numeric:tabular-nums; font-feature-settings:"cv05" 1, "cv08" 1, "tnum" 1; }
+button { font:inherit; color:inherit; }
+
+/* ---------- type roles ---------- */
+.t-display{font-size:32px;line-height:36px;font-weight:650;letter-spacing:-.02em}
+.t-figxl{font-size:28px;line-height:32px;font-weight:600;letter-spacing:-.02em}
+.t-title{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.01em}
+.t-figl{font-size:17px;line-height:22px;font-weight:600;letter-spacing:-.01em}
+.t-heading{font-size:15px;line-height:20px;font-weight:600}
+.t-body{font-size:14px;line-height:20px;font-weight:400}
+.t-bodys{font-size:14px;line-height:20px;font-weight:500}
+.t-label{font-size:13px;line-height:16px;font-weight:500}
+.t-data{font-size:13px;line-height:16px;font-weight:500}
+.t-caption{font-size:12px;line-height:16px;font-weight:400}
+.t-over{font-size:11px;line-height:14px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.t-micro{font-size:11px;line-height:14px;font-weight:500}
+.i2{color:var(--ink-2)} .i3{color:var(--ink-3)} .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+
+/* ---------- components ---------- */
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px;border-radius:var(--r-md);border:1px solid transparent;font-size:13px;font-weight:500;line-height:16px;cursor:pointer;white-space:nowrap;transition:background .1s var(--ease-out),border-color .1s var(--ease-out)}
+.btn svg{width:16px;height:16px}
+.btn-primary{background:var(--ink);color:var(--ink-inv)} .btn-primary:hover,.btn-primary.is-hover{background:#34322E} .btn-primary:active,.btn-primary.is-pressed{background:#000}
+.btn-primary.is-disabled{background:var(--surface-3);color:var(--ink-dis)}
+.btn-secondary{background:var(--surface);border-color:var(--line);color:var(--ink)} .btn-secondary:hover,.btn-secondary.is-hover{background:var(--surface-2);border-color:var(--line-strong)} .btn-secondary:active,.btn-secondary.is-pressed{background:var(--surface-3);border-color:var(--line-strong)}
+.btn-secondary.is-disabled{border-color:var(--line-subtle);color:var(--ink-dis)}
+.btn-ghost{background:transparent;color:var(--ink-2)} .btn-ghost:hover,.btn-ghost.is-hover{background:rgba(26,25,23,.05);color:var(--ink)} .btn-ghost:active,.btn-ghost.is-pressed{background:rgba(26,25,23,.10);color:var(--ink)} .btn-ghost.is-disabled{color:var(--ink-dis)}
+.btn-danger{background:var(--surface);border-color:rgba(200,53,43,.4);color:var(--bad)} .btn-danger:hover,.btn-danger.is-hover{background:var(--bad-bg);border-color:var(--bad)} .btn-danger:active,.btn-danger.is-pressed{background:#F2CFC9;border-color:var(--bad)} .btn-danger.is-disabled{border-color:var(--line-subtle);color:var(--ink-dis)}
+.btn-danger-solid{background:var(--bad);color:#fff} .btn-danger-solid.is-hover{background:#B02D24} .btn-danger-solid.is-pressed{background:#962620}
+.btn-cta{height:40px;padding:0 16px;background:var(--accent);border-color:var(--ink);color:var(--ink);font-size:14px;font-weight:600}
+.btn-cta:hover,.btn-cta.is-hover{background:var(--accent-hover)} .btn-cta:active,.btn-cta.is-pressed{background:var(--accent-pressed);transform:translateY(1px)}
+.btn-cta.is-disabled{background:var(--surface-2);border-color:var(--line);color:var(--ink-dis)}
+.btn-sm{height:28px;padding:0 10px;font-size:12px}
+.is-focus{outline:2px solid var(--ink);outline-offset:2px}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.kbd{display:inline-flex;align-items:center;height:18px;padding:0 5px;border-radius:4px;font-size:11px;font-weight:500;background:rgba(26,25,23,.06)}
+.btn-primary .kbd{background:rgba(255,255,255,.15)}
+.btn-cta .kbd{background:rgba(26,25,23,.10)}
+.ibtn{width:32px;height:32px;display:inline-grid;place-items:center;border-radius:var(--r-md);background:transparent;border:0;color:var(--ink-2);cursor:pointer}
+.ibtn:hover,.ibtn.is-hover{background:rgba(26,25,23,.05);color:var(--ink)} .ibtn.is-pressed,.ibtn.on{background:rgba(26,25,23,.10);color:var(--ink)} .ibtn.is-disabled{color:var(--ink-dis)}
+.ibtn svg{width:16px;height:16px}
+
+.seg{display:inline-flex;gap:0;padding:2px;background:var(--canvas);border-radius:var(--r-md);height:32px}
+.seg button{height:28px;padding:0 12px;border:1px solid transparent;border-radius:var(--r-sm);background:transparent;color:var(--ink-2);font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.seg button:hover,.seg button.is-hover{color:var(--ink);background:rgba(26,25,23,.04)}
+.seg button.sel{background:var(--surface);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(26,25,23,.10);border-color:rgba(26,25,23,.06)}
+.seg .cnt{font-size:11px;color:var(--ink-3);font-weight:500}
+.tabs{display:flex;gap:20px;border-bottom:1px solid var(--line-subtle);height:36px}
+.tabs button{border:0;background:none;padding:0;height:36px;font-size:13px;font-weight:500;color:var(--ink-2);cursor:pointer;position:relative}
+.tabs button.sel{color:var(--ink);font-weight:600} .tabs button.sel::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ink)}
+.tabs button.is-hover{color:var(--ink)}
+
+.dd{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:32px;min-width:180px;padding:0 12px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--surface);font-size:13px;font-weight:500;cursor:pointer}
+.dd.open{border-color:var(--ink)} .dd svg{width:12px;height:12px;color:var(--ink-3)}
+.pop{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:4px;box-shadow:var(--sh-pop);min-width:220px}
+.pop .it{height:32px;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:var(--r-sm);font-size:13px;font-weight:500}
+.pop .it.hov{background:var(--surface-2)} .pop .it.sel{font-weight:600} .pop .it.dis{color:var(--ink-dis)}
+.pop .it .chk{width:16px;height:16px} .pop .sep{height:1px;background:var(--line-subtle);margin:4px 0} .pop .sec{padding:8px 10px 4px}
+
+.stepper{display:inline-flex;height:32px}
+.stepper button{width:32px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);cursor:pointer;display:grid;place-items:center}
+.stepper button:first-child{border-radius:8px 0 0 8px} .stepper button:last-child{border-radius:0 8px 8px 0}
+.stepper .f{width:96px;border:1px solid var(--line);border-left:0;border-right:0;background:var(--field);display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:0 10px;font-size:13px;font-weight:500}
+.stepper.focus .f{border:1px solid var(--ink);outline:2px solid var(--ink);outline-offset:2px}
+.stepper.invalid .f{border:1px solid var(--bad)}
+.input{height:32px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--field);padding:0 10px;display:flex;align-items:center;font-size:13px;gap:8px;color:var(--ink-3)}
+
+.switch{width:32px;height:18px;border-radius:9px;background:var(--line);position:relative;display:inline-block;vertical-align:middle}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:7px;background:#fff;box-shadow:0 1px 2px rgba(26,25,23,.2);transition:left .12s}
+.switch.on{background:var(--ink)} .switch.on::after{left:16px} .switch.hov{background:var(--line-strong)} .switch.on.hov{background:#34322E} .switch.dis{background:var(--surface-3)} .switch.dis::after{background:var(--surface-2);box-shadow:none}
+.cb{width:16px;height:16px;border-radius:4px;border:2px solid var(--tick);background:#fff;display:inline-grid;place-items:center;vertical-align:middle}
+.cb.on{background:var(--ink);border-color:var(--ink)} .cb.hov{border-color:var(--ink-2)} .cb.dis{border-color:var(--line);background:var(--surface-2)}
+.radio{width:16px;height:16px;border-radius:8px;border:2px solid var(--tick);background:#fff;display:inline-grid;place-items:center;vertical-align:middle}
+.radio.on{border-color:var(--ink)} .radio.on::after{content:"";width:6px;height:6px;border-radius:3px;background:var(--ink)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--line-subtle);font-size:12px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.chip.hov{border-color:var(--line-strong)} .chip.sel{background:var(--ink);color:var(--ink-inv);border-color:var(--ink)}
+.chip svg{width:12px;height:12px}
+.cat{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.cat svg{width:12px;height:12px}
+.cat.tax{background:var(--tax-bg);color:var(--tax)} .cat.spend{background:var(--spend-bg);color:var(--spend)} .cat.reg{background:var(--reg-bg);color:var(--reg)}
+.pill{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.pill.good{background:var(--good-bg)} .pill.bad{background:var(--bad-bg)} .pill.warn{background:var(--warn-bg)} .pill.info{background:var(--surface-2);color:var(--ink-2)}
+.badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--ink);color:var(--ink-inv);font-size:11px;font-weight:600;line-height:1}
+.badge.att{background:var(--bad);color:#fff}
+.delta{display:inline-flex;align-items:center;gap:2px;font-size:11px;line-height:14px;font-weight:600;white-space:nowrap}
+.delta svg{width:8px;height:8px}
+.delta.neu{color:var(--ink-3)}
+
+.card{background:var(--surface);border:1px solid var(--line-subtle);border-radius:var(--r-lg);padding:16px}
+.card.hov{border-color:var(--line-strong);background:#fff}
+.card.sel{border-color:var(--ink);box-shadow:inset 3px 0 0 var(--accent)}
+.inset{background:var(--surface-2);border-radius:var(--r-md);padding:12px}
+
+.rows{display:flex;flex-direction:column}
+.row{height:36px;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid var(--line-subtle);position:relative}
+.row:last-child{border-bottom:0}
+.row.hov{background:var(--surface-2);border-radius:8px}
+.row.sel{background:var(--accent-tint);border-radius:8px} .row.sel::before{content:"";position:absolute;left:0;top:6px;bottom:6px;width:2px;background:var(--ink);border-radius:1px}
+.row .r{margin-left:auto}
+.thead{height:28px;display:flex;align-items:center;gap:10px;padding:0 12px;background:var(--surface-2);border-radius:6px}
+.ghead svg{width:16px;height:16px} .ghead{height:32px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600}
+
+.tile{background:var(--surface);border:1px solid var(--line-subtle);border-radius:var(--r-lg);padding:14px;min-width:168px;height:116px;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.tile .top{display:flex;justify-content:space-between;align-items:center;color:var(--ink-3)}
+.tile .top svg{width:16px;height:16px}
+.tile .val{display:flex;align-items:baseline;gap:4px;margin-top:4px}
+.tile .spark{position:absolute;left:14px;right:14px;bottom:10px;height:28px}
+
+.meter{height:6px;border-radius:3px;background:var(--surface-3);position:relative;overflow:hidden}
+.meter>i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--ink)}
+.appr{position:relative;height:8px;border-radius:4px;background:var(--surface-3)}
+.appr>i{position:absolute;top:0;bottom:0;border-radius:4px}
+.appr::after{content:"";position:absolute;left:50%;top:-2px;width:1px;height:12px;background:var(--ink)}
+.share{height:2px;margin-top:3px;background:rgba(107,102,94,.35);border-radius:1px}
+
+.tip{display:inline-block;background:var(--ink-surface);color:var(--ink-inv);font-size:12px;line-height:16px;padding:7px 10px;border-radius:6px;box-shadow:var(--sh-tip);max-width:300px}
+.tip .s{color:var(--ink-inv-2)}
+.toast{display:inline-flex;align-items:center;gap:10px;height:40px;padding:0 14px;border-radius:10px;background:var(--ink-surface);color:var(--ink-inv);font-size:13px;font-weight:500;box-shadow:var(--sh-tip)}
+.toast .act{color:var(--accent);font-weight:600}
+.divider{height:1px;background:var(--line-subtle)}
+.ldiv{display:flex;align-items:center;gap:8px;color:var(--ink-3)} .ldiv::after{content:"";flex:1;height:1px;background:var(--line-subtle)}
+
+.modal{background:var(--surface);border-radius:var(--r-xl);box-shadow:var(--sh-modal);overflow:hidden;display:flex;flex-direction:column}
+.modal .mh{padding:20px 24px 12px;position:relative} .modal .mh .ibtn{position:absolute;right:12px;top:12px}
+.modal .mb{padding:0 24px 20px;overflow:auto}
+.modal .mf{padding:16px 24px;border-top:1px solid var(--line-subtle);display:flex;gap:8px;justify-content:flex-end}
+
+.hud{display:flex;flex-direction:column;justify-content:center;padding:6px 10px;border-radius:8px;cursor:pointer;min-width:0;white-space:nowrap}
+.hud:hover,.hud.hov{background:rgba(26,25,23,.04)}
+.hud .v{display:flex;align-items:baseline;gap:3px}
+.hud .u{font-size:12px;color:var(--ink-3)}
+.hud .lab{display:flex;align-items:center;gap:5px}
+.hud .alert{width:6px;height:6px;border-radius:3px;background:var(--bad)}
+
+/* ---------- sheet layout ---------- */
+#sheet{max-width:1240px;margin:0 auto;padding:48px 32px 96px}
+#sheet h1{margin:0}
+#sheet section{margin-top:56px}
+#sheet h2{font-size:20px;line-height:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 4px}
+#sheet .lede{color:var(--ink-2);max-width:72ch;margin:0 0 20px}
+.panel{background:var(--surface);border:1px solid var(--line-subtle);border-radius:var(--r-lg);padding:20px}
+.grid{display:grid;gap:12px}
+.sw{border-radius:10px;border:1px solid var(--line-subtle);overflow:hidden;background:var(--surface)}
+.sw .c{height:56px} .sw .m{padding:8px 10px} .sw .m div{font-size:12px;line-height:16px}
+.statecol{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.statelab{font-size:11px;color:var(--ink-3);font-weight:500;height:14px}
+.frame{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--canvas);box-shadow:0 1px 0 rgba(26,25,23,.04)}
+.frame iframe{border:0;display:block;transform-origin:0 0}
+.framecap{display:flex;justify-content:space-between;align-items:baseline;margin:8px 2px 0}
+
+/* ---------- app shell (view=main) ---------- */
+#app{display:none}
+body.v-main{overflow:hidden}
+body.v-main #sheet{display:none}
+body.v-main #app{display:grid;height:100vh;width:100vw;grid-template-rows:52px 1fr;grid-template-columns:232px 1fr auto;grid-template-areas:"top top top" "rail stage insp"}
+body.v-main.w-compact #app{grid-template-rows:48px 1fr;grid-template-columns:64px 1fr 0}
+body.v-main.w-wide #app{grid-template-columns:256px 1fr auto}
+.topbar{grid-area:top;background:var(--surface);border-bottom:1px solid var(--line-subtle);display:flex;align-items:center;padding:0 12px 0 8px;gap:8px;min-width:0}
+.dateb{display:flex;flex-direction:column;justify-content:center;padding:0 8px;min-width:132px;white-space:nowrap}
+.vdiv{width:1px;height:24px;background:var(--line-subtle);flex:none}
+.strip{flex:1;display:flex;align-items:center;gap:2px;min-width:0;overflow:hidden}
+.cap{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;background:var(--surface-2);border:1px solid var(--line-subtle);border-radius:8px;white-space:nowrap}
+.cap svg{width:16px;height:16px}
+.rail>*{flex:none} .rail{grid-area:rail;background:var(--surface);border-right:1px solid var(--line-subtle);padding:12px;overflow:auto;display:flex;flex-direction:column;gap:0;min-height:0}
+.nav{height:30px;display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--ink-2);cursor:pointer;position:relative;white-space:nowrap}
+.nav svg{width:16px;height:16px;flex:none}
+.nav:hover{background:var(--surface-2);color:var(--ink)}
+.nav.sel{background:var(--accent-tint);color:var(--ink);font-weight:600}
+.nav.sel::before{content:"";position:absolute;left:3px;top:7px;bottom:7px;width:2px;border-radius:1px;background:var(--ink)}
+.nav .badge{margin-left:auto}
+.grp{padding:3px 10px 4px;border-radius:8px;cursor:pointer}
+.grp:hover{background:var(--surface-2)}
+.grp .l{display:flex;align-items:center;gap:8px;height:16px;font-size:13px;font-weight:500;margin-bottom:3px}
+.grp .l svg{width:14px;height:14px;color:var(--ink-3);flex:none}
+.grp .l .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
+.grp.all .l{font-weight:600}
+.gov{margin-top:4px;background:var(--surface-2);border-radius:8px;padding:8px 10px}
+.stage{grid-area:stage;position:relative;overflow:hidden;background:var(--canvas);min-width:0}
+.stage svg.map{position:absolute;inset:0;width:100%;height:100%}
+.ovl{position:absolute;display:flex;gap:4px}
+.ovl .grpbtn{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:1px}
+.ovl .grpbtn .ibtn{width:30px;height:28px}
+.insp{grid-area:insp;background:var(--surface);border-left:1px solid var(--line-subtle);width:0;overflow:hidden;display:flex;flex-direction:column;min-height:0}
+body.insp-open .insp{width:360px}
+body.w-wide .insp{width:400px}
+body.w-compact .insp{position:absolute;right:0;top:48px;bottom:0;width:340px;max-width:60vw;z-index:5;box-shadow:var(--sh-drawer);border-left:1px solid var(--line-subtle);transform:translateX(105%);transition:transform .22s var(--ease-out)}
+body.w-compact.insp-open .insp{transform:none;width:340px}
+.ih{padding:16px 20px 12px;border-bottom:1px solid var(--line-subtle);position:relative}
+.ih .acts{position:absolute;right:12px;top:10px;display:flex;gap:2px}
+.ib{padding:16px 20px;overflow:auto;flex:1;display:flex;flex-direction:column;gap:18px}
+.if{padding:12px 20px;border-top:1px solid var(--line-subtle);display:flex;justify-content:space-between;gap:8px}
+.ef{display:flex;align-items:center;gap:8px;height:30px;border-bottom:1px solid var(--line-subtle);font-size:13px}
+.ef:last-child{border-bottom:0}
+.ef .v{margin-left:auto;font-weight:500}
+.scrim{position:absolute;inset:0;background:rgba(26,25,23,.40);display:none;align-items:center;justify-content:center;z-index:20;padding:32px}
+body.brief .scrim{display:flex}
+
+/* compact rail */
+body.w-compact .rail{padding:8px;align-items:center}
+body.w-compact .nav{width:40px;height:36px;justify-content:center;padding:0}
+body.w-compact .nav .tx, body.w-compact .nav .badge{display:none}
+body.w-compact .nav .dot{display:block}
+.nav .dot{display:none;position:absolute;right:6px;top:7px;width:7px;height:7px;border-radius:4px;background:var(--bad);border:1.5px solid var(--surface)}
+.full-only{} body.w-compact .full-only{display:none !important}
+.compact-only{display:none} body.w-compact .compact-only{display:flex}
+.sbars{display:grid;grid-template-columns:repeat(2,18px);gap:8px 8px;justify-content:center;margin-top:6px}
+.sbar{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sbar .b{width:6px;height:30px;background:var(--surface-3);border-radius:3px;position:relative}
+.sbar .b i{position:absolute;left:0;right:0;border-radius:3px}
+.sbar .b::after{content:"";position:absolute;left:-2px;right:-2px;top:15px;height:1px;background:var(--ink)}
+.sbar svg{width:12px;height:12px;color:var(--ink-3)}
+
+/* ---------- start screen (view=start) ---------- */
+#start{display:none}
+body.v-start{overflow:hidden} body.v-start #sheet{display:none}
+body.v-start #start{display:block;position:relative;height:100vh;width:100vw;background:var(--canvas);overflow:auto}
+#start .wrap{position:relative;max-width:1200px;margin:0 auto;padding:56px 64px 32px;display:grid;grid-template-columns:minmax(440px,7fr) minmax(300px,4fr);gap:24px;align-items:start}
+#start .hero{grid-column:1 / -1;margin-bottom:8px}
+#start .scard{background:var(--surface);border:1px solid var(--line-subtle);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px}
+#start .opt{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--surface);flex:1}
+#start .opt.sel{border-color:var(--ink);background:var(--accent-tint)}
+#start .lab{font-size:12px;font-weight:500;color:var(--ink-2);margin-bottom:6px}
+#start .foot{position:absolute;left:max(64px,calc((100vw - 1200px)/2 + 64px));right:max(64px,calc((100vw - 1200px)/2 + 64px));bottom:20px;display:flex;justify-content:space-between}
+@media (max-width:1099px){ #start .wrap{grid-template-columns:1fr;padding:32px 24px} #start .foot{position:static;padding:0 24px 24px} }
+</style>
+</head>
+<body>
+
+<!-- ===================================================== DESIGN SYSTEM SHEET -->
+<div id="sheet">
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap">
+    <div>
+      <div class="t-over i3">OpenPolitics · design language v1</div>
+      <h1 class="t-display" style="margin-top:6px">Ledger</h1>
+      <p class="t-body i2" style="max-width:62ch;margin:8px 0 0">Briefing papers on a minister's desk: warm paper, black ink, one highlighter. Colour is information.
+        Figures are tabular and set like a financial paper. No glow, no glass, no navy.</p>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="chip"><span style="width:10px;height:10px;border-radius:5px;background:var(--accent);border:1px solid var(--ink)"></span>Ballot yellow #FFD23F</span>
+      <span class="chip">Inter 4 · tnum · cv05 cv08</span>
+    </div>
+  </div>
+
+  <section>
+    <h2>Main screen, live</h2>
+    <p class="lede">The same file rendered with <span class="num">?view=main</span> inside fixed frames. Regular 1280 × 720 with a policy selected, compact 980 × 560 with the drawer, wide 1720 × 720 with "This quarter".</p>
+    <div id="frames" class="grid" style="grid-template-columns:1fr"></div>
+  </section>
+
+  <section>
+    <h2>Colour</h2>
+    <p class="lede">Contrast ratios are against <b>surface #FAF9F6</b> unless noted. Text tokens all pass AA on surface, surface-2 and canvas.</p>
+    <div class="panel">
+      <div class="t-over i3" style="margin-bottom:10px">Surfaces and lines</div>
+      <div class="grid" id="sw-surf" style="grid-template-columns:repeat(auto-fill,minmax(132px,1fr))"></div>
+      <div class="t-over i3" style="margin:20px 0 10px">Ink, accent, semantic</div>
+      <div class="grid" id="sw-ink" style="grid-template-columns:repeat(auto-fill,minmax(132px,1fr))"></div>
+      <div class="t-over i3" style="margin:20px 0 10px">Policy categories</div>
+      <div class="grid" id="sw-cat" style="grid-template-columns:repeat(auto-fill,minmax(132px,1fr))"></div>
+      <div class="t-over i3" style="margin:20px 0 10px">Chart palette (8, CVD-validated: min ΔE76 protan 15.4 · deutan 22.9 · tritan 17.6) and parties</div>
+      <div class="grid" id="sw-chart" style="grid-template-columns:repeat(auto-fill,minmax(132px,1fr))"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Type</h2>
+    <p class="lede">Inter, one family. Sizes are logical px at the 1280 × 720 reference. Figures always tabular.</p>
+    <div class="panel" id="typescale"></div>
+  </section>
+
+  <section>
+    <h2>Buttons</h2>
+    <p class="lede">Default · hover · pressed · focus · disabled. Yellow is reserved for End quarter (and Start game on the start screen).</p>
+    <div class="panel" id="buttons"></div>
+  </section>
+
+  <section>
+    <h2>Inputs and selection</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+      <div class="panel" style="display:flex;flex-direction:column;gap:16px">
+        <div class="t-over i3">Segmented control</div>
+        <div class="seg"><button class="sel">Vše <span class="cnt num">39</span></button><button class="is-hover">Daně <span class="cnt num">8</span></button><button>Výdaje <span class="cnt num">18</span></button><button>Regulace <span class="cnt num">13</span></button></div>
+        <div class="seg"><button>1 r</button><button class="sel">3 r</button><button>5 r</button><button>Vše</button></div>
+        <div class="t-over i3">Tabs</div>
+        <div class="tabs"><button>Přehled</button><button class="sel">Program</button><button class="is-hover">Sliby</button><button>Vztahy</button><button>Akce</button></div>
+        <div class="t-over i3">Number stepper · default · focus · invalid</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div class="stepper"><button>${I.minus}</button><div class="f num">5,0 <span class="i3">%</span></div><button>${I.plus}</button></div>
+          <div class="stepper focus"><button>${I.minus}</button><div class="f num">650</div><button>${I.plus}</button></div>
+          <div class="stepper invalid"><button>${I.minus}</button><div class="f num">14,0 <span class="i3">%</span></div><button>${I.plus}</button></div>
+        </div>
+        <div class="t-over i3">Toggles</div>
+        <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+          <span class="switch"></span><span class="switch hov"></span><span class="switch on"></span><span class="switch on hov"></span><span class="switch dis"></span>
+          <span class="cb"></span><span class="cb hov"></span><span class="cb on">${I.check}</span><span class="cb dis"></span>
+          <span class="radio"></span><span class="radio on"></span>
+          <label class="t-body" style="display:inline-flex;gap:6px;align-items:center"><span class="cb on">${I.check}</span>Automaticky podle okna</label>
+        </div>
+      </div>
+      <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <div class="t-over i3">Dropdown · closed · open with popup</div>
+        <div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">
+          <div class="dd">Pevná částka ${I.chev}</div>
+          <div><div class="dd open">Sleduje HDP ${I.chev}</div>
+            <div class="pop" style="margin-top:4px">
+              <div class="sec t-over i3">Indexace</div>
+              <div class="it"><span class="chk"></span>Pevná částka</div>
+              <div class="it sel hov"><span class="chk">${I.checkInk}</span>Sleduje HDP</div>
+              <div class="it"><span class="chk"></span>Sleduje inflaci</div>
+              <div class="sep"></div>
+              <div class="it dis"><span class="chk"></span>Sleduje mzdy (brzy)</div>
+            </div></div>
+        </div>
+        <div class="t-over i3" style="margin-top:4px">Text field</div>
+        <div class="input" style="width:260px">${I.search}<span>Hledat politiku…</span><span class="kbd" style="margin-left:auto">/</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>The policy slider</h2>
+    <p class="lede">The hero control. Category fill = in force; stripes = scheduled change; ink tick = now; white thumb = target (yellow while dragging); dotted track = beyond what political capital can buy.</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))" id="sliders"></div>
+  </section>
+
+  <section>
+    <h2>Chips, badges, deltas, tooltip, toast</h2>
+    <div class="panel" style="display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span class="chip">Vše</span><span class="chip hov">Vláda</span><span class="chip sel">Ultimáta</span><span class="chip">Ekonomika</span>
+        <span class="vdiv"></span>
+        <span class="cat tax">${I.percent}Daně</span><span class="cat spend">${I.coin}Výdaje</span><span class="cat reg">${I.scales}Regulace</span>
+        <span class="vdiv"></span>
+        <span class="pill good">${I.up}Většina</span><span class="pill bad">${I.alert}Ultimátum 4 Q</span><span class="pill warn">${I.alert}Ztrácí trpělivost</span><span class="pill info">${I.info}Naplánováno</span>
+        <span class="vdiv"></span>
+        <span class="badge num">7</span><span class="badge att num">2</span>
+        <span class="delta good">${I.up}<span class="num">+0,1</span></span><span class="delta bad">${I.up}<span class="num">+0,1</span></span><span class="delta good">${I.down}<span class="num">−0,2</span></span><span class="delta neu">${I.down}<span class="num">−0,2</span></span>
+      </div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div class="tip"><b>Nezaměstnanost</b> <span class="num">4,3 %</span><br><span class="s">Klesla o 0,2 p.b. za čtvrtletí. Klikněte pro graf.</span></div>
+        <div class="toast">${I.checkGood}Minimální mzda → <span class="num">7,0</span> od Q1 2023<span class="act">Zpět</span></div>
+        <div style="width:220px">
+          <div class="ldiv t-over">Opozice</div>
+          <div class="divider" style="margin:14px 0"></div>
+          <div class="t-caption i3">Scrollbar: 4 px grabber, 6 on hover</div>
+          <div style="display:flex;gap:10px;margin-top:6px"><div style="width:4px;height:60px;border-radius:3px;background:rgba(26,25,23,.2)"></div><div style="width:6px;height:60px;border-radius:3px;background:rgba(26,25,23,.35)"></div><div style="width:6px;height:60px;border-radius:3px;background:rgba(26,25,23,.55)"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cards, rows, tiles, meters</h2>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+      <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <div class="t-over i3">List rows · default · hover · selected · table header · group header</div>
+        <div class="thead t-over i3"><span style="flex:1">Politika</span><span style="width:90px;text-align:right">Hodnota</span><span style="width:80px;text-align:right">Rozpočet</span></div>
+        <div class="ghead" style="color:var(--reg)">${I.scales}Regulace <span class="t-micro i3 num">13</span></div>
+        <div class="rows" id="rows-demo"></div>
+      </div>
+      <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+        <div class="t-over i3">Cards · default · hover · selected</div>
+        <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
+          <div class="card"><div class="t-heading">Koalice</div><div class="t-caption i3">2 partneři</div></div>
+          <div class="card hov"><div class="t-heading">Průzkumy</div><div class="t-caption i3">8 stran</div></div>
+          <div class="card sel"><div class="t-heading">Kompas</div><div class="t-caption i3">vybráno</div></div>
+        </div>
+        <div class="t-over i3">Meters and approval bars</div>
+        <div id="meters-demo" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin-top:12px" id="tiles-demo"></div>
+  </section>
+
+  <section>
+    <h2>HUD chips, chart, hemicycle, compass</h2>
+    <div class="panel" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px" id="hud-demo"></div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">
+      <div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="t-heading">Strany v průzkumech</div><div class="t-caption i3">podíl hlasů, %</div></div>
+        <div class="seg"><button>1 r</button><button class="sel">3 r</button><button>Vše</button></div></div>
+        <svg id="chart-demo" viewBox="0 0 380 230" style="width:100%;height:auto;margin-top:8px"></svg></div>
+      <div class="card"><div class="t-heading">Parlament</div><div class="t-caption i3">200 mandátů · vláda podtržena</div>
+        <svg id="hemi-demo" viewBox="0 0 360 214" style="width:100%;height:auto;margin-top:8px"></svg></div>
+      <div class="card"><div class="t-heading">Politický kompas</div><div class="t-caption i3">ekonomika × společnost</div>
+        <svg id="compass-demo" viewBox="0 0 300 300" style="width:100%;max-width:320px;height:auto;margin-top:8px"></svg></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Modal: quarterly briefing</h2>
+    <div id="brief-demo"></div>
+  </section>
+
+  <section>
+    <h2>Pictograms</h2>
+    <p class="lede">24-unit grid, 20-unit live area, 1.5 px stroke at 16 px, round caps and joins, one colour.</p>
+    <div class="panel" id="icons-demo" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px"></div>
+  </section>
+</div>
+
+
+<!-- ===================================================== START SCREEN -->
+<div id="start">
+  <svg id="startweb" style="position:absolute;inset:0;width:100%;height:100%"></svg>
+  <div class="wrap">
+    <div class="hero"><div class="t-display">OpenPolitics</div><div class="t-body i2" style="margin-top:6px">Politická simulace. Veďte stranu, udržte většinu, nevládněte naslepo.</div></div>
+    <div class="scard">
+      <div class="t-over i3">Nová hra</div>
+      <div><div class="lab">Scénář</div><div style="display:flex;gap:12px">
+        <div class="opt sel"><div style="display:flex;gap:8px;align-items:center"><span class="radio on"></span><span class="t-heading">Česko 2015</span></div><div class="t-caption i2" style="margin:6px 0 0 24px">Koaliční vláda, 8 stran, 200 mandátů. Hlavní scénář.</div></div>
+        <div class="opt"><div style="display:flex;gap:8px;align-items:center"><span class="radio"></span><span class="t-heading">Ekonomický sandbox</span></div><div class="t-caption i2" style="margin:6px 0 0 24px">Bez voleb a koalic. Jen ekonomika.</div></div></div></div>
+      <div style="display:flex;gap:24px;flex-wrap:wrap">
+        <div><div class="lab">Jazyk</div><div class="seg"><button class="sel">Čeština</button><button>English</button></div></div>
+        <div><div class="lab">Volební práh</div><div class="stepper"><button>${I.minus}</button><div class="f num">5 <span class="i3">%</span></div><button>${I.plus}</button></div></div>
+        <div><div class="lab">Seed</div><div style="display:flex;gap:4px"><div class="input num" style="width:96px;color:var(--ink)">650</div><button class="ibtn" title="Náhodný">${I.arrows}</button></div></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px"><button class="btn btn-secondary" style="height:40px">Načíst hru</button><button class="btn btn-cta">${I.play}Začít hru<span class="kbd">↵</span></button></div>
+    </div>
+    <div class="scard">
+      <div class="t-over i3">Zobrazení</div>
+      <div><div class="lab">Režim okna</div><div class="seg"><button class="sel">Okno</button><button>Bez rámečku</button><button>Celá obrazovka</button></div></div>
+      <div><div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lab">Velikost rozhraní</div><span class="t-figl num">110 %</span></div>
+        <svg viewBox="0 0 300 30" width="100%" class="num"><rect x="10" y="12" width="280" height="6" rx="3" fill="#E6E3DC"/><rect x="10" y="12" width="140" height="6" rx="3" fill="#1A1917"/><rect x="9.5" y="22" width="1" height="4" fill="#B9B4A9"/><rect x="56.2" y="22" width="1" height="4" fill="#B9B4A9"/><rect x="102.8" y="22" width="1" height="4" fill="#B9B4A9"/><rect x="149.5" y="22" width="1" height="4" fill="#B9B4A9"/><rect x="196.2" y="22" width="1" height="4" fill="#B9B4A9"/><rect x="242.8" y="22" width="1" height="4" fill="#B9B4A9"/><rect x="289.5" y="22" width="1" height="4" fill="#B9B4A9"/><circle cx="150" cy="15" r="10" fill="#fff" stroke="#1A1917" stroke-width="2"/></svg>
+        <div class="t-caption i3 num" style="display:flex;justify-content:space-between"><span>80 %</span><span>140 %</span></div></div>
+      <label class="t-body" style="display:flex;gap:8px;align-items:center"><span class="cb on">${I.check}</span>Automaticky podle velikosti okna</label>
+      <label class="t-body" style="display:flex;gap:8px;align-items:center"><span class="cb"></span>Omezit animace</label>
+      <div class="inset t-caption i2 num">Rozhraní: <b style="color:var(--ink);font-weight:600" id="logical">1280 × 720</b> logických bodů · rozvržení <b style="color:var(--ink);font-weight:600" id="lclass">běžné</b></div>
+    </div>
+  </div>
+  <div class="foot t-caption i3"><span>Všechna data jsou ilustrativní, strany jsou smyšlené.</span><span class="num">v0.6 · F11 celá obrazovka</span></div>
+</div>
+
+<!-- ===================================================== APP SHELL -->
+<div id="app">
+  <header class="topbar" id="topbar"></header>
+  <nav class="rail" id="rail"></nav>
+  <main class="stage" id="stage">
+    <svg class="map" id="map"></svg>
+    <div class="ovl" style="left:12px;bottom:12px"><div class="dd" style="min-width:0;height:32px;gap:10px"><span class="t-caption i3">Barvy</span>Kategorie ${I.chev}</div></div>
+    <div class="ovl" style="right:12px;bottom:12px"><div class="grpbtn"><button class="ibtn" title="Oddálit">${I.minus}</button><button class="ibtn" title="Přiblížit">${I.plus}</button><button class="ibtn" title="Přizpůsobit">${I.fit}</button></div></div>
+  </main>
+  <aside class="insp" id="insp"></aside>
+  <div class="scrim" id="scrim"></div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ icons */
+const P = (d, extra='') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extra}>${d}</svg>`;
+const I = {
+  minus:P('<path d="M6 12h12"/>'), plus:P('<path d="M12 6v12M6 12h12"/>'), chev:P('<path d="M7 10l5 5 5-5"/>'),
+  check:P('<path d="M6 12.5l4 4 8-9"/>','style="color:#fff;width:12px;height:12px"'), checkInk:P('<path d="M6 12.5l4 4 8-9"/>','style="width:16px;height:16px"'),
+  checkGood:P('<path d="M6 12.5l4 4 8-9"/>','style="color:#5CC48A;width:16px;height:16px"'),
+  search:P('<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>','style="width:16px;height:16px"'),
+  up:P('<path d="M12 5l7 12H5z" fill="currentColor" stroke="none"/>'), down:P('<path d="M12 19L5 7h14z" fill="currentColor" stroke="none"/>'),
+  alert:P('<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.5"/>','style="width:12px;height:12px"'),
+  info:P('<circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8v.5"/>','style="width:12px;height:12px"'),
+  fit:P('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'), close:P('<path d="M6 6l12 12M18 6L6 18"/>'), menu:P('<path d="M4 7h16M4 12h16M4 17h16"/>'),
+  ff:P('<path d="M4 6l7 6-7 6zM13 6l7 6-7 6z"/>'), play:P('<path d="M7 5l12 7-12 7z" fill="currentColor"/>'), expand:P('<path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/>'),
+  back:P('<path d="M15 6l-6 6 6 6"/>'),
+  percent:P('<circle cx="12" cy="12" r="9"/><path d="M9 15l6-6"/><circle cx="9" cy="9.5" r=".6"/><circle cx="15" cy="14.5" r=".6"/>'),
+  coin:P('<ellipse cx="12" cy="8" rx="6" ry="3"/><path d="M6 8v4c0 1.7 2.7 3 6 3s6-1.3 6-3V8"/><path d="M12 15v6M9 18l3 3 3-3"/>'),
+  scales:P('<path d="M12 4v16M7 20h10M5 8h14"/><path d="M5 8l-3 6c1.5 1.5 4.5 1.5 6 0zM19 8l-3 6c1.5 1.5 4.5 1.5 6 0z"/>'),
+  map:P('<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3"/>'),
+  grid:P('<rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/>'),
+  sliders:P('<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>'),
+  people:P('<circle cx="9" cy="8" r="3"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 13.5c2.8 0 5 2.2 5 5"/>'),
+  parl:P('<path d="M3 18a9 9 0 0 1 18 0z"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/>'),
+  flag:P('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>'), news:P('<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h8M8 16h5"/>'),
+  gdp:P('<path d="M4 19h16"/><path d="M6 15l4-4 3 3 5-6"/><path d="M15 8h3v3"/>'), job:P('<rect x="4" y="8" width="16" height="11" rx="2"/><path d="M9 8V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M4 13h16"/>'),
+  tag:P('<path d="M4 12V5a1 1 0 0 1 1-1h7l8 8-8 8z"/><circle cx="8.5" cy="8.5" r="1"/>'), bank:P('<path d="M4 10h16M5 10l7-5 7 5M6 10v7M10 10v7M14 10v7M18 10v7M4 19h16"/>'),
+  health:P('<path d="M10 4h4v6h6v4h-6v6h-4v-6H4v-4h6z"/>'), cap:P('<path d="M2 10l10-5 10 5-10 5z"/><path d="M6 12v4c2 2 10 2 12 0v-4"/>'),
+  shield:P('<path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z"/>'), leaf:P('<path d="M5 19c0-8 5-13 14-14 0 9-5 14-13 14z"/><path d="M5 19l8-8"/>'),
+  scale2:P('<path d="M12 4v16M6 20h12"/><circle cx="7" cy="9" r="3"/><circle cx="17" cy="13" r="3"/>'), bus:P('<rect x="5" y="4" width="14" height="13" rx="2"/><path d="M5 11h14M8 20v-3M16 20v-3"/>'),
+  house:P('<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M10 20v-5h4v5"/>'), factory:P('<path d="M3 20V10l5 3V10l5 3V6h4l1 14z"/>'),
+  bolt:P('<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>'), globe:P('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.3 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.3-3.5-8.5s1-6 3.5-8.5"/>'),
+  eye:P('<path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="2.5"/>'), clock:P('<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>'),
+  key:P('<circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2"/>'), child:P('<circle cx="12" cy="6" r="2.5"/><path d="M12 9v6M8 12h8M10 21l2-6 2 6"/>'),
+  wifi:P('<path d="M3 9a13 13 0 0 1 18 0M6 12.5a8.5 8.5 0 0 1 12 0M9 16a4 4 0 0 1 6 0"/><circle cx="12" cy="19" r=".8"/>'), wheat:P('<path d="M12 21V8"/><path d="M12 8c-2-1-3-3-3-5 2 1 3 3 3 5zM12 8c2-1 3-3 3-5-2 1-3 3-3 5zM12 13c-3 0-4-2-5-4 3 0 4 2 5 4zM12 13c3 0 4-2 5-4-3 0-4 2-5 4zM12 18c-3 0-4-2-5-4 3 0 4 2 5 4zM12 18c3 0 4-2 5-4-3 0-4 2-5 4z"/>'),
+  flask:P('<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/>'), star:P('<path d="M12 4l2.4 5 5.6.8-4 3.9 1 5.5-5-2.7-5 2.7 1-5.5-4-3.9 5.6-.8z"/>'),
+  arrows:P('<path d="M4 9h14l-3-3M20 15H6l3 3"/>'), pill2:P('<rect x="3" y="9" width="18" height="6" rx="3" transform="rotate(-35 12 12)"/><path d="M9.5 8.5l5 7"/>'),
+  coins:P('<circle cx="9" cy="9" r="5"/><path d="M14.5 6.5a5 5 0 1 1-6 9"/>'), crime:P('<circle cx="12" cy="12" r="8.5"/><path d="M12 7v6M12 16v.5"/>'),
+  ballot:P('<rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V5h8v6M10 8h4"/>'), cog:P('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>'),
+  senior:P('<circle cx="11" cy="5" r="2"/><path d="M11 8v6l-2 7M11 14l3 7M8 11l3-3 3 3M16 12v9"/>'), city:P('<path d="M3 20h18M5 20V9h5v11M10 20V4h6v16M16 20v-8h3v8"/>'),
+  tractor:P('<circle cx="7" cy="16" r="4"/><circle cx="18" cy="17" r="2.5"/><path d="M7 12V6h5l2 6h4v3"/>'), wallet:P('<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h2M3 9h18"/>'),
+  diamond:P('<path d="M6 4h12l3 5-9 11L3 9z"/><path d="M3 9h18"/>'),
+};
+function rehtml(el){ el.innerHTML = el.innerHTML.replace(/\$\{I\.(\w+)\}/g,(m,k)=>I[k]||m); }
+
+/* ------------------------------------------------------------------ data */
+const POL = [
+ ['income_tax','Daň z příjmu a odvody',0,'percent'],['vat','DPH a spotřební daně',0,'tag'],['corporate_tax','Daň z příjmu právnických osob',0,'factory'],['property_tax','Daň z nemovitostí',0,'house'],
+ ['carbon_tax','Uhlíková daň',0,'leaf'],['wealth_tax','Majetková daň',0,'diamond'],['transaction_tax','Daň z finančních transakcí',0,'arrows'],['excise_taxes','Spotřební daně na zdraví',0,'pill2'],
+ ['pensions','Důchody',1,'senior'],['health_spending','Výdaje na zdravotnictví',1,'health'],['education_spending','Výdaje na školství',1,'cap'],['police','Policie a justice',1,'shield'],['research','Podpora výzkumu',1,'flask'],
+ ['social_benefits','Sociální dávky',1,'wallet'],['infrastructure','Infrastruktura',1,'city'],['administration','Veřejná správa',1,'bank'],['defence','Posílení obrany',1,'shield'],['culture_sport','Kultura a sport',1,'star'],
+ ['public_transport','Veřejná doprava',1,'bus'],['housing_support','Podpora bydlení',1,'house'],['family_allowances','Rodinné přídavky',1,'child'],['active_labour_policy','Aktivní politika zaměstnanosti',1,'job'],
+ ['rural_development','Rozvoj venkova',1,'wheat'],['green_subsidies','Zelené dotace',1,'leaf'],['digital_infrastructure','Digitální infrastruktura',1,'wifi'],['childcare','Péče o děti',1,'child'],
+ ['environment_regulation','Ekologická regulace',2,'leaf'],['migration','Otevřenost migraci',2,'globe'],['minimum_wage','Minimální mzda',2,'coins'],['labour_flexibility','Flexibilita trhu práce',2,'job'],['rent_control','Regulace nájmů',2,'key'],
+ ['drug_policy','Liberalizace drog',2,'pill2'],['university_fees','Školné na univerzitách',2,'cap'],['retirement_age','Důchodový věk',2,'clock'],['energy_mix','Čistý energetický mix',2,'bolt'],['business_regulation','Regulace podnikání',2,'factory'],
+ ['surveillance','Pravomoci dohledu',2,'eye'],['electoral_threshold','Volební práh',2,'ballot'],['electoral_method','Způsob přidělení mandátů',2,'parl']];
+const VAL = [['gdp','HDP','gdp',0],['capital','Kapitál','coins',0],['productivity','Produktivita','cog',1],['labour_force','Pracovní síla','people',0],['unemployment','Nezaměstnanost','job',-1],
+ ['inflation','Inflace','tag',-1],['debt','Veřejný dluh','bank',-1],['interest_rate','Úroková sazba','percent',0],['revenue','Příjmy státu','wallet',0],['spending','Výdaje státu','coin',0],
+ ['price_level','Cenová hladina','tag',0],['gdp_nominal','Nominální HDP','gdp',0],['real_growth','Reálný růst HDP','gdp',1],['deficit_pct','Schodek rozpočtu (% HDP)','bank',-1],
+ ['health','Zdraví populace','health',1],['education_level','Úroveň vzdělání','cap',1],['crime','Kriminalita','crime',-1],['environment','Kvalita životního prostředí','leaf',1],['inequality','Nerovnost','scale2',0]];
+const EDGES = [["defence","crime",-1],["defence","productivity",1],["culture_sport","health",1],["culture_sport","education_level",1],["public_transport","environment",1],["public_transport","productivity",1],["housing_support","inequality",-1],["family_allowances","inequality",-1],["family_allowances","labour_force",1],["active_labour_policy","unemployment",-1],["active_labour_policy","inequality",-1],["rural_development","inequality",-1],["rural_development","unemployment",-1],["green_subsidies","environment",1],["green_subsidies","inflation",1],["green_subsidies","productivity",1],["digital_infrastructure","productivity",1],["digital_infrastructure","capital",1],["childcare","labour_force",1],["childcare","inequality",-1],["childcare","education_level",1],["property_tax","inequality",-1],["property_tax","capital",-1],["carbon_tax","environment",1],["carbon_tax","inflation",1],["carbon_tax","productivity",-1],["wealth_tax","inequality",-1],["wealth_tax","capital",-1],["transaction_tax","capital",-1],["excise_taxes","health",1],["excise_taxes","inflation",1],["minimum_wage","unemployment",1],["minimum_wage","inequality",-1],["minimum_wage","inflation",1],["labour_flexibility","unemployment",-1],["labour_flexibility","inequality",1],["labour_flexibility","productivity",1],["rent_control","inequality",-1],["rent_control","capital",-1],["drug_policy","crime",1],["drug_policy","health",1],["university_fees","education_level",-1],["university_fees","inequality",1],["retirement_age","labour_force",1],["retirement_age","unemployment",1],["retirement_age","health",-1],["energy_mix","environment",1],["energy_mix","inflation",1],["energy_mix","productivity",-1],["business_regulation","productivity",-1],["business_regulation","capital",-1],["business_regulation","unemployment",1],["surveillance","crime",-1],["education_spending","productivity",1],["research","productivity",1],["infrastructure","productivity",1],["education_level","productivity",1],["crime","productivity",-1],["environment_regulation","productivity",-1],["health","productivity",1],["corporate_tax","productivity",-1],["corporate_tax","capital",-1],["infrastructure","capital",1],["migration","labour_force",1],["pensions","labour_force",-1],["social_benefits","labour_force",-1],["health","labour_force",1],["income_tax","unemployment",1],["social_benefits","unemployment",1],["education_level","unemployment",-1],["migration","unemployment",1],["corporate_tax","unemployment",1],["vat","inflation",1],["infrastructure","inflation",1],["health_spending","health",1],["environment","health",1],["inequality","health",-1],["unemployment","health",-1],["gdp","health",1],["education_spending","education_level",1],["inequality","education_level",-1],["research","education_level",1],["police","crime",-1],["unemployment","crime",1],["inequality","crime",1],["social_benefits","crime",-1],["environment_regulation","environment",1],["gdp","environment",-1],["research","environment",1],["income_tax","inequality",-1],["social_benefits","inequality",-1],["unemployment","inequality",1],["pensions","inequality",-1],["migration","inequality",1],["education_level","inequality",-1],["health","health",-1],["education_level","education_level",-1],["crime","crime",-1],["environment","environment",-1],["inequality","inequality",-1]];
+const CATC = ['var(--tax)','var(--spend)','var(--reg)'], CATHEX=['#8B3D8C','#0D6E78','#8A6410'], CATBG=['#F1E4F0','#DDEDEE','#F3EAD3'];
+const CATN = ['DANĚ A ODVODY','VÝDAJE','REGULACE'], CATG=['percent','coin','scales'];
+const GROUPS = [['Všichni','people',-0.19,1],['Domácnosti s nízkými příjmy','wallet',-0.42,.22],['Střední třída','house',-0.08,.34],['Vysoké příjmy','diamond',0.21,.10],['Senioři','senior',-0.31,.24],['Mladí ve městech','city',0.12,.14],['Konzervativní venkov','tractor',-0.27,.16]];
+const PARTIES = [['Hnutí Občanů','#3F7FE0',50,25.8,.25,.62],['Levice práce','#7E1F33',32,16.8,-.7,.35],['Občanská pravice','#1D3F9E',21,12.2,.62,-.15],['Sociální aliance','#D9730D',25,11.3,-.35,.05],['Lidová unie','#86561C',24,9.4,.05,.3],['Domov především','#5A2E7A',18,8.1,.15,.78],['Zelená vlna','#0B9A5E',16,7.4,-.45,-.55],['Otevřená síť','#C860B0',14,6.2,.3,-.7]];
+const GOV = ['Lidová unie','Sociální aliance','Hnutí Občanů'];
+let seed=11; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+const LEVEL={}; POL.forEach(p=>LEVEL[p[0]]=0.15+rnd()*0.7); LEVEL.minimum_wage=0.4;
+const HEALTH={}; VAL.forEach(v=>HEALTH[v[0]]=v[3]===0?0:(rnd()<.5?1:-1)); HEALTH.unemployment=1; HEALTH.inflation=-1; HEALTH.deficit_pct=-1; HEALTH.gdp=1; HEALTH.environment=-1; HEALTH.crime=1;
+const CHANGED=new Set(['inflation','deficit_pct','unemployment','pensions','minimum_wage']);
+
+const fmt = (x,d=1)=> (x<0?'−':'')+Math.abs(x).toFixed(d).replace('.',',');
+const esc = s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+
+/* ------------------------------------------------------------------ slider */
+function slider({name='Minimální mzda', cat=2, now=.4, target=.7, band=[0,.85], val='7,0', unit='/10', delta='+3,0', state='', w=320, compact=false}){
+  const H=compact?40:64, tY=compact?18:40, x0=10, x1=w-10, L=x1-x0, X=t=>x0+L*t, col=CATHEX[cat];
+  const H2=compact?H:H-28, tY2=compact?tY:tY-28;
+  const head = compact?'':`<div style="display:flex;align-items:baseline;gap:8px;max-width:${w}px;height:28px"><span class="t-heading" style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${name}</span><span class="t-figxl num">${val}</span><span class="t-caption i3">${unit}</span><span class="delta ${delta.startsWith('−')?'good':'neu'}" style="min-width:40px;justify-content:flex-end">${delta.startsWith('−')?I.down:I.up}<span class="num">${delta.replace(/^[+−]/,'')}</span></span></div>`;
+  let s=head+`<svg viewBox="0 ${compact?0:28} ${w} ${H2}" width="100%" style="max-width:${w}px;display:block;margin-top:${compact?0:6}px" class="num">`;
+  s+=`<defs><pattern id="st${cat}" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#E6E3DC"/><rect width="2" height="5" fill="${col}" fill-opacity=".5"/></pattern></defs>`;
+  // unreachable dotted
+  for(let x=X(band[1])+4;x<x1;x+=6) s+=`<circle cx="${x}" cy="${tY}" r="1.2" fill="#C9C4BA"/>`;
+  for(let x=X(0);x<X(band[0])-2;x+=6) s+=`<circle cx="${x}" cy="${tY}" r="1.2" fill="#C9C4BA"/>`;
+  s+=`<rect x="${X(band[0])}" y="${tY-3}" width="${X(band[1])-X(band[0])}" height="6" rx="3" fill="${state==='dis'?'#EDEAE3':'#D3CFC6'}"/>`;
+  s+=`<rect x="${x0}" y="${tY-3}" width="${X(now)-x0}" height="6" rx="3" fill="${state==='dis'?'#B9B4A9':col}"/>`;
+  if(target>now) s+=`<rect x="${X(now)}" y="${tY-3}" width="${X(target)-X(now)}" height="6" fill="url(#st${cat})"/>`;
+  if(!compact){ for(let i=0;i<=10;i++){const x=X(i/10), mj=i%5===0; s+=`<rect x="${x-.5}" y="${tY+8}" width="1" height="${mj?6:4}" fill="${mj?'#8F897F':'#B9B4A9'}"/>`;}
+    s+=`<text x="${x0}" y="${tY+24}" font-size="11" fill="#6B665E" text-anchor="middle">0</text><text x="${x1}" y="${tY+24}" font-size="11" fill="#6B665E" text-anchor="middle">10</text>`;
+    s+=`<text x="${X(now)}" y="${tY+24}" font-size="11" font-weight="500" fill="#57534C" text-anchor="middle">teď 4,0</text>`;}
+  s+=`<rect x="${X(now)-1}" y="${tY-7}" width="2" height="14" fill="#1A1917"/>`;
+  const r = state==='drag'||state==='hov'?11:10, fill= state==='drag'?'#FFD23F':state==='dis'?'#F2F0EB':'#FFFFFF', st=state==='dis'?'#B9B4A9':'#1A1917';
+  if(state==='focus') s+=`<circle cx="${X(target)}" cy="${tY}" r="${r+4}" fill="none" stroke="#1A1917" stroke-width="2"/>`;
+  s+=`<circle cx="${X(target)}" cy="${tY+1}" r="${r}" fill="rgba(26,25,23,.18)"/><circle cx="${X(target)}" cy="${tY}" r="${r}" fill="${fill}" stroke="${st}" stroke-width="2"/>`;
+  return s+'</svg>';
+}
+
+/* ------------------------------------------------------------------ chart, hemicycle, compass */
+function chartSVG(el,w=520,h=220){
+  const pl=30,pr=96,pt=10,pb=24, W=w-pl-pr, Hh=h-pt-pb, n=12, ymax=30;
+  let s='';
+  [0,10,20,30].forEach(v=>{const y=pt+Hh-(v/ymax)*Hh; s+=`<line x1="${pl}" x2="${pl+W}" y1="${y}" y2="${y}" stroke="${v===0?'#8F897F':'#E6E3DC'}"/><text x="${pl-8}" y="${y+4}" font-size="11" fill="#6B665E" text-anchor="end" class="num">${v}</text>`;});
+  ['Q1 23','Q1 24','Q1 25'].forEach((q,i)=>{const x=pl+W*(i*4)/(n-1); s+=`<text x="${x}" y="${h-6}" font-size="11" fill="#6B665E" text-anchor="middle">${q}</text>`;});
+  s+=`<rect x="${pl+W*10.5/(n-1)}" y="${pt}" width="${W*1/(n-1)}" height="${Hh}" fill="#FFF1BF"/>`;
+  const ex=pl+W*6/(n-1); s+=`<line x1="${ex}" x2="${ex}" y1="${pt}" y2="${pt+Hh}" stroke="#B9B4A9" stroke-dasharray="3 3"/><text x="${ex+4}" y="${pt+10}" font-size="11" fill="#6B665E">Volby</text>`;
+  const series=PARTIES.slice(0,4); const labels=[];
+  series.forEach((p,k)=>{let v=p[3]+(rnd()-.5)*4, pts=[];for(let i=0;i<n;i++){v+= (rnd()-.5)*2.2; if(i===n-1)v=p[3]; pts.push([pl+W*i/(n-1), pt+Hh-(v/ymax)*Hh]);}
+    s+=`<polyline points="${pts.map(q=>q.join(',')).join(' ')}" fill="none" stroke="${p[1]}" stroke-width="2" stroke-linejoin="round"/>`;
+    labels.push([pts[n-1][1],p]);});
+  labels.sort((a,b)=>a[0]-b[0]); let last=-99; labels.forEach(([y,p])=>{y=Math.max(y,last+14);last=y; s+=`<text x="${pl+W+8}" y="${y+4}" font-size="12" font-weight="600" fill="${p[1]}" class="num">${fmt(p[3])} ${p[0].split(' ')[0]}</text>`;});
+  const cx=pl+W*8/(n-1); s+=`<line x1="${cx}" x2="${cx}" y1="${pt}" y2="${pt+Hh}" stroke="rgba(26,25,23,.4)"/>`;
+  el.innerHTML=s;
+}
+function hemiSVG(el,w=360,h=210){
+  const seats=[]; PARTIES.forEach(p=>{for(let i=0;i<p[2];i++)seats.push(p);}); // 200
+  const gk=p=>GOV.includes(p[0])?0:(p[4]<0?-1:1); const order=[...PARTIES].sort((a,b)=>gk(a)-gk(b)||a[4]-b[4]); const list=[]; order.forEach(p=>{for(let i=0;i<p[2];i++)list.push(p);});
+  const rows=8, R=148, r0=62, cx=w/2, cy=180; const pos=[];
+  let tot=0; const rr=[]; for(let i=0;i<rows;i++){const rad=r0+(R-r0)*i/(rows-1); rr.push(rad); tot+=rad;}
+  let counts=rr.map(r=>Math.round(200*r/tot)); let d=200-counts.reduce((a,b)=>a+b); counts[rows-1]+=d;
+  rr.forEach((rad,i)=>{for(let j=0;j<counts[i];j++){const a=Math.PI-Math.PI*(j+.5)/counts[i]; pos.push([a,cx+rad*Math.cos(a),cy-rad*Math.sin(a)]);}});
+  pos.sort((a,b)=>b[0]-a[0]);
+  let s=''; let gA=[], first=null,lastA=null;
+  pos.forEach((q,i)=>{const p=list[i]; s+=`<circle cx="${q[1].toFixed(1)}" cy="${q[2].toFixed(1)}" r="3.6" fill="${p[1]}"/>`; if(GOV.includes(p[0])){ if(first===null)first=q[0]; lastA=q[0];}});
+  // government arc (assumes contiguous)
+  const ga=R+9; const a1=first,a2=lastA; s+=`<path d="M${cx+ga*Math.cos(a1)} ${cy-ga*Math.sin(a1)} A${ga} ${ga} 0 0 1 ${cx+ga*Math.cos(a2)} ${cy-ga*Math.sin(a2)}" fill="none" stroke="#1A1917" stroke-width="3" stroke-linecap="round"/>`;
+  s+=`<line x1="${cx}" x2="${cx}" y1="${cy-R-22}" y2="${cy-r0+6}" stroke="#1A1917" stroke-dasharray="3 3"/><text x="${cx+6}" y="${cy-R-14}" font-size="11" fill="#57534C" class="num">101 = většina</text>`;
+  s+=`<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="32" font-weight="650" letter-spacing="-.6" fill="#1A1917" class="num">117</text><text x="${cx}" y="${cy+14}" text-anchor="middle" font-size="12" fill="#6B665E" class="num">/ 200 · vláda ▲ většina</text>`;
+  el.innerHTML=s;
+}
+function compassSVG(el,w=300){
+  const m=0,S=w, c=S/2; let s=`<rect x="0" y="0" width="${S}" height="${S}" rx="8" fill="#F2F0EB"/>`;
+  [.25,.75].forEach(f=>{s+=`<line x1="${S*f}" x2="${S*f}" y1="0" y2="${S}" stroke="#E0DDD5"/><line y1="${S*f}" y2="${S*f}" x1="0" x2="${S}" stroke="#E0DDD5"/>`;});
+  s+=`<line x1="${c}" x2="${c}" y1="0" y2="${S}" stroke="#B9B4A9"/><line y1="${c}" y2="${c}" x1="0" x2="${S}" stroke="#B9B4A9"/>`;
+  const L=(x,y,t,a)=>`<text x="${x}" y="${y}" font-size="10.5" font-weight="600" letter-spacing=".6" fill="#6B665E" text-anchor="${a}">${t}</text>`;
+  s+=L(c,16,'AUTORITÁŘSKÉ','middle')+L(c,S-8,'LIBERÁLNÍ','middle')+L(8,c+15,'LEVICE','start')+L(S-8,c+15,'PRAVICE','end');
+  s+=`<circle cx="${c+.02*c}" cy="${c-.1*c}" r="8" fill="none" stroke="#6B665E" stroke-dasharray="2 2"/>`;
+  PARTIES.forEach(p=>{const x=c+p[4]*c*.85,y=c-p[5]*c*.85, you=p[0]==='Sociální aliance';
+    if(you) s+=`<circle cx="${x}" cy="${y}" r="9" fill="#FAF9F6" stroke="#1A1917" stroke-width="2"/>`;
+    s+=`<circle cx="${x}" cy="${y}" r="${you?6:5}" fill="${p[1]}" stroke="#FAF9F6" stroke-width="2"/>`;
+    const right = x < S-110; s+=`<text x="${right?x+11:x-11}" y="${y+4}" font-size="12" font-weight="${you?600:500}" fill="#1A1917" text-anchor="${right?'start':'end'}">${p[0]}${you?' (vy)':''}</text>`;});
+  el.innerHTML=s;
+}
+function spark(w,h,col='#1A1917',area=true,seedv=3){ seed=seedv*977; let v=.5,pts=[];for(let i=0;i<16;i++){v=Math.min(.9,Math.max(.1,v+(rnd()-.48)*.18));pts.push([i*(w/15),h-v*h]);}
+  const d=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(''); const l=pts[15];
+  return `<svg viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" style="display:block;width:100%;height:100%" preserveAspectRatio="none">${area?`<path d="${d}L${w} ${h}L0 ${h}Z" fill="${col}" fill-opacity=".06"/>`:''}<path d="${d}" fill="none" stroke="${col}" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/><circle cx="${l[0]-2}" cy="${l[1]}" r="2" fill="${col}"/></svg>`;}
+
+/* ------------------------------------------------------------------ app shell */
+const HUD=[ // label, short, value, unit, delta, desirability(+1 good if up), prio, alert
+ ['HDP','HDP','5,42','bil. Kč','+0,8 %',1,1,false],['Nezaměstnanost','Nezam.','4,3','%','−0,2',-1,2,false],['Schodek','Deficit','5,5','% HDP','+0,1',-1,3,true],
+ ['Nálada voličů','Nálada','−0,19','','−0,01',1,4,false],['Inflace','Inflace','2,8','%','+0,1',-1,5,false],['Růst','Růst','4,2','%','+1,8',1,6,false],['Dluh','Dluh','41,2','% HDP','+0,4',-1,7,false]];
+function deltaHTML(d,des){const up=!d.startsWith('−'); const good=(up?1:-1)*des>0; return `<span class="delta ${good?'good':'bad'}">${up?I.up:I.down}<span class="num">${d.replace(/^[+−]/,'')}</span></span>`;}
+function hudHTML(h,cls,wide){return `<div class="hud" data-p="${h[6]}" title="${h[0]}"><div class="lab t-over i3">${h[7]?'<span class="alert"></span>':''}${cls==='compact'?h[1]:h[0]}</div>
+  <div class="v"><span class="t-figl num">${h[2]}</span>${h[3]?`<span class="u">${h[3]}</span>`:''}&nbsp;${deltaHTML(h[4],h[5])}${wide?`<span style="width:40px;height:16px;margin-left:6px;display:inline-block;align-self:center">${spark(40,16,'#57534C',false,h[6])}</span>`:''}</div></div>`;}
+
+function buildTop(cls){
+  const wide=cls==='wide', comp=cls==='compact';
+  const tb=document.getElementById('topbar');
+  tb.innerHTML=`<button class="ibtn" title="Menu">${I.menu}</button>
+   <div class="dateb" style="min-width:${comp?84:wide?190:150}px">${wide?`<div style="display:flex;gap:8px;align-items:baseline"><span class="t-heading num">Q3 2022</span><span class="t-caption i3 num">30/80 · volby za 14 Q</span></div>`:`<span class="t-heading num">Q3 2022</span><span class="t-caption i3 num">${comp?'30/80':'30/80 · volby za 14 Q'}</span>`}</div>
+   <span class="vdiv"></span>
+   <div class="strip" id="strip">${HUD.filter(h=>wide||h[6]<7).map(h=>hudHTML(h,cls,wide)).join('')}<button class="btn btn-ghost btn-sm" id="more" style="display:none;flex:none"></button></div>
+   <div class="cap" title="Politický kapitál"><span style="color:var(--ink-2)">${I.coins}</span><span class="t-figl num">2,9</span>${comp?'':'<span class="t-caption i3 num">+2,0/Q</span>'}</div>
+   <button class="ibtn" title="Odehrát 4 čtvrtletí">${I.ff}</button>
+   ${q.get('brief')?`<button class="btn btn-cta is-disabled" style="${comp?'height:36px;padding:0 12px':''}">Rozhodněte (1)</button>`:`<button class="btn btn-cta" style="${comp?'height:36px;padding:0 12px':''}">${I.play}${comp?'Ukončit Q':'Ukončit čtvrtletí'}${comp?'':'<span class="kbd">↵</span>'}</button>`}`;
+  // overflow by priority
+  const strip=document.getElementById('strip'), more=document.getElementById('more');
+  const chips=[...strip.querySelectorAll('.hud')]; let hidden=0;
+  const fits=()=>strip.scrollWidth<=strip.clientWidth+1;
+  chips.sort((a,b)=>b.dataset.p-a.dataset.p);
+  for(const c of chips){ if(fits()) break; c.style.display='none'; hidden++; more.style.display='inline-flex'; more.textContent='+'+hidden; }
+}
+function buildRail(cls){
+  const r=document.getElementById('rail'), comp=cls==='compact';
+  const navs=[['map','Mapa',1],['grid','Přehled'],['sliders','Politiky'],['people','Voliči'],['parl','Politika',0,2],['flag','Strana'],['news','Zprávy',0,5]];
+  let s=navs.map(n=>`<div class="nav ${n[2]?'sel':''}" title="${n[1]}">${I[n[0]]}<span class="tx">${n[1]}</span>${n[3]?`<span class="badge ${n[0]==='parl'?'att':''} num">${n[3]}</span><span class="dot" style="${n[0]==='parl'?'':'background:var(--ink)'}"></span>`:''}</div>`).join('');
+  if(!comp){
+    s+=`<div class="ldiv t-over" style="margin:10px 0 4px;padding:0 2px">Schvalování</div>`;
+    s+=GROUPS.map((g,i)=>{const v=g[2], w=Math.abs(v)*50; return `<div class="grp ${i===0?'all':''}" title="${g[0]}"><div class="l">${I[g[1]]}<span class="n">${g[0]}</span><span class="t-data num ${v<0?'bad':'good'}">${v>0?'+':''}${fmt(v,2)}</span></div>
+      <div class="appr"><i style="${v<0?`right:50%;width:${w}%;background:var(--bad)`:`left:50%;width:${w}%;background:var(--good)`}"></i></div><div class="share" style="width:${g[3]*100}%"></div></div>`;}).join('');
+    s+=`<div class="ldiv t-over" style="margin:8px 0 2px;padding:0 2px">Vláda</div>
+      <div class="gov"><div style="display:flex;align-items:baseline;gap:6px"><span class="t-figl num">117</span><span class="t-caption i3 num">/ 200</span><span class="pill good" style="margin-left:auto;height:20px">${I.up}většina</span></div>
+      <div class="meter" style="margin:6px 0 6px;overflow:visible"><i style="width:58.5%;background:var(--ink)"></i><span style="position:absolute;left:50.5%;top:-3px;width:1px;height:12px;background:var(--ink-3)"></span></div>
+      <div class="t-caption warn" style="font-weight:600;display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;display:inline-flex">${I.alert}</span>2 ultimáta běží</div><div class="t-caption i3 num" style="margin-top:2px">Volby za 14 čtvrtletí</div></div>`;
+    if(innerHeight>=860) s+=`<div class="ldiv t-over" style="margin:12px 0 6px;padding:0 2px">Průzkumy</div>`+PARTIES.slice(0,5).map(p=>`<div style="display:flex;align-items:center;gap:8px;height:26px;padding:0 10px"><span style="width:8px;height:8px;border-radius:4px;background:${p[1]};flex:none"></span><span class="t-caption" style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${p[0]==='Sociální aliance'?'font-weight:600':''}">${p[0]}${p[0]==='Sociální aliance'?' (vy)':''}</span><span class="t-data num">${fmt(p[3])} %</span></div>`).join('');
+  } else {
+    s+=`<div class="divider" style="width:40px;margin:10px 0 4px"></div><div class="sbars">`+GROUPS.slice(1).map(g=>{const v=g[2],h=Math.abs(v)*15*1.6;return `<div class="sbar" title="${g[0]} ${fmt(v,2)}"><div class="b"><i style="${v<0?`top:15px;height:${h}px;background:var(--bad)`:`bottom:15px;height:${h}px;background:var(--good)`}"></i></div>${I[g[1]]}</div>`;}).join('')+`</div>
+      <div style="margin-top:10px;text-align:center" title="Vláda 117/200"><div class="t-data num">117</div><div style="width:6px;height:6px;border-radius:3px;background:var(--good);margin:3px auto 0"></div></div>`;
+  }
+  r.innerHTML=s;
+}
+function buildInspector(mode){
+  const el=document.getElementById('insp');
+  if(mode==='quarter'){
+    el.innerHTML=`<div class="ih"><div class="t-over i3">Toto čtvrtletí</div><div class="t-title num">Q3 2022</div></div>
+    <div class="ib">
+      <div class="inset" style="display:flex;align-items:center;gap:10px;background:var(--warn-bg)"><span class="warn" style="width:16px;height:16px;display:inline-flex">${I.alert.replace('width:12px;height:12px','width:16px;height:16px')}</span><div style="flex:1"><div class="t-bodys">2 ultimáta běží</div><div class="t-caption i2">Lidová unie: Důchody ≥ 10 % HDP · zbývají 4 Q</div></div><button class="btn btn-secondary btn-sm">Zobrazit</button></div>
+      <div><div class="ldiv t-over" style="margin-bottom:4px">Co se změnilo</div>
+        ${[['Inflace','2,8 %','+0,1',-1],['Nálada voličů','−0,19','−0,01',1],['Nezaměstnanost','4,3 %','−0,2',-1],['Schodek','5,5 % HDP','+0,1',-1],['Kvalita prostředí','52','−1,4',1]].map(r=>`<div class="ef"><span>${r[0]}</span><span class="v num">${r[1]}</span><span style="width:52px;text-align:right">${deltaHTML(r[2],r[3])}</span></div>`).join('')}</div>
+      <div><div class="ldiv t-over" style="margin-bottom:6px">Zprávy</div>
+        ${['Lidová unie ztrácí trpělivost: „Důchody ≥ 10 % HDP“ se neplní.','Lidová unie dává ultimátum (4 Q): splňte „Důchody ≥ 10 % HDP“.','Hnutí Občanů požaduje: Regulace podnikání ≤ 4,0. Máte 8 čtvrtletí.'].map((t,i)=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--line-subtle)"><span style="color:${i===1?'var(--bad)':'var(--ink-3)'};flex:none;margin-top:2px">${i===1?I.alert:I.news.replace('<svg','<svg style="width:14px;height:14px"')}</span><span class="t-body" style="font-size:13px;line-height:18px">${t}</span></div>`).join('')}
+        <div class="t-label" style="margin-top:8px">Všechny zprávy (12) →</div></div>
+    </div>`;
+    return;
+  }
+  const comp=document.body.classList.contains('w-compact');
+  const W=comp?300:(document.body.classList.contains('w-wide')?360:320);
+  el.innerHTML=`<div class="ih"><div class="t-over" style="color:var(--reg);display:flex;align-items:center;gap:6px"><span style="width:12px;height:12px;display:inline-flex">${I.scales}</span>Regulace</div>
+      <div class="t-title" style="margin-top:2px">Minimální mzda</div>
+      <div class="acts"><button class="ibtn" title="Graf">${I.expand}</button><button class="ibtn" title="Zavřít (Esc)">${I.close}</button></div></div>
+    <div class="ib">
+      <div class="t-body i2" style="font-size:13px;line-height:19px">Jak vysoká je zákonná minimální mzda (0 až 10). Pomáhá nejchudším, může stát práci a zvyšuje ceny.</div>
+      <div>${slider({w:W,name:'Cílová hodnota'})}
+        <div class="t-caption i2 num" style="margin-top:6px">Stojí <b style="font-weight:600;color:var(--ink)">2,0</b> kapitálu · dosažitelné do 8,5 · účinek za 2 čtvrtletí</div></div>
+      <div><div style="display:flex;justify-content:space-between;align-items:center"><span class="t-over i3">Co to udělá</span><span class="t-caption i3">za rok</span></div>
+        ${[['Nezaměstnanost','+0,18 p.b.','up',0],['Inflace','+0,06 p.b.','up',0],['Nerovnost','−0,15','down',1],['Rozpočet','0,0 mld.','',2]].map(r=>`<div class="ef"><span style="width:10px;display:inline-flex;color:${r[3]===1?'var(--good)':r[3]===0?'var(--bad)':'var(--ink-3)'}">${r[2]?I[r[2]]:'·'}</span><span>${r[0]}</span><span class="v num ${r[3]===1?'good':r[3]===0?'bad':'i3'}">${r[1]}</span></div>`).join('')}</div>
+      <div><div class="t-over i3" style="margin-bottom:6px">Kdo to chce</div>
+        ${[['Nízké příjmy',.62],['Senioři',.2],['Mladí ve městech',.12],['Vysoké příjmy',-.45],['Konzerv. venkov',-.18]].map(r=>`<div style="display:flex;align-items:center;gap:10px;height:24px"><span class="t-caption" style="width:108px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r[0]}</span><div class="appr" style="flex:1;height:6px"><i style="${r[1]<0?`right:50%;width:${-r[1]*50}%;background:var(--bad)`:`left:50%;width:${r[1]*50}%;background:var(--good)`}"></i></div><span class="t-micro num ${r[1]<0?'bad':'good'}" style="width:34px;text-align:right">${r[1]>0?'+':''}${fmt(r[1],2)}</span></div>`).join('')}</div>
+      <div class="inset" style="background:var(--warn-bg);display:flex;gap:8px;align-items:flex-start"><span class="warn" style="margin-top:2px">${I.alert}</span><span class="t-caption" style="color:#5C3A10">Hnutí Občanů chce minimální mzdu nejvýš 5,0. Změna sníží jejich loajalitu.</span></div>
+    </div>
+    <div class="if"><button class="btn btn-ghost">Vrátit</button><button class="btn btn-primary">Použít <span class="kbd">↵</span></button></div>`;
+}
+
+/* ------------------------------------------------------------------ map */
+function wrapText(ctx, text, maxW){ const words=text.split(' '); const lines=[]; let cur='';
+  for(const w of words){ const t=cur?cur+' '+w:w; if(ctx.measureText(t).width<=maxW||!cur) cur=t; else {lines.push(cur); cur=w;} } if(cur)lines.push(cur);
+  if(lines.length>2){ let l2=lines.slice(1).join(' '); while(ctx.measureText(l2+'…').width>maxW && l2.length>1) l2=l2.slice(0,-1); return [lines[0],l2+'…']; }
+  return lines.map(l=>{ if(ctx.measureText(l).width<=maxW) return l; while(ctx.measureText(l+'…').width>maxW&&l.length>1) l=l.slice(0,-1); return l+'…';}); }
+
+function drawMap(sel, cls){
+  const svg=document.getElementById('map'), st=document.getElementById('stage');
+  const fullW=st.clientWidth, h=st.clientHeight; if(fullW<50) return;
+  const drawer = cls==='compact' && document.body.classList.contains('insp-open') ? Math.min(340, innerWidth*.6) : 0;
+  const w = fullW - drawer; // compact: the map re-fits into the part the drawer leaves uncovered
+  const comp=cls==='compact', LB=Math.min(comp?96:132, w*.13), TB=comp?30:36;
+  let rx=w/2-LB-8, ry=h/2-TB-8-14; const asp=rx/ry; if(asp>2.1) rx=ry*2.1; if(asp<.95) ry=rx/.95;
+  const cx=w/2, cy=h/2-6;
+  const ns=Math.max(.8,Math.min(1.2,(h-60)/560));
+  const RP=15*ns, RV=19*ns;
+  const ctx=document.createElement('canvas').getContext('2d'); ctx.font='500 12px "Ledger Inter", Inter, sans-serif';
+  // indicators: inner ellipse, deterministic seed + force
+  const ix=rx*.60, iy=ry*.58; const V={};
+  VAL.forEach((v,i)=>{ const a=i*2.39996+.4, rr=Math.sqrt((i+.5)/VAL.length); V[v[0]]={x:cx+ix*rr*Math.cos(a), y:cy+iy*rr*Math.sin(a), v};});
+  const ids=Object.keys(V); const minD=Math.max(RV*2+22, Math.min(92, Math.sqrt(Math.PI*ix*iy/VAL.length)*1.05));
+  const clampIn=()=>ids.forEach(k=>{const n=V[k]; const ex=(n.x-cx)/ix, ey=(n.y-cy)/iy, e=Math.hypot(ex,ey); if(e>1){n.x=cx+(n.x-cx)/e; n.y=cy+(n.y-cy)/e;}});
+  for(let it=0;it<160;it++){ for(let a=0;a<ids.length;a++)for(let b=a+1;b<ids.length;b++){const A=V[ids[a]],B=V[ids[b]]; let dx=(B.x-A.x)/1.35, dy=B.y-A.y, d=Math.hypot(dx,dy)||1; if(d<minD){const f=(minD-d)/2/d; A.x-=dx*f*1.35*.5;A.y-=dy*f*.5;B.x+=dx*f*1.35*.5;B.y+=dy*f*.5;}}
+    ids.forEach(k=>{const n=V[k]; const ex=(n.x-cx)/ix, ey=(n.y-cy)/iy, e=Math.hypot(ex,ey); if(e>1){n.x=cx+(n.x-cx)/e; n.y=cy+(n.y-cy)/e;}}); }
+  // policies: sectors
+  const counts=[0,0,0]; POL.forEach(p=>counts[p[2]]++); const gap=8, total=360-3*gap; const arcs=[]; let start=-90-(counts[0]/39*total)/2;
+  for(let c=0;c<3;c++){const len=counts[c]/39*total; arcs.push([start,start+len]); start+=len+gap;}
+  const Pn={};
+  for(let c=0;c<3;c++){ const ps=POL.filter(p=>p[2]===c);
+    // barycentric order by angle of targets
+    ps.forEach(p=>{const t=EDGES.filter(e=>e[0]===p[0]&&V[e[1]]).map(e=>V[e[1]]); let ang; if(t.length){const mx=t.reduce((s,n)=>s+n.x,0)/t.length,my=t.reduce((s,n)=>s+n.y,0)/t.length; ang=Math.atan2((my-cy)/ry,(mx-cx)/rx)*180/Math.PI;} else ang=(arcs[c][0]+arcs[c][1])/2; while(ang<arcs[c][0]-90)ang+=360; while(ang>arcs[c][0]+270)ang-=360; p._a=ang;});
+    ps.sort((a,b)=>a._a-b._a);
+    ps.forEach((p,i)=>{const a=(arcs[c][0]+(i+.5)*(arcs[c][1]-arcs[c][0])/ps.length)*Math.PI/180; Pn[p[0]]={x:cx+rx*Math.cos(a),y:cy+ry*Math.sin(a),a,p};});
+  }
+  // relax indicators toward connected policies centroid a little
+  ids.forEach(k=>{const n=V[k]; const src=EDGES.filter(e=>e[1]===k&&Pn[e[0]]).map(e=>Pn[e[0]]); if(src.length){const mx=src.reduce((s,q)=>s+q.x,0)/src.length, my=src.reduce((s,q)=>s+q.y,0)/src.length; n.x+= (mx-n.x)*.12; n.y+=(my-n.y)*.12;}});
+  for(let it=0;it<80;it++){ for(let a=0;a<ids.length;a++)for(let b=a+1;b<ids.length;b++){const A=V[ids[a]],B=V[ids[b]]; let dx=(B.x-A.x)/1.35, dy=B.y-A.y, d=Math.hypot(dx,dy)||1; if(d<minD){const f=(minD-d)/2/d; A.x-=dx*f*1.35*.5;A.y-=dy*f*.5;B.x+=dx*f*1.35*.5;B.y+=dy*f*.5;}} clampIn();}
+
+  const focus=sel; const nb=new Set(); if(focus){ EDGES.forEach(e=>{ if(e[0]===focus) nb.add(e[1]); if(e[1]===focus) nb.add(e[0]); }); nb.add(focus);}
+  const node=id=>Pn[id]||V[id];
+  let s=`<defs><pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#D9D5CC"/></pattern>
+    <marker id="ag" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="#1E7A46"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 1L9 5L0 9z" fill="#C8352B"/></marker></defs>
+    <rect width="${fullW}" height="${h}" fill="url(#dots)"/>`;
+  // sector arcs
+  const secR=[];
+  for(let c=0;c<3;c++){const [a0,a1]=arcs[c].map(x=>x*Math.PI/180); let d=''; for(let k=0;k<=40;k++){const a=a0+(a1-a0)*k/40; d+=(k?'L':'M')+(cx+rx*Math.cos(a)).toFixed(1)+' '+(cy+ry*Math.sin(a)).toFixed(1);} s+=`<path d="${d}" fill="none" stroke="${CATHEX[c]}" stroke-opacity=".28" stroke-width="2"/>`;
+    const am=(a0+a1)/2, lx=cx+rx*.80*Math.cos(am), ly=cy+ry*.80*Math.sin(am)+(c===0?6:0); secR.push({x:lx-60,y:ly-12,w:120,h:16});
+    s+=`<g opacity="${focus?.35:1}"><text x="${lx}" y="${ly}" text-anchor="middle" font-size="11" font-weight="600" letter-spacing=".66" fill="${CATHEX[c]}">${CATN[c]} <tspan fill="#6B665E" font-weight="500">${counts[c]}</tspan></text></g>`;}
+  // edges
+  let eS='', eF='';
+  EDGES.forEach(e=>{const A=node(e[0]),B=node(e[1]); if(!A||!B) return; const mx=(A.x+B.x)/2,my=(A.y+B.y)/2, qx=mx+(cx-mx)*.22, qy=my+(cy-my)*.22;
+    const hot= focus && (e[0]===focus||e[1]===focus);
+    const d=`M${A.x.toFixed(1)} ${A.y.toFixed(1)}Q${qx.toFixed(1)} ${qy.toFixed(1)} ${B.x.toFixed(1)} ${B.y.toFixed(1)}`;
+    if(hot){ const col=e[2]>0?'#1E7A46':'#C8352B';
+      // arrow mid marker via split path at t=.62
+      const t=.62, x=(1-t)*(1-t)*A.x+2*(1-t)*t*qx+t*t*B.x, y=(1-t)*(1-t)*A.y+2*(1-t)*t*qy+t*t*B.y;
+      eF+=`<path d="${d}" fill="none" stroke="${col}" stroke-opacity=".85" stroke-width="1.75" stroke-dasharray="6 6"><animate attributeName="stroke-dashoffset" from="24" to="0" dur="1s" repeatCount="indefinite"/></path>`;
+      eF+=`<path d="M${(1-t+.04)*(1-t+.04)*A.x+2*(1-t+.04)*(t-.04)*qx+(t-.04)*(t-.04)*B.x} ${(1-t+.04)*(1-t+.04)*A.y+2*(1-t+.04)*(t-.04)*qy+(t-.04)*(t-.04)*B.y}L${x} ${y}" stroke="${col}" stroke-width="1.75" fill="none" marker-end="url(#${e[2]>0?'ag':'ab'})"/>`;
+    } else eS+=`<path d="${d}" fill="none" stroke="#1A1917" stroke-opacity="${focus?.05:.10}" stroke-width="1"/>`; });
+  s+=eS+eF;
+  // nodes
+  const placed=[]; const labels=[];
+  const hit=(r)=>placed.some(q=>!(r.x+r.w<q.x||q.x+q.w<r.x||r.y+r.h<q.y||q.y+q.h<r.y));
+  Object.values(Pn).forEach(n=>placed.push({x:n.x-RP-2,y:n.y-RP-2,w:RP*2+4,h:RP*2+4}));
+  Object.values(V).forEach(n=>placed.push({x:n.x-RV-2,y:n.y-RV-2,w:RV*2+4,h:RV*2+4}));
+  secR.forEach(r=>placed.push(r));
+  let nS='';
+  Object.values(V).forEach(n=>{const id=n.v[0], hl=HEALTH[id], dim=focus&&!nb.has(id); const ring=hl>0?'#1E7A46':hl<0?'#C8352B':'#B9B4A9';
+    nS+=`<g opacity="${dim?.35:1}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})">${CHANGED.has(id)?`<circle r="${RV+4}" fill="none" stroke="#1A1917" stroke-width="1"/>`:''}<circle r="${RV}" fill="#FAF9F6" stroke="${ring}" stroke-width="2"/><g transform="translate(${-9*ns} ${-9*ns}) scale(${.75*ns})" color="#1A1917" style="color:#1A1917">${I[n.v[2]].replace('<svg','<svg width="24" height="24"')}</g></g>`;
+    labels.push({id,x:n.x,y:n.y,r:RV,kind:'v',text:n.v[1],prio: id===focus?100:nb.has(id)?80:CHANGED.has(id)?60:50, dim});});
+  Object.values(Pn).forEach(n=>{const id=n.p[0], c=n.p[2], dim=focus&&!nb.has(id), lv=LEVEL[id], sel=id===focus;
+    const a0=-Math.PI/2, a1=a0+lv*2*Math.PI, R=RP; const large=lv>.5?1:0;
+    nS+=`<g opacity="${dim?.35:1}" transform="translate(${n.x.toFixed(1)} ${n.y.toFixed(1)})">${sel?`<circle r="${R+7}" fill="#FFD23F" stroke="#1A1917" stroke-width="1"/>`:''}${CHANGED.has(id)&&!sel?`<circle r="${R+4}" fill="none" stroke="#1A1917" stroke-width="1"/>`:''}
+      <circle r="${R}" fill="#FAF9F6" stroke="#D9D5CC" stroke-width="2"/>
+      <path d="M${R*Math.cos(a0)} ${R*Math.sin(a0)}A${R} ${R} 0 ${large} 1 ${(R*Math.cos(a1)).toFixed(2)} ${(R*Math.sin(a1)).toFixed(2)}" fill="none" stroke="${CATHEX[c]}" stroke-width="2.25" stroke-linecap="round"/>
+      <g transform="translate(${-7*ns} ${-7*ns}) scale(${.5833*ns})" style="color:${CATHEX[c]}">${I[n.p[3]].replace('<svg','<svg width="24" height="24"')}</g></g>`;
+    labels.push({id,x:n.x,y:n.y,r:RP,kind:'p',a:n.a,text:n.p[1],prio: sel?100:nb.has(id)?80:CHANGED.has(id)?60:40, dim});});
+  // labels greedy
+  labels.sort((a,b)=>b.prio-a.prio); let lS='';
+  labels.forEach(L=>{ if(comp && L.kind==='p' && L.prio<60) return;
+    const lines=wrapText(ctx,L.text,116); const lw=Math.max(...lines.map(l=>ctx.measureText(l).width)), lh=lines.length*14;
+    const cands=[];
+    if(L.kind==='v'){ cands.push(['middle',L.x,L.y+L.r+4]); cands.push(['middle',L.x,L.y-L.r-4-lh]); cands.push(['start',L.x+L.r+5,L.y-lh/2]); cands.push(['end',L.x-L.r-5,L.y-lh/2]); }
+    else { const ca=Math.cos(L.a), sa=Math.sin(L.a); const ox=L.x+ca*(L.r+6), oy=L.y+sa*(L.r+6);
+      if(ca>.35) { cands.push(['start',ox,oy-lh/2]); cands.push(['start',ox,oy-lh/2-10]); cands.push(['start',ox,oy-lh/2+10]); }
+      else if(ca<-.35) { cands.push(['end',ox,oy-lh/2]); cands.push(['end',ox,oy-lh/2-10]); cands.push(['end',ox,oy-lh/2+10]); }
+      else if(sa<0) { cands.push(['middle',L.x,oy-lh]); cands.push(['start',ox,oy-lh]); cands.push(['end',ox,oy-lh]); }
+      else { cands.push(['middle',L.x,oy]); cands.push(['start',ox,oy]); cands.push(['end',ox,oy]); } }
+    for(const [an,x,y] of cands){ const rx0= an==='middle'?x-lw/2:an==='end'?x-lw:x; const r={x:rx0-1,y:y-1,w:lw+2,h:lh+2};
+      if(r.x<2||r.x+r.w>w-2||r.y<2||r.y+r.h>h-2) continue;
+      if(!hit(r)){ placed.push(r);
+        lS+=`<text x="${x.toFixed(1)}" y="${(y+11).toFixed(1)}" text-anchor="${an}" font-size="12" font-weight="${L.prio>=100?600:500}" fill="#1A1917" opacity="${L.dim?.4:1}" stroke="#ECE9E2" stroke-width="3" paint-order="stroke" stroke-linejoin="round">${lines.map((l,i)=>`<tspan x="${x.toFixed(1)}" dy="${i?14:0}">${esc(l)}</tspan>`).join('')}</text>`; break; } } });
+  s+=nS+lS;
+  svg.setAttribute('viewBox',`0 0 ${fullW} ${h}`); svg.innerHTML=s;
+}
+
+/* ------------------------------------------------------------------ briefing */
+function briefHTML(width=760){
+  return `<div class="modal" style="width:min(${width}px,100%);max-height:100%">
+   <div class="mh"><div class="t-over i3">Čtvrtletní briefing · Q3 2022</div><div class="t-title" style="margin-top:4px">Lidová unie odešla z vlády</div><button class="ibtn is-disabled" title="Nejdřív rozhodněte">${I.close}</button></div>
+   <div class="mb" style="display:flex;flex-direction:column;gap:18px">
+    <div><div class="ldiv t-over" style="margin-bottom:8px">Rozhodnutí <span class="badge att num" style="margin-left:4px">1</span></div>
+     <div class="inset" style="border-radius:12px;padding:16px">
+      <div class="t-heading" style="display:flex;gap:8px;align-items:center"><span style="width:16px;height:16px;display:inline-flex;color:#3F7FE0">${I.flag}</span>Hnutí Občanů nabízí koalici</div>
+      <div class="t-body i2" style="margin:4px 0 12px;font-size:13px">Získali byste 50 mandátů a většinu <span class="num">117/200</span>. Za vstup chtějí nižší daně firmám.</div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+       <div class="card sel" style="background:var(--accent-tint);padding:14px"><div style="display:flex;align-items:center;gap:8px"><span class="radio on"></span><span class="t-heading">Přijmout</span></div>
+         <div class="t-caption" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"><span class="good" style="display:flex;gap:6px;align-items:center"><span style="width:8px;display:inline-flex">${I.up}</span>Většina <span class="num">117/200</span></span><span class="bad" style="display:flex;gap:6px;align-items:center"><span style="width:8px;display:inline-flex">${I.down}</span>Daň PO nejvýš <span class="num">3,0 %</span> HDP do 8 Q</span></div></div>
+       <div class="card" style="padding:14px"><div style="display:flex;align-items:center;gap:8px"><span class="radio"></span><span class="t-heading">Odmítnout</span></div>
+         <div class="t-caption" style="margin-top:8px;display:flex;flex-direction:column;gap:4px"><span class="bad" style="display:flex;gap:6px;align-items:center"><span style="width:8px;display:inline-flex">${I.down}</span>Menšinová vláda <span class="num">67/200</span></span><span class="good" style="display:flex;gap:6px;align-items:center"><span style="width:8px;display:inline-flex">${I.up}</span>Žádné ústupky</span></div></div>
+      </div></div></div>
+    <div><div class="ldiv t-over" style="margin-bottom:6px">Co se změnilo</div>
+     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 16px">${[['Inflace','2,8 %','+0,1',-1],['Nálada','−0,19','−0,01',1],['Schodek','5,5 %','+0,1',-1],['Nezaměstnanost','4,3 %','−0,2',-1],['HDP','5,42 bil.','+0,8 %',1],['Dluh','41,2 %','+0,4',-1]].map(r=>`<div class="ef"><span>${r[0]}</span><span class="v num">${r[1]}</span><span style="width:52px;text-align:right">${deltaHTML(r[2],r[3])}</span></div>`).join('')}</div></div>
+    <div><div class="ldiv t-over" style="margin-bottom:2px">Zprávy</div>
+     ${[['Lidová unie dává ultimátum (4 Q): splňte „Důchody ≥ 10 % HDP“.','bad','Ultimátum'],['Hnutí Občanů ztrácí trpělivost: „Infrastruktura ≥ 4 % HDP“ se neplní.','warn','Trpělivost'],['Lidová unie požaduje: Důchodový věk ≤ 62. Máte 8 čtvrtletí.','',''] ].map(n=>`<div style="display:flex;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line-subtle)"><span class="i3" style="width:14px;display:inline-flex">${I.news}</span><span class="t-body" style="font-size:13px;flex:1">${n[0]}</span>${n[1]?`<span class="pill ${n[1]}">${I.alert}${n[2]}</span>`:''}</div>`).join('')}
+     <div class="t-label" style="margin-top:8px">Zobrazit vše (12) →</div></div>
+   </div>
+   <div class="mf"><button class="btn btn-ghost">Na mapu</button><button class="btn btn-primary">Pokračovat <span class="kbd">↵</span></button></div></div>`;
+}
+
+/* ------------------------------------------------------------------ boot */
+const q=new URLSearchParams(location.search);
+function classOf(){ const W=innerWidth; return W<1100?'compact':W>=1600?'wide':'regular'; }
+function renderApp(){
+  const cls=classOf(); document.body.classList.remove('w-compact','w-regular','w-wide'); document.body.classList.add('w-'+cls);
+  const sel=q.get('sel'); const open = !!sel || cls==='wide';
+  document.body.classList.toggle('insp-open', open);
+  buildTop(cls); buildRail(cls); buildInspector(sel?'policy':'quarter');
+  requestAnimationFrame(()=>drawMap(sel, cls));
+  if(q.get('brief')){ document.body.classList.add('brief'); document.getElementById('scrim').innerHTML=briefHTML(cls==='compact'?560:760); }
+}
+if(q.get('view')==='start'){ const st=document.getElementById('start'); rehtml(st); document.body.classList.add('v-start');
+  const W=innerWidth; document.getElementById('logical').textContent=W+' × '+innerHeight; document.getElementById('lclass').textContent=W<1100?'kompaktní':W>=1600?'široké':'běžné';
+  const sv=document.getElementById('startweb'); const H=innerHeight; let d=''; seed=5; const pts=[]; for(let i=0;i<46;i++) pts.push([W*.55+rnd()*W*.45, rnd()*H]); pts.forEach((p,i)=>{ pts.slice(i+1).forEach(q2=>{ if(Math.hypot(p[0]-q2[0],p[1]-q2[1])<150) d+=`<line x1="${p[0]}" y1="${p[1]}" x2="${q2[0]}" y2="${q2[1]}" stroke="#1A1917" stroke-opacity=".07"/>`; }); d+=`<circle cx="${p[0]}" cy="${p[1]}" r="${3+rnd()*4}" fill="#FAF9F6" stroke="${CATHEX[i%3]}" stroke-opacity=".5" stroke-width="1.5"/>`; });
+  sv.innerHTML=`<defs><pattern id="dots2" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#D9D5CC"/></pattern></defs><rect width="100%" height="100%" fill="url(#dots2)"/>`+d; }
+else if(q.get('view')==='main'){ rehtml(document.getElementById('app')); document.body.classList.add('v-main'); document.fonts.ready.then(renderApp); renderApp(); addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(renderApp,60);}); }
+else if(!q.get('view')) { buildSheet(); const sec=q.get('sec'); if(sec!==null){ const ss=[...document.querySelectorAll('#sheet section')]; let firstSec=true; ss.forEach((el,i)=>{ if(!sec.split(',').includes(String(i))) el.style.display='none'; else if(firstSec){ el.style.marginTop='0'; firstSec=false; } }); document.querySelector('#sheet > div').style.display='none'; document.getElementById('sheet').style.paddingTop='24px'; } }
+
+function buildSheet(){
+  rehtml(document.getElementById('sheet'));
+  const sw=(hex,name,sub,dark)=>`<div class="sw"><div class="c" style="background:${hex}"></div><div class="m"><div style="font-weight:600">${name}</div><div class="num i3">${hex}</div>${sub?`<div class="num i2">${sub}</div>`:''}</div></div>`;
+  document.getElementById('sw-surf').innerHTML=[['#ECE9E2','canvas','map, background'],['#FAF9F6','surface','panels, charts'],['#F2F0EB','surface-2','inset, hover'],['#E6E3DC','surface-3','pressed, tracks'],['#FFFFFF','field','inputs'],['#E0DDD5','line-subtle','hairlines'],['#D3CFC6','line','control borders'],['#B9B4A9','line-strong','hover, axes']].map(a=>sw(...a)).join('');
+  document.getElementById('sw-ink').innerHTML=[['#1A1917','ink','16.7 : 1'],['#57534C','ink-2','7.3 : 1'],['#6B665E','ink-3','5.4 : 1'],['#FFD23F','accent','ink on it 12.2 : 1'],['#FFF1BF','accent-tint','selection'],['#1E7A46','good','5.1 : 1'],['#C8352B','bad','5.0 : 1'],['#A15200','warn','5.4 : 1']].map(a=>sw(...a)).join('');
+  document.getElementById('sw-cat').innerHTML=[['#8B3D8C','Daně · plum','6.3 : 1'],['#F1E4F0','tax tint',''],['#0D6E78','Výdaje · petrol','5.7 : 1'],['#DDEDEE','spend tint',''],['#8A6410','Regulace · ochre','5.1 : 1'],['#F3EAD3','reg tint','']].map(a=>sw(...a)).join('');
+  const cn=['Cobalt','Amber','Emerald','Orchid','Umber','Aubergine','Cornflower','Oxblood'], ch=['#1D3F9E','#D9730D','#0B9A5E','#C860B0','#86561C','#5A2E7A','#3F7FE0','#7E1F33'], cr=['8.8','3.1','3.4','3.5','5.9','9.5','3.8','9.4'];
+  const pm={'#3F7FE0':'Hnutí Občanů','#D9730D':'Sociální aliance','#1D3F9E':'Občanská pravice','#86561C':'Lidová unie','#7E1F33':'Levice práce','#5A2E7A':'Domov především','#0B9A5E':'Zelená vlna','#C860B0':'Otevřená síť'};
+  document.getElementById('sw-chart').innerHTML=ch.map((h,i)=>sw(h,(i+1)+' '+cn[i],cr[i]+' : 1 · '+pm[h])).join('');
+  const ts=[['t-display','Display 32/36 · 650','Ledger 117 / 200'],['t-figxl num','Figure XL 28/32 · 600 tnum','5,42 bil. Kč'],['t-title','Title 20/26 · 600','Politika a koaliční vyjednávání'],['t-figl num','Figure L 17/22 · 600 tnum','4,3 % −0,19 2,8 %'],['t-heading','Heading 15/20 · 600','Způsob přidělení mandátů'],['t-body','Body 14/20 · 400','Jak vysoká je zákonná minimální mzda (0 až 10). Pomáhá nejchudším, může stát práci a zvyšuje ceny. Příliš žluťoučký kůň úpěl ďábelské ódy.'],['t-bodys','Body strong 14/20 · 500','Domácnosti s nízkými příjmy'],['t-label','Label 13/16 · 500','Ukončit čtvrtletí · Použít · Hledat'],['t-data num','Data 13/16 · 500 tnum','1 234 567  89,0  −12,4  1Il0O'],['t-caption','Caption 12/16 · 400','Účinek za 2 čtvrtletí · Q1 23'],['t-over','Overline 11/14 · 600 +6 %','Nezaměstnanost · Schvalování · ŘÍJEN'],['t-micro num','Micro 11/14 · 500','▲ 0,1  teď 4,0  101 = většina']];
+  document.getElementById('typescale').innerHTML=ts.map(t=>`<div style="display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line-subtle)"><div class="t-caption i3">${t[1]}</div><div class="${t[0]}">${t[2]}</div></div>`).join('');
+  const states=['','is-hover','is-pressed','is-focus','is-disabled'], sl=['default','hover','pressed','focus','disabled'];
+  const vars=[['btn-primary','Použít'],['btn-secondary','Načíst hru'],['btn-ghost','Vrátit'],['btn-danger','Zrušit politiku'],['btn-cta',I.play+'Ukončit čtvrtletí<span class="kbd">↵</span>']];
+  let b=`<div style="display:grid;grid-template-columns:110px repeat(5,minmax(0,1fr));gap:14px 12px;align-items:center"><div></div>${sl.map(s=>`<div class="statelab">${s}</div>`).join('')}`;
+  vars.forEach(v=>{b+=`<div class="t-caption i3">${v[0].replace('btn-','')}</div>`+states.map(s=>`<div><button class="btn ${v[0]} ${s}">${s==='is-disabled'&&v[0]==='btn-cta'?'Rozhodněte (2)':v[1]}</button></div>`).join('');});
+  b+=`<div class="t-caption i3">icon</div>`+states.map(s=>`<div><button class="ibtn ${s}">${I.ff}</button></div>`).join('');
+  b+=`<div class="t-caption i3">danger solid</div><div><button class="btn btn-danger-solid">Rozpustit koalici</button></div><div><button class="btn btn-danger-solid is-hover">Rozpustit koalici</button></div><div><button class="btn btn-danger-solid is-pressed">Rozpustit koalici</button></div><div></div><div></div>`;
+  b+=`<div class="t-caption i3">sizes</div><div style="grid-column:span 5;display:flex;gap:8px;align-items:center"><button class="btn btn-secondary btn-sm">Small 28</button><button class="btn btn-secondary">Medium 32</button><button class="btn btn-primary" style="height:40px;padding:0 16px;font-size:14px">Large 40</button></div></div>`;
+  document.getElementById('buttons').innerHTML=b;
+  document.getElementById('sliders').innerHTML=[
+    ['Default (target set, change pending)',{}],['Dragging (thumb turns yellow)',{state:'drag',target:.78,val:'7,8',delta:'+3,8'}],['Keyboard focus',{state:'focus'}],['Disabled (not your call)',{state:'dis',target:.4,val:'4,0',delta:'0,0'}],
+    ['Spending · taxes colours',{name:'Důchody',cat:1,now:.55,target:.62,val:'9,4',unit:'% HDP',delta:'+0,6',band:[.2,.9]}],['Compact 40 (party platform)',{compact:true,cat:0,now:.35,target:.35}]
+  ].map(s=>`<div class="panel"><div class="t-caption i3" style="margin-bottom:10px">${s[0]}</div>${slider(Object.assign({w:340},s[1]))}</div>`).join('');
+  document.getElementById('rows-demo').innerHTML=[['coins','Minimální mzda','4,0 /10','0,0',''],['key','Regulace nájmů','2,5 /10','0,0','hov'],['clock','Důchodový věk','63,5 let','+4,1','sel'],['ballot','Způsob přidělení mandátů','D’Hondt','—','']].map(r=>`<div class="row ${r[4]}"><span style="width:16px;height:16px;color:var(--reg);display:inline-flex">${I[r[0]]}</span><span class="t-bodys" style="flex:1;font-size:13px">${r[1]}</span><span class="t-data num" style="width:90px;text-align:right">${r[2]}</span><span class="t-data num i2" style="width:80px;text-align:right">${r[3]}</span></div>`).join('');
+  document.getElementById('meters-demo').innerHTML=`<div style="display:flex;gap:10px;align-items:center"><span class="t-caption" style="width:110px">Meter · neutral</span><div class="meter" style="flex:1"><i style="width:62%"></i></div><span class="t-data num">62 %</span></div>
+   <div style="display:flex;gap:10px;align-items:center"><span class="t-caption" style="width:110px">Loajalita partnera</span><div class="meter" style="flex:1"><i style="width:34%;background:var(--bad)"></i></div><span class="t-data num bad">34 %</span></div>
+   ${GROUPS.slice(1,4).map(g=>`<div style="display:flex;gap:10px;align-items:center"><span class="t-caption" style="width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g[0]}</span><div style="flex:1"><div class="appr"><i style="${g[2]<0?`right:50%;width:${-g[2]*50}%;background:var(--bad)`:`left:50%;width:${g[2]*50}%;background:var(--good)`}"></i></div><div class="share" style="width:${g[3]*100}%"></div></div><span class="t-data num ${g[2]<0?'bad':'good'}">${g[2]>0?'+':''}${fmt(g[2],2)}</span></div>`).join('')}
+   <div style="display:flex;gap:10px;align-items:center"><span class="t-caption" style="width:110px">Průzkum · práh 5 %</span><div style="flex:1;position:relative;height:10px;background:var(--surface-3);border-radius:5px"><i style="position:absolute;left:0;top:0;bottom:0;width:41%;border-radius:5px;background:#D9730D"></i><span style="position:absolute;left:18%;top:-3px;bottom:-3px;border-left:1px dashed var(--ink)"></span></div><span class="t-data num">11,3 %</span></div>`;
+  document.getElementById('tiles-demo').innerHTML=[['HDP','gdp','5,42','bil. Kč','+0,8 %',1],['Nezaměstnanost','job','4,3','%','−0,2',-1],['Inflace','tag','2,8','%','+0,1',-1],['Schodek','bank','5,5','% HDP','+0,1',-1],['Nálada voličů','people','−0,19','','−0,01',1],['Kriminalita','crime','38','/100','−2',-1]].map((t,i)=>`<div class="tile ${i===1?'hov':''}" style="${i===1?'border-color:var(--line-strong);background:#fff':''}"><div class="top"><span class="t-over">${t[0]}</span>${I[t[1]]}</div><div class="val"><span class="t-figxl num">${t[2]}</span><span class="t-caption i3">${t[3]}</span></div><div style="display:flex;gap:6px;align-items:center">${deltaHTML(t[4],t[5])}<span class="t-caption i3">za čtvrtletí</span></div><div class="spark">${spark(150,28,'#1A1917',true,i+2)}</div></div>`).join('');
+  document.getElementById('hud-demo').innerHTML=HUD.slice(0,6).map((h,i)=>hudHTML(h,'regular',i<2)).join('').replace('class="hud"','class="hud hov"');
+  chartSVG(document.getElementById('chart-demo'),380,230); hemiSVG(document.getElementById('hemi-demo')); compassSVG(document.getElementById('compass-demo'));
+  document.getElementById('brief-demo').innerHTML=`<div style="background:rgba(26,25,23,.40);border-radius:16px;padding:40px;display:flex;justify-content:center">${briefHTML(760)}</div>`;
+  const ic=Object.keys(I).filter(k=>!['check','checkInk','checkGood','up','down'].includes(k));
+  document.getElementById('icons-demo').innerHTML=ic.map(k=>`<div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:8px"><span style="width:24px;height:24px;display:inline-flex;color:var(--ink)">${I[k].replace('<svg','<svg width="24" height="24"')}</span><span class="t-micro i3">${k}</span></div>`).join('');
+  // live frames
+  const fr=document.getElementById('frames');
+  const mk=(w,h,qs,cap)=>{const box=document.createElement('div'); const avail=Math.min(fr.clientWidth||1176,1176); const sc=Math.min(1,avail/w);
+    box.innerHTML=`<div class="frame" style="width:${w*sc}px;height:${h*sc}px"><iframe src="?view=main${qs}" width="${w}" height="${h}" style="transform:scale(${sc})" loading="lazy" title="${cap}"></iframe></div><div class="framecap"><span class="t-heading">${cap}</span><span class="t-caption i3 num">${w} × ${h} logical</span></div>`; fr.appendChild(box);};
+  mk(1280,720,'&sel=minimum_wage','Regular · policy selected, inspector docked');
+  mk(980,560,'&sel=minimum_wage','Compact · inspector as drawer');
+  mk(1720,720,'','Wide · This quarter pinned');
+  mk(1280,720,'&brief=1','Briefing modal over the map');
+}
+</script>
+</body>
+</html>
