@@ -1,67 +1,67 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:pensions
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 4
   max: 16
   default: 9
   delay_turns: 2
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.6
   axis_y: 0.2
 - id: base:health_spending
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 3
   max: 14
   default: 7
   delay_turns: 2
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.6
 - id: base:education_spending
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 2
   max: 9
   default: 4.5
   delay_turns: 2
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.3
   axis_y: -0.3
 - id: base:police
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 0.5
   max: 4
   default: 1.5
   delay_turns: 1
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: 1
 - id: base:research
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 0
   max: 4
   default: 1
   delay_turns: 2
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: -0.4
 - id: base:social_benefits
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 3
   max: 16
   default: 8
   delay_turns: 1
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -1
 - id: base:infrastructure
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 1
   max: 8
   default: 3.5
   delay_turns: 4
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.2
 - id: base:administration
-  unit: percent_of_gdp
+  unit: nominal_spending
   min: 3
   max: 9
   default: 4.0
   delay_turns: 2
-  cost_per_unit: 1      # parameter = spending as percent of GDP
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.5

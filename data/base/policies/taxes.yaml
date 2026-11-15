@@ -1,67 +1,75 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:income_tax
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 8
   max: 45
   default: 24
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.6   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -1
 - id: base:vat
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 4
   max: 24
   default: 12
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.57   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.4
 - id: base:corporate_tax
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 0
   max: 12
   default: 4
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.21   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.8
 - id: base:property_tax
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 0
   max: 3
   default: 0
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 2.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.6
 - id: base:carbon_tax
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 0
   max: 3
   default: 0
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.08   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.3
   axis_y: -0.3
 - id: base:wealth_tax
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 0
   max: 2
   default: 0
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 3.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -1
 - id: base:transaction_tax
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 0
   max: 1
   default: 0
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 4.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.6
 - id: base:excise_taxes
-  unit: percent_of_gdp
+  unit: tax_rate
   min: 0
   max: 3
   default: 0
   delay_turns: 1
   revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.06   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.1
   axis_y: 0.3

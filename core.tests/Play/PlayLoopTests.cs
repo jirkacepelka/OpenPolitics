@@ -102,16 +102,16 @@ public class PlayLoopTests
     public void SetSchedulesAChangeAndListShowsItPending()
     {
         var o = Play("set income 26\nlist\nquit\n");
-        Assert.Contains("Scheduled: Income tax and contributions -> 26.0 % of GDP.", o);
-        Assert.Contains("-> 26.0 % of GDP in 2 quarters", o);   // income tax has delay_turns: 1
+        Assert.Contains("Scheduled: Income tax and contributions -> 26.0 %.", o);
+        Assert.Contains("-> 26.0 % in 2 quarters", o);   // income tax has delay_turns: 1
     }
 
     [Fact]
     public void SetAcceptsAPolicyNumber()
     {
-        var o = Play("set 1 3\nquit\n");
+        var o = Play("set 1 30\nquit\n");
         Assert.Contains("Scheduled:", o);
-        Assert.Contains("-> 3.0", o);
+        Assert.Contains("-> 30.0", o);
     }
 
     [Fact]
@@ -168,7 +168,7 @@ public class PlayLoopTests
     [Fact]
     public void WhyExplainsWhatPushedAValue()
     {
-        var o = Play("set base:health_spending 12\n" + Quarters(8) + "why health\nquit\n");
+        var o = Play("set base:health_spending 560\n" + Quarters(8) + "why health\nquit\n");
         Assert.Contains("WHY DID IT CHANGE: Public health", o);
         Assert.Contains("Healthcare spending: pushes up", o);
     }
@@ -228,7 +228,7 @@ public class PlayLoopTests
             var second = Play($"load {file}\nlist\nquit\n");
             Assert.Contains("Game loaded", second);
             Assert.Contains("Year 2015, quarter 4", second);
-            Assert.Contains("22.0 % of GDP", second);
+            Assert.Contains("22.0 %", second);
         }
         finally { File.Delete(file); }
     }

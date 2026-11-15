@@ -39,7 +39,7 @@ public sealed class PlayLoop
     {
         _packs = packs; _scenarioId = scenarioId; _scenario = packs.GetScenario(scenarioId);
         _seed = seed; _maxTurns = maxTurns; _tips = tips; _in = input; _out = output;
-        _t = new Localizer(packs, language);
+        _t = new Localizer(packs, language) { NominalGdpSource = () => Current.Values.GetValueOrDefault(Core.Economy.MacroModelV1.Ids.GdpNominal) };
         _game = Simulation.NewGame(packs, scenarioId, seed);
         _valueById = packs.Values.ToDictionary(v => v.Id);
         _policyById = packs.Policies.ToDictionary(p => p.Id);
@@ -209,6 +209,7 @@ public sealed class PlayLoop
         string text = args[1].Replace(',', '.');
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
         { _out.WriteLine(_t.T("ui.err.not_a_number", args[1])); return; }
+        value = Fmt.ToParameter(policy, value, _t); // typed in the shown unit (tax rate in %, spending in bn per year)
         var result = _game.Apply(new SetPolicy(policy.Id, value));
         if (result.Accepted) _out.WriteLine(_t.T("ui.set.ok", _t.Name(policy.Id), Fmt.Policy(policy, value, _t)));
         else

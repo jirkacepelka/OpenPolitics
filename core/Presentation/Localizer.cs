@@ -11,6 +11,13 @@ public sealed class Localizer
     private readonly IReadOnlyDictionary<string, string> _fallback;
     private static readonly IReadOnlyDictionary<string, string> Empty = new Dictionary<string, string>();
 
+    /// <summary>The current nominal GDP in money; lets nominal-spending policies be shown as yearly amounts (0 = unknown).</summary>
+    public double NominalGdp { get => _nominal ?? NominalGdpSource?.Invoke() ?? 0.0; set => _nominal = value; }
+    private double? _nominal;
+
+    /// <summary>Where the current nominal GDP comes from when it was not set directly (a running game plugs itself in here).</summary>
+    public Func<double>? NominalGdpSource { get; set; }
+
     public Localizer(PackSet packs, string language)
     {
         _primary = packs.Localization.TryGetValue(language, out var p) ? p : Empty;

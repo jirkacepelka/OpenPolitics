@@ -332,7 +332,7 @@ public static class PackReader
     private static PolicyDef? ReadPolicy(Fields f, string file) =>
         new(f.Str("id"), f.Str("unit", ""), f.Num("min"), f.Num("max"), f.Num("default"),
             f.OptStr("cost_value"), f.Num("cost_per_unit", 0), f.Int("delay_turns", 0), f.OptStr("revenue_base"), file,
-            f.Num("axis_x", 0), f.Num("axis_y", 0));
+            f.Num("axis_x", 0), f.Num("axis_y", 0), f.Num("base_share", 0));
 
     private static EdgeDef? ReadEdge(Fields f, string file)
     {

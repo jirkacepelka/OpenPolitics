@@ -36,7 +36,7 @@ public sealed class Session
     public Session(PackSet packs, string scenarioId, ulong seed, string language)
     {
         Packs = packs; ScenarioId = scenarioId; Seed = seed; Language = language;
-        T = new Localizer(packs, language);
+        T = new Localizer(packs, language) { NominalGdpSource = () => Country.Values.GetValueOrDefault(OpenPolitics.Core.Economy.MacroModelV1.Ids.GdpNominal) };
         Texts = new Texts(packs, T);
         Game = Simulation.NewGame(packs, scenarioId, seed);
         StartGdp = Country.Values.GetValueOrDefault("base:gdp");
