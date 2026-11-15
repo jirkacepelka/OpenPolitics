@@ -49,10 +49,10 @@ public sealed class PoliticsScreen : Screen
         var hemi = new Hemicycle { CustomMinimumSize = new Vector2(260, 160) };
         var order = s.Packs.Parties.Select(p => p.Id).OrderBy(id => s.Game.Compass.TryGetValue(id, out var c) ? c.X : 0).ThenBy(id => id, StringComparer.Ordinal);
         hemi.Set(order.Select(id => (Ui.PartyColor(s, id), pol.GovernmentParties.Contains(id), pol.Seats.GetValueOrDefault(id), t.Name(id))), (float)rules.MajorityFraction,
-            $"/ {total} · " + t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority"));
+            $"/ {total} · " + t.T(majority ? "ui.rail.majority" : "ui.rail.no_majority"));
         parl.AddChild(hemi);
         var status = Ui.HBox(8);
-        status.AddChild(Ui.Pill(t.T(majority ? "ui.politics.majority" : "ui.politics.no_majority"), majority ? AppTheme.Good : AppTheme.Bad));
+        status.AddChild(Ui.Pill(t.T(majority ? "ui.rail.majority" : "ui.rail.no_majority"), majority ? AppTheme.Good : AppTheme.Bad));
         status.AddChild(Ui.Pill(t.T("ui.line.next_election") + ": " + (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection)), AppTheme.Chrome));
         parl.AddChild(status);
         if (pol.Leader != null) parl.AddChild(Ui.L($"{t.T("ui.politics.leader")}: {t.Name(pol.Leader)}", Tx.Body, AppTheme.Ink));

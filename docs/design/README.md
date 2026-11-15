@@ -1,5 +1,9 @@
 # OpenPolitics design: "Ledger"
 
+> **Superseded in part (2026-11-15):** after reviewing this spec the user asked for Democracy 4's structure instead. The palette,
+> frame, map and dialogs now follow `addendum-democracy4.md`; Ledger's display scaling, size classes, theme-variation approach, slider
+> logic and chart rules remain. See decision record 0012.
+
 The third visual direction for the Godot client, written as a spec for the developer who builds it. It replaces the
 navy/cyan glass look and the dock-and-floating-panel layout.
 
