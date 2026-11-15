@@ -65,33 +65,30 @@ public partial class CompassView : Control
         DrawString(ov, new Vector2(r.Position.X, r.Position.Y + 16), _top.ToUpperInvariant(), HorizontalAlignment.Center, r.Size.X, 10, AppTheme.Ink3);
         DrawString(ov, new Vector2(r.Position.X, r.End.Y - 8), _bottom.ToUpperInvariant(), HorizontalAlignment.Center, r.Size.X, 10, AppTheme.Ink3);
 
-        var placed = new List<Rect2>();
-        var font = AppTheme.Semi;
-        foreach (var d in _dots) { var p = ToScreen(d.Pos); placed.Add(new Rect2(p - new Vector2(8, 8), new Vector2(16, 16))); }
         for (int i = 0; i < _dots.Count; i++)
         {
             var d = _dots[i]; var p = ToScreen(d.Pos);
             bool me = d.Id == _player;
-            float rad = me ? 7 : 5.5f;
+            float rad = me ? 8 : 6.5f;
             DrawCircle(p, rad + 2, AppTheme.Surface);
             DrawCircle(p, rad, d.Color);
             if (me) DrawArc(p, rad + 4, 0, Mathf.Tau, 32, AppTheme.Ink, 2f, true);
             if (i == _hover) DrawArc(p, rad + 4, 0, Mathf.Tau, 32, AppTheme.Chrome, 2f, true);
-            string label = me ? $"{d.Name} ({_you})" : d.Name;
-            var f = me ? AppTheme.Bold : font;
-            var size = f.GetStringSize(label, HorizontalAlignment.Left, -1, 12);
-            Rect2? spot = null;
-            foreach (var off in new[] { new Vector2(rad + 6, -size.Y / 2), new Vector2(-rad - 6 - size.X, -size.Y / 2), new Vector2(-size.X / 2, -rad - 4 - size.Y), new Vector2(-size.X / 2, rad + 4) })
-            {
-                var rect = new Rect2(p + off, size);
-                if (!r.Encloses(rect)) continue;
-                if (placed.Any(o => o.Intersects(rect) && !o.HasPoint(p))) continue;
-                spot = rect; break;
-            }
-            if (spot == null && i != _hover) continue;
-            var sp = spot ?? new Rect2(p + new Vector2(rad + 6, -size.Y / 2), size);
-            placed.Add(sp);
-            DrawString(f, new Vector2(sp.Position.X, sp.Position.Y + size.Y * 0.78f), label, HorizontalAlignment.Left, -1, 12, AppTheme.Ink);
+        }
+        // Names only on hover (the plot is crowded when every party is labelled); your own party is the ringed dot.
+        if (_hover >= 0)
+        {
+            var d = _dots[_hover]; var p = ToScreen(d.Pos);
+            string label = d.Id == _player ? $"{d.Name} ({_you})" : d.Name;
+            var f = AppTheme.Bold;
+            var size = f.GetStringSize(label, HorizontalAlignment.Left, -1, 12) + new Vector2(16, 10);
+            var pos = p + new Vector2(-size.X / 2, -size.Y - 12);
+            if (pos.Y < r.Position.Y) pos.Y = p.Y + 12;
+            pos.X = Math.Clamp(pos.X, r.Position.X + 2, r.End.X - size.X - 2);
+            var pill = AppTheme.Box(AppTheme.Ink, 6);
+            pill.ShadowColor = new Color(0, 0, 0, 0.18f); pill.ShadowSize = 6; pill.ShadowOffset = new Vector2(0, 2);
+            DrawStyleBox(pill, new Rect2(pos, size));
+            DrawString(f, pos + new Vector2(8, 5 + size.Y * 0.62f - 5), label, HorizontalAlignment.Left, -1, 12, Colors.White);
         }
     }
 

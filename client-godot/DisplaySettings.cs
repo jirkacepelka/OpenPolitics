@@ -115,8 +115,9 @@ public static class DisplaySettings
     /// <summary>The window sizes offered in the display card: presets that fit the screen, plus the current size.</summary>
     public static List<Vector2I> Choices(Window window)
     {
-        var screen = DisplayServer.ScreenGetSize(window.CurrentScreen);
-        var list = Presets.Where(p => p.X <= screen.X && p.Y <= screen.Y).ToList();
+        // Every preset is offered: the size reported for the screen is unreliable (fractional desktop scaling, embedded editor windows) and a
+        // size that does not fit is clamped to the usable area when applied.
+        var list = Presets.Where(p => p.X >= MinWindow.X && p.Y >= MinWindow.Y).ToList();
         if (!list.Contains(window.Size) && window.Mode == Window.ModeEnum.Windowed) list.Add(window.Size);
         return list.OrderBy(p => p.X).ThenBy(p => p.Y).ToList();
     }
@@ -142,7 +143,8 @@ public static class DisplaySettings
     public static void SetResolution(Window window, string resolution)
     {
         Resolution = resolution;
-        if (Mode == WindowMode.Windowed) ApplyResolution(window);
+        if (Mode != WindowMode.Windowed) SetMode(window, WindowMode.Windowed); // choosing a size means a window of that size
+        ApplyResolution(window);
         Refit(window);
         Save(); Changed?.Invoke();
     }

@@ -84,10 +84,10 @@ public static class Detail
         {
             var v = Ui.VBox(16); v.AddChild(left); v.AddChild(right); return v;
         }
-        var h = Ui.HBox(20);
+        var h = Ui.HBox(32); // white space separates the columns; a hairline between them only cut through cards that overflowed
         left.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; left.SizeFlagsStretchRatio = leftRatio;
         right.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; right.SizeFlagsStretchRatio = 1;
-        h.AddChild(left); h.AddChild(VLine()); h.AddChild(right);
+        h.AddChild(left); h.AddChild(right);
         return h;
     }
 

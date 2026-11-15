@@ -60,7 +60,7 @@ public sealed class PartyScreen : Screen
         role.AddChild(Ui.PartyName(s, pol.PlayerParty, null, Tx.Heading));
         role.AddChild(Ui.Pill(t.T("ui.role." + pol.PlayerRole.ToString().ToLowerInvariant()), AppTheme.Chrome));
         left.AddChild(role);
-        var tiles = new FlowGrid { MinColumn = 150, MaxColumns = 4, Gap = 10 };
+        var tiles = new FlowGrid { MinColumn = 210, MaxColumns = 4, Gap = 10 };
         void Tile(string label, string value, string sub, IconKind icon, Color? color = null)
         {
             var box = Ui.VBox(2);

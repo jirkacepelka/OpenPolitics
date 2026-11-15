@@ -259,7 +259,7 @@ public static class StartScreen
             i => DisplaySettings.SetMode(window, (WindowMode)i), 32));
         box.AddChild(Ui.L(t.T("ui.start.resolution"), Tx.Small, AppTheme.Ink3));
         var res = new OptionButton { FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            Disabled = DisplaySettings.Mode != WindowMode.Windowed, TooltipText = t.T("ui.start.resolution_hint") };
+            TooltipText = t.T("ui.start.resolution_hint") };
         var choices = new List<string> { "fit" };
         res.AddItem(t.T("ui.start.fit"));
         foreach (var c in DisplaySettings.Choices(window)) { choices.Add($"{c.X}x{c.Y}"); res.AddItem($"{c.X} \u00d7 {c.Y}"); }
@@ -267,6 +267,8 @@ public static class StartScreen
         res.Selected = sel >= 0 ? sel : 0;
         res.ItemSelected += i => DisplaySettings.SetResolution(window, choices[(int)i]);
         box.AddChild(res);
+        var screen = DisplayServer.ScreenGetSize(window.CurrentScreen);
+        box.AddChild(Ui.L(t.T("ui.start.screen_info", screen.X, screen.Y, window.Size.X, window.Size.Y), Tx.Small, AppTheme.Ink3, true));
         var scaleHead = Ui.HBox(8);
         scaleHead.AddChild(Ui.L(t.T("ui.start.ui_scale"), Tx.Small, AppTheme.Ink3));
         scaleHead.AddChild(Ui.Spacer());
