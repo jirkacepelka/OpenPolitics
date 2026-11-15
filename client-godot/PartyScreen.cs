@@ -75,7 +75,7 @@ public sealed class PartyScreen : Screen
         Tile(t.T("ui.party.credibility"), Ui.Num(ps.Credibility * 100, "0") + " %", "", IconKind.Shield);
         Tile(t.T("ui.party.cohesion"), Ui.Num(ps.Cohesion * 100, "0") + " %", "", IconKind.Users);
         left.AddChild(tiles);
-        left.AddChild(Ui.Section(t.T("ui.party.goals")));
+        left.AddChild(Ui.Section(s.Texts.GoalsHeading(pol.PlayerRole)));
         double share = pol.Support.GetValueOrDefault(pol.PlayerParty);
         left.AddChild(Detail.LabelledBar(t.T("ui.goal.poll"), Ui.Num(share * 100) + " %", share / 0.4, AppTheme.Chrome));
         double fragility = pol.Loyalty is { Count: > 0 } l ? 100 - l.Values.Min() : 0;

@@ -564,7 +564,7 @@ public sealed class PlayLoop
             _out.WriteLine($"   {i + 1,2}. {_t.T("ui.party.measure_line", m.Turn, _t.Name(m.PolicyId), Fmt.Policy(def, m.From, _t), Fmt.Policy(def, m.To, _t))}" +
                            (m.StanceTaken ? "  [" + _t.T("ui.party.stance_taken") + "]" : ""));
         }
-        _out.WriteLine("  " + _t.T("ui.party.goals"));
+        _out.WriteLine("  " + new Texts(_packs, _t).GoalsHeading(pol.PlayerRole));
         double share = pol.Support.GetValueOrDefault(pol.PlayerParty);
         Line("    " + _t.T("ui.goal.poll"), $"{Fmt.Number(share * 100)} %  {ShareBar(share)}");
         if (pol.Loyalty is { Count: > 0 } loyalty)

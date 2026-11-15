@@ -212,6 +212,9 @@ public sealed class Game
             cost, _politics == null || _politics.Capital + 1e-9 >= cost);
     }
 
+    /// <summary>Why a value the economic model owns moves and what it moves in turn, from the model's own terms; null for other values.</summary>
+    public ModelExplanation? ExplainValue(string valueId) => ModelExplainer.Explain(valueId, _values, _country.Parameters);
+
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 

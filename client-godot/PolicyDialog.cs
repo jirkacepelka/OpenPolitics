@@ -1,4 +1,5 @@
 using Godot;
+using OpenPolitics.Core.Economy;
 using OpenPolitics.Core.Gameplay;
 using OpenPolitics.Core.Packs;
 using OpenPolitics.Core.Politics;
@@ -337,6 +338,39 @@ public static class PolicyDialog
 /// <summary>An indicator: value and trend, its chart, why it moved last quarter and what it influences.</summary>
 public static class ValueDialog
 {
+    private static string Amount(Localizer t, ModelLine l)
+    {
+        string sign = l.Amount > 1e-9 ? "+" : "";
+        switch (l.Unit)
+        {
+            case LineUnit.MoneyPerYear: { var (f, u) = Ui.Money(t, Math.Abs(l.Amount)); return (l.Amount < 0 ? "−" : sign) + f + " " + u + " " + t.T("ui.unit.per_year"); }
+            case LineUnit.PointsPerYear: return Ui.Signed(l.Amount, "0.00") + " " + t.T("ui.unit.pp_year");
+            case LineUnit.PointsOfOutput: return Ui.Signed(l.Amount, "0.0") + " " + t.T("ui.unit.pp_output");
+            default: return Ui.Signed(l.Amount, "0.0").Replace("+", "") + " %";
+        }
+    }
+
+    /// <summary>What the economic model does with this value: its drivers per year and what it moves in turn, as plain figures.</summary>
+    private static Control ModelCard(Localizer t, ModelExplanation m)
+    {
+        var box = Ui.VBox(6);
+        void Section(string key, IReadOnlyList<ModelLine> lines)
+        {
+            box.AddChild(Ui.L(t.T(key), Tx.Overline, AppTheme.Ink2));
+            foreach (var l in lines)
+            {
+                bool signed = l.Unit != LineUnit.Percent;
+                var color = !signed ? (Color?)null : l.Amount > 1e-9 ? AppTheme.GoodText : l.Amount < -1e-9 ? AppTheme.BadText : AppTheme.Ink3;
+                box.AddChild(Detail.Stat(t.T(l.Key), Ui.Fix(Amount(t, l)), color));
+            }
+        }
+        Section("ui.model.drivers", m.Drivers);
+        box.AddChild(Ui.Gap(4));
+        Section("ui.model.effects", m.Effects);
+        box.AddChild(Ui.L(t.T("ui.model.note"), Tx.Small, AppTheme.Ink3, true));
+        return Ui.Panel(box, "Inset");
+    }
+
     public static Dialog Open(Main main, Session s, string id)
     {
         var t = s.T;
@@ -369,6 +403,7 @@ public static class ValueDialog
                 chart.Set(spec.Title(t), turns, series.Where(x => x.Name == t.Name(id) || series.Count == 1).DefaultIfEmpty(series.FirstOrDefault()).Where(x => x != null).Select(x => x!).ToList(), spec.Format, s.ShortDateAt);
                 left.AddChild(chart);
             }
+            if (s.Game.ExplainValue(id) is { } model) left.AddChild(ModelCard(t, model));
             var right = Ui.VBox(4);
             right.AddChild(Ui.L(t.T("ui.heading.why", t.Name(id)), Tx.Overline, AppTheme.Ink2));
             var change = s.Last?.Changes.FirstOrDefault(c => c.ValueId == id);

@@ -60,6 +60,9 @@ public sealed class Texts
         _ => null,
     };
 
+    /// <summary>The heading over the party's goals on the overview: plain "Goals" in government, "Opposition goals" outside it.</summary>
+    public string GoalsHeading(Role role) => _t.T(role == Role.Opposition ? "ui.party.goals" : "ui.party.goals_government");
+
     private string Names(IReadOnlyList<string> ids) => ids.Count == 0 ? _t.T("ui.reshuffle.nobody") : string.Join(", ", ids.Select(_t.Name));
 
     /// <summary>Why the parties turned a reshuffle down (a <see cref="Refusal"/> reason), in plain words.</summary>

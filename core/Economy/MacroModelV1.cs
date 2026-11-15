@@ -121,10 +121,7 @@ public sealed class MacroModelV1 : IEconomyModel
 
         // Capital: saving falls with tax burden and with real interest above the reference.
         double revRatio = yOld > 0 ? V(Ids.Revenue) / yOld : P("revenue_ratio_ref");
-        double s = Math.Clamp(P("saving_rate")
-            - P("tax_sensitivity") * (revRatio - P("revenue_ratio_ref"))
-            - P("interest_sensitivity") * ((rate - pi) - r0) / 100.0
-            - P("debt_crowding") * Math.Max((yOld > 0 ? debt / yOld : 0.0) - 0.6, 0.0), 0.0, 0.6);
+        double s = Saving(P, revRatio, rate, pi, yOld > 0 ? debt / yOld : 0.0).Rate;
         var rk = R(Ids.Capital);
         double k2 = Math.Max(k + dt * (s * yOld - P("delta") * k + rk.Additive + k * rk.Relative), 1.0);
 
@@ -201,6 +198,31 @@ public sealed class MacroModelV1 : IEconomyModel
             [Ids.RealGrowth] = Safe(gdpBefore > 0 ? (y2 / gdpBefore - 1) / dt * 100 : 0.0, V(Ids.RealGrowth)),
             [Ids.DeficitPct] = Safe(deficitPct, V(Ids.DeficitPct)),
         };
+    }
+
+    /// <summary>The share of output that is invested: the base rate less what the tax burden, a high real interest rate and a heavy debt take away.</summary>
+    private static (double Rate, double Base, double Tax, double Interest, double Crowding) Saving(Func<string, double> P, double revRatio, double rate, double pi, double debtRatio)
+    {
+        double b = P("saving_rate");
+        double tax = P("tax_sensitivity") * (revRatio - P("revenue_ratio_ref"));
+        double interest = P("interest_sensitivity") * ((rate - pi) - P("base_interest")) / 100.0;
+        double crowding = P("debt_crowding") * Math.Max(debtRatio - 0.6, 0.0);
+        return (Math.Clamp(b - tax - interest - crowding, 0.0, 0.6), b, tax, interest, crowding);
+    }
+
+    /// <summary>What the capital stock does and how it moves right now, from the same formulas as <see cref="Step"/> (without the effects of policies and events).</summary>
+    public static CapitalExplanation ExplainCapital(IReadOnlyDictionary<string, double> values, IReadOnlyDictionary<string, double> parameters)
+    {
+        double P(string name) => parameters.TryGetValue(name, out var v) ? v : Defaults[name];
+        double V(string id) => values.TryGetValue(id, out var v) && double.IsFinite(v) ? v : 0.0;
+        double alpha = Math.Clamp(P("alpha"), 0.01, 0.99);
+        double a = Math.Max(V(Ids.Productivity), MinA), k = Math.Max(V(Ids.Capital), 1.0), lf = Math.Max(V(Ids.LabourForce), 1.0);
+        double u = Math.Clamp(V(Ids.Unemployment), 0, 99);
+        double y = Production(a, k, lf * (1 - u / 100), alpha);
+        double revRatio = y > 0 ? V(Ids.Revenue) / y : P("revenue_ratio_ref");
+        var sv = Saving(P, revRatio, V(Ids.InterestRate), V(Ids.Inflation), y > 0 ? V(Ids.Debt) / y : 0.0);
+        double invest = sv.Rate * y, wear = P("delta") * k;
+        return new CapitalExplanation(k, y, alpha, alpha * 0.01 * y, sv.Rate, sv.Base, sv.Tax, sv.Interest, sv.Crowding, invest, wear, invest - wear, P("delta"));
     }
 
     private static double Safe(double value, double fallback) => double.IsFinite(value) ? value : fallback;
