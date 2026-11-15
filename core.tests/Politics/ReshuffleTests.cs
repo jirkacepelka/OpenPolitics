@@ -233,13 +233,19 @@ public class ReshuffleTests
                 .Select(b => b.StartsWith("base:c\n", StringComparison.Ordinal) ? b + redLine : b);
             f["parties/p.yaml"] = string.Concat(blocks.Select(b => "- id: " + b));
         }
-        var g = New(Load(parties, "z", government: new[] { "a", "b", "c" }, leader: "b", turnsToElection: 60, interval: 60, grumpy: true, mutate: RedLineForC), 1);
-        var reports = Run(g, 40);
-        var events = reports.SelectMany(r => r.PoliticalEvents).ToList();
-        Assert.Contains(events.OfType<PartnerLeft>(), e => e.PartyId == "base:c");
-        var patch = Assert.Single(events.OfType<CoalitionReshuffled>(), e => e.Leader == "base:b");
-        Assert.Contains("base:d", patch.Added);
-        Assert.DoesNotContain("base:z", patch.Added); // never the player's party
-        Assert.DoesNotContain(events.OfType<GovernmentFell>(), e => e.Turn <= patch.Turn);
+        var packs = Load(parties, "z", government: new[] { "a", "b", "c" }, leader: "b", turnsToElection: 60, interval: 60, grumpy: true, mutate: RedLineForC);
+        int patched = 0, fell = 0;
+        for (ulong seed = 1; seed <= 12; seed++)
+        {
+            var events = Run(New(packs, seed), 40).SelectMany(r => r.PoliticalEvents).ToList();
+            Assert.Contains(events.OfType<PartnerLeft>(), e => e.PartyId == "base:c");
+            var patch = events.OfType<CoalitionReshuffled>().FirstOrDefault(e => e.Leader == "base:b");
+            if (patch == null) { fell++; continue; }
+            patched++;
+            Assert.Contains("base:d", patch.Added);
+            Assert.DoesNotContain("base:z", patch.Added); // never the player's party
+            Assert.DoesNotContain(events.OfType<GovernmentFell>(), e => e.Turn == patch.Turn); // the patch replaces the fall
+        }
+        Assert.True(patched > 0 && fell > 0, $"patched {patched}, fell {fell}: the patch is occasional, not certain");
     }
 }

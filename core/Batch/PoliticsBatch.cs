@@ -20,7 +20,8 @@ public sealed record PoliticsBatchReport(
     double MeanPlayerSupportAtEnd = 0, double MeanPlayerSeatsAtEnd = 0, int NegativeCapitalGames = 0,
     double MeanPlayerSupportOverRun = 0,
     double GoverningShare = 0, double PlayerLeadShare = 0, double MeanCapital = 0,
-    double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0, double MeanCapitalLeading = 0)
+    double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0, double MeanCapitalLeading = 0,
+    int PlayerReshuffles = 0, int Reshuffles = 0)
 {
     public string ToText()
     {
@@ -42,6 +43,7 @@ public sealed record PoliticsBatchReport(
         sb.AppendLine($"  Quarters the player leads:   {(100 * PlayerLeadShare).ToString("0.0", inv)} %");
         sb.AppendLine($"  Games where the player lost the lead: {GamesLosingLead}");
         sb.AppendLine($"  Player capital (mean):       {MeanCapital.ToString("0.0", inv)} overall, {MeanCapitalLeading.ToString("0.0", inv)} while leading");
+        sb.AppendLine($"  Reshuffles:                  {Reshuffles} ({PlayerReshuffles} asked by the player)");
         sb.AppendLine($"  Policy changes per year led: {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
         return sb.ToString();
     }
@@ -59,7 +61,7 @@ public static class PoliticsBatch
         int stuckLimit = 2 * rules.MaxFormationTurns + rules.CaretakerTurns + 2;
         int governments = 0, withLoss = 0, departures = 0, falls = 0, fallsOk = 0, early = 0, stuck = 0;
         double sumFirstLoss = 0, sumSupport = 0, sumSeats = 0, sumRun = 0;
-        int negativeCapital = 0, governingTurns = 0, leadTurns = 0, lostLead = 0;
+        int negativeCapital = 0, governingTurns = 0, leadTurns = 0, lostLead = 0, reshuffles = 0;
         double sumCapital = 0, sumCapitalLeading = 0;
         var counter = new PolicyCounter();
         var policies = packs.Policies.ToDictionary(p => p.Id, StringComparer.Ordinal);
@@ -89,6 +91,7 @@ public static class PoliticsBatch
                         case PartnerLeft: departures++; if (firstLoss < 0) firstLoss = report.Turn; break;
                         case GovernmentFell: falls++; fallTurns.Add(report.Turn); break;
                         case EarlyElectionsCalled: early++; break;
+                        case CoalitionReshuffled: reshuffles++; break;
                     }
                 }
                 var now = game.State.Countries.Values.Single().Politics!;
@@ -126,7 +129,7 @@ public static class PoliticsBatch
             games > 0 ? sumRun / games : 0,
             Share(governingTurns, games, turns), Share(leadTurns, games, turns), games * turns > 0 ? sumCapital / (games * turns) : 0,
             PerYear(counter.Accepted, packs, scenarioId, leadTurns), PerYear(counter.Refused, packs, scenarioId, leadTurns), lostLead,
-            leadTurns > 0 ? sumCapitalLeading / leadTurns : 0);
+            leadTurns > 0 ? sumCapitalLeading / leadTurns : 0, counter.Reshuffles, reshuffles);
     }
 
     private static double Share(int count, int games, int turns) => games * turns > 0 ? (double)count / (games * turns) : 0;
@@ -138,7 +141,7 @@ public static class PoliticsBatch
     /// <summary>Policy changes the scripted player tried as leader: accepted, and refused because they cost more capital than it had.</summary>
     private sealed class PolicyCounter
     {
-        public int Accepted, Refused;
+        public int Accepted, Refused, Reshuffles;
 
         public void Set(Game game, string policyId, double value)
         {
@@ -171,6 +174,7 @@ public static class PoliticsBatch
                     counter.Set(game, m.PolicyId, m.Value);
                 break;
             case PoliticsStrategy.Reformer:
+                TryReshuffle(game, pol, counter);
                 var own = packs.Parties.FirstOrDefault(p => p.Id == pol.PlayerParty);
                 var partnerLines = pol.Government!.Parties.Where(p => p != pol.PlayerParty)
                     .SelectMany(p => packs.Parties.First(x => x.Id == p).RedLines).ToList();
@@ -193,6 +197,24 @@ public static class PoliticsBatch
                         counter.Set(game, p.Id, (state.Turn / 8 + i) % 2 == 0 ? p.Max : p.Min);
                     }
                 break;
+        }
+    }
+
+    /// <summary>The reformer swaps a partner under an ultimatum for an outside party that would accept, when the cooldown allows it.</summary>
+    private static void TryReshuffle(Game game, CountryPolitics pol, PolicyCounter counter)
+    {
+        if (pol.Reshuffle is not { CooldownLeft: 0, Queued: false } || pol.Ultimatums is not { Count: > 0 } ultimatums) return;
+        string unhappy = ultimatums.Select(u => u.PartyId).OrderBy(x => x, StringComparer.Ordinal).First();
+        if (unhappy == pol.PlayerParty) return;
+        foreach (var outside in pol.Seats.Where(kv => kv.Value > 0 && !pol.GovernmentParties.Contains(kv.Key))
+                     .OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => kv.Key))
+        {
+            var drop = new[] { unhappy }; var add = new[] { outside };
+            if (game.SuggestReshuffle(drop, add) is not { } deal) continue;
+            var preview = game.PreviewReshuffle(drop, add, deal);
+            if (preview.ErrorKey != null || preview.Refusals.Count > 0 || !preview.Affordable) continue;
+            if (game.Apply(new ReshuffleCoalition(drop, add, deal)).Accepted) counter.Reshuffles++;
+            return;
         }
     }
 

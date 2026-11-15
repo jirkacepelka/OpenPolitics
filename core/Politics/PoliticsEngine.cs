@@ -1036,7 +1036,8 @@ internal sealed class PoliticsEngine
 
     /// <summary>
     /// An AI leader whose government just lost its majority because a partner walked out tries to patch it with one or two outside parties
-    /// (never the player's, never one whose red line is crossed right now), at most once per reshuffle cooldown. True when the majority holds.
+    /// (never the player's, never one whose red line is crossed right now), at most once per reshuffle cooldown and only with
+    /// <see cref="PoliticsLimits.AiPatchChance"/>. True when the majority holds.
     /// </summary>
     private bool PatchMajority(int turn, List<PoliticalEvent> events)
     {
@@ -1050,6 +1051,8 @@ internal sealed class PoliticsEngine
         var patch = CoalitionBuilder.Complete(leader, kept, AgreementsOf(kept), _parties, _seats, _ranges, _rules.MajorityFraction,
             _rules.ProgramSlots, Relation, excluded, Resent);
         if (patch == null) return false;
+        // occasionally, not always: whether the leader strikes the deal in time is a coin flip (keeps falls in the range of decision 0011)
+        if (_rng.NextDouble() >= PoliticsLimits.AiPatchChance) return false;
         Join(patch.Partners, patch.Agreements, turn);
         _nextAiReshuffleTurn = turn + PoliticsLimits.ReshuffleCooldownTurns;
         events.Add(new CoalitionReshuffled(turn, leader, Array.Empty<string>(), patch.Partners));

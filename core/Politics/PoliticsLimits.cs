@@ -33,4 +33,7 @@ public static class PoliticsLimits
     public const double ReshuffleBaseCost = 3, ReshufflePerParty = 2, ReshuffleRefusalCost = 2;
     public const int ReshuffleCooldownTurns = 8, ReshuffleRefusedCooldownTurns = 2;
     public const double ReshuffleGrudge = 0.9, ReshuffleRelationHit = 0.2, ReshuffleLoyaltyHit = 5;
+
+    /// <summary>The chance that an AI leader patches a majority lost to a walk-out with outside parties (when such a patch exists) instead of falling.</summary>
+    public const double AiPatchChance = 0.5;
 }
