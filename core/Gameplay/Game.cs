@@ -39,7 +39,7 @@ public sealed class Game
     private readonly PoliticsEngine? _politics;
     private readonly SortedDictionary<string, IndexSetting> _indexation = new(Ord);
 
-    internal Game(PackSet packs, string scenarioId, ulong seed)
+    internal Game(PackSet packs, string scenarioId, ulong seed, string? playerParty = null)
     {
         _packs = packs;
         _scenario = packs.GetScenario(scenarioId);
@@ -69,10 +69,15 @@ public sealed class Game
             _events.Add((ev, expr!));
         }
 
-        if (_scenario.Politics != null && _country.Politics != null)
+        bool politics = _scenario.Politics != null && _country.Politics != null;
+        if (playerParty != null && (!politics || packs.Parties.All(p => p.Id != playerParty)))
+            throw new ArgumentException(politics
+                ? $"Unknown party '{playerParty}'."
+                : $"Scenario '{scenarioId}' has no politics, so no party can be chosen.", nameof(playerParty));
+        if (politics)
             _politics = new PoliticsEngine(packs, _scenario, _country, seed, _satisfaction,
                 (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
-                _scenario.TurnsPerYear);
+                _scenario.TurnsPerYear, playerParty);
         _politics?.UseLatestPolicy(LatestPolicy);
     }
 
@@ -166,7 +171,8 @@ public sealed class Game
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 
-    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn);
+    /// <summary>The save always names the player's party (null without politics), so a replay never depends on the scenario's default.</summary>
+    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn, _politics?.Player);
 
     /// <summary>The share of the vote a party needs for seats right now: the threshold policy if the pack has one, else the country's rule (null without politics).</summary>
     /// <summary>Where each party stands on the economic (X) and social (Y) axes, -1..1 (empty without politics).</summary>

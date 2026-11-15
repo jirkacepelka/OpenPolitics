@@ -1,5 +1,6 @@
 using System.Text.Json;
 using OpenPolitics.Core.Batch;
+using OpenPolitics.Core.Gameplay;
 
 namespace OpenPolitics.Cli.Commands;
 
@@ -7,7 +8,7 @@ public static class BatchCommand
 {
     public const string Usage =
         "Usage: batch --packs <dir>... [--scenario <id>] [--games <n>] [--strategy passive|random|extreme] [--turns <n>] [--json <file>]\n" +
-        "       batch --politics --packs <dir>... [--scenario <id>] [--games <n>] [--strategy ignorer|keeper|random|extreme|activist] [--turns <n>]";
+        "       batch --politics --packs <dir>... [--scenario <id>] [--games <n>] [--strategy ignorer|keeper|random|extreme|activist] [--turns <n>] [--party <id>|all]";
 
     /// <summary>Returns 0 if the batch is stable, 1 if not, 2 on usage or pack problems.</summary>
     public static int Execute(string[] args, TextWriter output)
@@ -71,7 +72,29 @@ public static class BatchCommand
             output.WriteLine($"Scenario '{scenario}' does not exist or has no politics.");
             return 2;
         }
-        var report = PoliticsBatch.Run(loaded.Packs, scenario, games, turns, strategy);
+        if (p.One("--party") == "all")
+        {
+            // One batch per party: the table of decision 0013 (falls, governing share, how often the player leads, poll).
+            output.WriteLine($"Politics batch per player party: {games} game(s) x {turns} turns, strategy '{strategy.ToString().ToLowerInvariant()}'");
+            output.WriteLine("party                      role        falls  stuck  governing  leads  lost-lead  poll   capital  changes/y  refused/y");
+            var options = PartyChoice.Options(loaded.Packs, scenario);
+            int stuckAll = 0;
+            foreach (var o in options)
+            {
+                var r = PoliticsBatch.Run(loaded.Packs, scenario, games, turns, strategy, 1, o.PartyId);
+                stuckAll += r.StuckGames;
+                var inv = System.Globalization.CultureInfo.InvariantCulture;
+                output.WriteLine(string.Format(inv, "{0,-26} {1,-11} {2,5}  {3,5}  {4,8:0.0} %  {5,4:0} %  {6,9}  {7,4:0.0} %  {8,7:0.0}  {9,9:0.00}  {10,9:0.00}",
+                    o.PartyId, o.Role.ToString().ToLowerInvariant(), r.Falls, r.StuckGames, 100 * r.GoverningShare, 100 * r.PlayerLeadShare,
+                    r.GamesLosingLead, 100 * r.MeanPlayerSupportOverRun, r.MeanCapital, r.PolicyChangesPerYear, r.PolicyRefusalsPerYear));
+            }
+            output.WriteLine(stuckAll == 0 ? "Result: Stable" : "Result: NOT stable (games got stuck outside Governing)");
+            return stuckAll == 0 ? 0 : 1;
+        }
+        string? party = RunCommand.ResolveParty(p, loaded.Packs, scenario);
+        if (p.Errors.Count > 0) { foreach (var e in p.Errors) output.WriteLine(e); return 2; }
+        var report = PoliticsBatch.Run(loaded.Packs, scenario, games, turns, strategy, 1, party);
+        if (party != null) output.WriteLine($"Player party: {party}");
         output.Write(report.ToText());
         output.WriteLine(report.StuckGames == 0 ? "Result: Stable" : "Result: NOT stable (games got stuck outside Governing)");
         return report.StuckGames == 0 ? 0 : 1;

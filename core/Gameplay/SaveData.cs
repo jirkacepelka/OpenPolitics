@@ -7,18 +7,23 @@ namespace OpenPolitics.Core.Gameplay;
 
 public sealed class SaveMismatchException(string message) : Exception(message);
 
-/// <summary>A saved game is the scenario, seed, pack hashes and the log of accepted actions (state is replayed).</summary>
+/// <summary>
+/// A saved game is the scenario, seed, pack hashes, the player's party and the log of accepted actions (state is replayed).
+/// PlayerParty is null in saves made before the party could be chosen (and without politics): the scenario's party then plays.
+/// </summary>
 public sealed record SaveData(
     string ScenarioId, ulong Seed,
     IReadOnlyDictionary<string, string> PackHashes,
     IReadOnlyList<(int Turn, PlayerAction Action)> Actions,
-    int Turn)
+    int Turn,
+    string? PlayerParty = null)
 {
     private sealed class Dto
     {
         public string Scenario { get; set; } = "";
         public string Seed { get; set; } = "0";
         public int Turn { get; set; }
+        public string? PlayerParty { get; set; }
         public SortedDictionary<string, string> PackHashes { get; set; } = new(StringComparer.Ordinal);
         public List<ActionDto> Actions { get; set; } = new();
     }
@@ -39,7 +44,8 @@ public sealed record SaveData(
     }
 
     private static ISerializer Serializer => new SerializerBuilder()
-        .WithNamingConvention(UnderscoredNamingConvention.Instance).Build();
+        .WithNamingConvention(UnderscoredNamingConvention.Instance)
+        .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull).Build();
 
     private static IDeserializer Deserializer => new DeserializerBuilder()
         .WithNamingConvention(UnderscoredNamingConvention.Instance).Build();
@@ -51,6 +57,7 @@ public sealed record SaveData(
             Scenario = ScenarioId,
             Seed = Seed.ToString(CultureInfo.InvariantCulture),
             Turn = Turn,
+            PlayerParty = PlayerParty,
             PackHashes = new SortedDictionary<string, string>(PackHashes.ToDictionary(k => k.Key, k => k.Value), StringComparer.Ordinal),
         };
         foreach (var (turn, action) in Actions)
@@ -124,6 +131,7 @@ public sealed record SaveData(
             actions.Add((a.Turn, action));
         }
         return new SaveData(dto.Scenario, ulong.Parse(dto.Seed, CultureInfo.InvariantCulture),
-            new Dictionary<string, string>(dto.PackHashes), actions, dto.Turn);
+            new Dictionary<string, string>(dto.PackHashes), actions, dto.Turn,
+            string.IsNullOrEmpty(dto.PlayerParty) ? null : dto.PlayerParty);
     }
 }

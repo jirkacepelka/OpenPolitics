@@ -80,9 +80,11 @@ internal sealed class PoliticsEngine
     private readonly List<string> _dismissQueue = new();
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
-        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear)
+        IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear,
+        string? playerParty = null)
     {
         _scenario = scenario.Politics!;
+        _player = playerParty ?? _scenario.PlayerParty;
         _rules = country.Politics!;
         _lookup = lookup;
         _dt = 1.0 / turnsPerYear;
@@ -100,7 +102,7 @@ internal sealed class PoliticsEngine
             initial.Add(new Commitment(a.Party, d, lookup(d.Kind, d.Subject), d.DueTurns));
         }
         _government = new Government(_scenario.Leader ?? govParties.FirstOrDefault() ?? "", govParties, initial, 0);
-        foreach (var id in _parties.Keys) if (id != _scenario.PlayerParty) _relations[id] = DefaultRelation;
+        foreach (var id in _parties.Keys) if (id != Player) _relations[id] = DefaultRelation;
         foreach (var g in _groups) { _momentum[g.Id] = 0.0; _pressure[g.Id] = 0.0; }
         foreach (var id in _parties.Keys) _attribution[id] = AttributionTarget(id);
         _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
@@ -136,7 +138,10 @@ internal sealed class PoliticsEngine
     public IReadOnlyDictionary<string, (double X, double Y)> Compass() =>
         _parties.ToDictionary(kv => kv.Key, kv => Politics.Compass.Position(kv.Value, _policyDefs), Ord);
 
-    private string Player => _scenario.PlayerParty;
+    private readonly string _player;
+
+    /// <summary>The player's party: the one chosen at the start, else the scenario's.</summary>
+    public string Player => _player;
 
     /// <summary>Turns until the next election actually happens: the early election during caretaker, else the regular term.</summary>
     private int ElectionIn => _phase == Phase.Caretaker ? Math.Min(_turnsToElection, Math.Max(1, _caretakerLeft)) : _turnsToElection;
@@ -166,18 +171,18 @@ internal sealed class PoliticsEngine
         : b == Player ? _relations.GetValueOrDefault(a, DefaultRelation) : DefaultRelation;
 
     public Role PlayerRole =>
-        _government.Leader == _scenario.PlayerParty ? Role.Leader
-        : _government.Parties.Contains(_scenario.PlayerParty) ? Role.Partner : Role.Opposition;
+        _government.Leader == Player ? Role.Leader
+        : _government.Parties.Contains(Player) ? Role.Partner : Role.Opposition;
 
     private bool PlayerIsFormateur => _phase == Phase.Formation && _attempt >= 1 && _attempt <= _queue.Count
-        && _queue[_attempt - 1] == _scenario.PlayerParty;
+        && _queue[_attempt - 1] == Player;
 
     private static IReadOnlyDictionary<string, T> Sorted<T>(IReadOnlyDictionary<string, T> d) =>
         d.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value);
 
     public CountryPolitics Snapshot() => new(
         _phase, ElectionIn, Sorted(_poll), Sorted(_seats), _government.Parties.ToList(), _government.Leader,
-        _scenario.PlayerParty, _government,
+        Player, _government,
         _phase == Phase.Formation && _attempt >= 1 && _attempt <= _queue.Count
             ? new FormationInfo(_queue[_attempt - 1], _attempt, _turnsLeft, PlayerIsFormateur, _offer) : null,
         PlayerRole,
@@ -430,13 +435,13 @@ internal sealed class PoliticsEngine
     }
 
     /// <summary>What the AI would propose if the player's party were formateur now; null when it is not.</summary>
-    public CoalitionProposal? Suggest() => PlayerIsFormateur ? BuildFor(_scenario.PlayerParty) : null;
+    public CoalitionProposal? Suggest() => PlayerIsFormateur ? BuildFor(Player) : null;
 
     private ActionResult DoPropose(IReadOnlyList<string> partners, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
     {
         if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
-        var proposal = new CoalitionProposal(_scenario.PlayerParty,
-            partners.Where(p => p != _scenario.PlayerParty).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements.Distinct().ToList());
+        var proposal = new CoalitionProposal(Player,
+            partners.Where(p => p != Player).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements.Distinct().ToList());
         var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent);
         if (refusals.Count > 0)
             return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
@@ -455,7 +460,7 @@ internal sealed class PoliticsEngine
     {
         if (_offer == null) return new ActionResult(false, "error.no_offer", null);
         _pending.Add(new OfferLapsed(reportTurn));
-        _excluded.Add(_scenario.PlayerParty);
+        _excluded.Add(Player);
         _offer = null;
         return ActionResult.Ok;
     }
@@ -700,7 +705,7 @@ internal sealed class PoliticsEngine
         if (_offer != null)
         {
             events.Add(new OfferLapsed(turn));
-            _excluded.Add(_scenario.PlayerParty);
+            _excluded.Add(Player);
             _offer = null;
             return;
         }
@@ -712,7 +717,7 @@ internal sealed class PoliticsEngine
         }
         var proposal = BuildFor(formateur);
         if (proposal == null) { FailAttempt(turn, formateur, events); return; }
-        if (proposal.Partners.Contains(_scenario.PlayerParty))
+        if (proposal.Partners.Contains(Player))
         {
             _offer = proposal;
             events.Add(new OfferMade(turn, proposal));
@@ -765,7 +770,8 @@ internal sealed class PoliticsEngine
     private void ResetLoyalty()
     {
         _loyalty.Clear(); _warned.Clear(); _ultimatums.Clear(); _redLinesActive.Clear(); _midterm.Clear(); _nextDemand.Clear();
-        foreach (var p in _government.Parties.Where(p => p != _government.Leader))
+        // The player's own party has no loyalty meter: as a partner it decides itself when to leave.
+        foreach (var p in _government.Parties.Where(p => p != _government.Leader && p != Player))
         {
             _nextDemand[p] = 6 + _rng.NextInt(5);
             _loyalty[p] = LoyaltyModel.StartLoyalty(_loyaltyParams.Start, Relation(_government.Leader, p), Resent(p, _government.Leader));
@@ -778,7 +784,7 @@ internal sealed class PoliticsEngine
     {
         var lp = _loyaltyParams;
         bool departed = false;
-        foreach (var partner in _government.Parties.Where(p => p != _government.Leader).ToList())
+        foreach (var partner in _government.Parties.Where(p => p != _government.Leader && p != Player).ToList())
         {
             var party = _parties[partner];
             // mid-term demands have their own reward and penalty (see StepMidTermDemands), not the gradual shortfall

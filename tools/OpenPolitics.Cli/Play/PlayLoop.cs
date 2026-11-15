@@ -35,12 +35,12 @@ public sealed class PlayLoop
     private int _nextTip = 2;
 
     public PlayLoop(PackSet packs, string scenarioId, ulong seed, string language, int maxTurns, bool tips,
-        TextReader input, TextWriter output)
+        TextReader input, TextWriter output, string? playerParty = null)
     {
         _packs = packs; _scenarioId = scenarioId; _scenario = packs.GetScenario(scenarioId);
         _seed = seed; _maxTurns = maxTurns; _tips = tips; _in = input; _out = output;
         _t = new Localizer(packs, language) { NominalGdpSource = () => Current.Values.GetValueOrDefault(Core.Economy.MacroModelV1.Ids.GdpNominal) };
-        _game = Simulation.NewGame(packs, scenarioId, seed);
+        _game = Simulation.NewGame(packs, scenarioId, seed, playerParty);
         _valueById = packs.Values.ToDictionary(v => v.Id);
         _policyById = packs.Policies.ToDictionary(p => p.Id);
         _values = packs.Values

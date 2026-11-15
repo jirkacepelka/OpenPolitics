@@ -47,7 +47,9 @@ public sealed record PoliticsBatchReport(
 /// <summary>Headless runs of the political layer. Strategies use only the public game API.</summary>
 public static class PoliticsBatch
 {
-    public static PoliticsBatchReport Run(PackSet packs, string scenarioId, int games, int turns, PoliticsStrategy strategy, ulong firstSeed = 1)
+    /// <param name="playerParty">The party the scripted player plays (null = the scenario's party).</param>
+    public static PoliticsBatchReport Run(PackSet packs, string scenarioId, int games, int turns, PoliticsStrategy strategy, ulong firstSeed = 1,
+        string? playerParty = null)
     {
         var rules = packs.Countries.First(c => c.Id == packs.GetScenario(scenarioId).CountryId).Politics
             ?? throw new InvalidOperationException($"Scenario '{scenarioId}' has no politics.");
@@ -62,7 +64,7 @@ public static class PoliticsBatch
         for (int i = 0; i < games; i++)
         {
             ulong seed = firstSeed + (ulong)i;
-            var game = Simulation.NewGame(packs, scenarioId, seed);
+            var game = Simulation.NewGame(packs, scenarioId, seed, playerParty);
             var rng = new Pcg32(seed, 7); // strategy randomness, separate from the game's streams
             var fallTurns = new List<int>();
             var formedTurns = new List<int>();
