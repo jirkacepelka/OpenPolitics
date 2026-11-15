@@ -124,7 +124,7 @@ public class PartyChoiceTests(ITestOutputHelper output)
     public void EveryPartyCanBePlayedForTwentyYears()
     {
         foreach (var party in Packs.Parties.Select(p => p.Id).OrderBy(x => x, StringComparer.Ordinal))
-            foreach (var strategy in new[] { PoliticsStrategy.Keeper, PoliticsStrategy.Activist })
+            foreach (var strategy in new[] { PoliticsStrategy.Keeper, PoliticsStrategy.Activist, PoliticsStrategy.Reformer })
             {
                 var r = PoliticsBatch.Run(Packs, Scenario, 6, 80, strategy, 1, party);
                 output.WriteLine($"{party} {strategy}: falls {r.Falls}, governing {r.GoverningShare:P0}, leads {r.PlayerLeadShare:P0}, poll {r.MeanPlayerSupportOverRun:P1}");
