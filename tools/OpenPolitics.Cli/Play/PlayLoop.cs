@@ -101,6 +101,7 @@ public sealed class PlayLoop
                 case "propose": DoProposePolicy(cmd.Args); break;
                 case "leave": Report(_game.Apply(new LeaveCoalition()), "ui.exit.leave_ok", quiet: true); break;
                 case "dismiss": DoDismiss(cmd.Args); break;
+                case "reshuffle": DoReshuffle(cmd.Args); break;
                 case "confidence": Report(_game.Apply(new NoConfidence()), "ui.exit.confidence_ok", quiet: true); break;
                 case "platform": DoPlatform(cmd.Args); break;
                 case "priority": DoPriority(cmd.Args); break;
@@ -147,6 +148,7 @@ public sealed class PlayLoop
         ["promise"] = "promise", ["slib"] = "promise",
         ["leave"] = "leave", ["odejit"] = "leave",
         ["dismiss"] = "dismiss", ["vyloucit"] = "dismiss",
+        ["reshuffle"] = "reshuffle", ["prestavba"] = "reshuffle", ["prestavet"] = "reshuffle",
         ["confidence"] = "confidence", ["nedoveru"] = "confidence", ["nedovera"] = "confidence",
     };
 
@@ -619,6 +621,50 @@ public sealed class PlayLoop
         var party = Resolve(JoinArgs(args, 0), OtherParties(), p => p.Id, numbers: true);
         if (party == null) { _out.WriteLine(_t.T("ui.err.unknown_item", JoinArgs(args, 0))); return; }
         Report(_game.Apply(new DismissPartner(party.Id)), "ui.exit.dismiss_ok", quiet: true, _t.Name(party.Id));
+    }
+
+    /// <summary>reshuffle [check] drop PARTY... add PARTY... - the agreements for newcomers are the ones the AI proposes (decision 0013).</summary>
+    private void DoReshuffle(string[] args)
+    {
+        var pol = Current.Politics;
+        if (pol == null) { _out.WriteLine(_t.T("ui.err.no_politics")); return; }
+        if (args.Length == 0)
+        {
+            _out.WriteLine(_t.T("ui.err.usage_reshuffle"));
+            if (pol.Reshuffle is { } info)
+                _out.WriteLine("  " + (info.CooldownLeft == 0 ? _t.T("ui.reshuffle.cooldown_now") : _t.T("ui.reshuffle.cooldown_left", info.CooldownLeft)));
+            return;
+        }
+        bool check = false;
+        string? mode = null;
+        var drop = new List<string>(); var add = new List<string>();
+        foreach (var token in args)
+        {
+            string word = Localizer.Fold(token);
+            if (word is "check" or "zkus" or "nahled") { check = true; continue; }
+            if (word is "drop" or "vyrad" or "vyhod") { mode = "drop"; continue; }
+            if (word is "add" or "prizvi" or "pridej") { mode = "add"; continue; }
+            var party = mode == null ? null : Resolve(token, OtherParties(), p => p.Id, numbers: false);
+            if (party == null) { _out.WriteLine(_t.T("ui.err.usage_reshuffle")); _out.WriteLine(_t.T("ui.err.unknown_item", token)); return; }
+            (mode == "drop" ? drop : add).Add(party.Id);
+        }
+        var agreements = _game.SuggestReshuffle(drop, add) ?? (IReadOnlyList<AgreedDemand>)Array.Empty<AgreedDemand>();
+        var preview = _game.PreviewReshuffle(drop, add, agreements);
+        if (preview.ErrorKey == "error.not_leader") { _out.WriteLine(_t.T("ui.client.reshuffle_only_leader")); return; }
+        var texts = new Texts(_packs, _t);
+        if (preview.ErrorKey != null) { _out.WriteLine(texts.Error(new ActionResult(false, preview.ErrorKey, preview.ErrorDetail))); return; }
+        _out.WriteLine();
+        _out.WriteLine(_t.T("ui.reshuffle.heading"));
+        _out.WriteLine("  " + _t.T("ui.reshuffle.seats", preview.SeatsHeld, preview.SeatsNeeded, _t.T(preview.Majority ? "ui.politics.majority" : "ui.politics.no_majority")));
+        foreach (var group in agreements.GroupBy(a => a.PartyId))
+            _out.WriteLine("  " + _t.T("ui.reshuffle.demands", _t.Name(group.Key),
+                string.Join("; ", group.Select(a => texts.DemandOf(a.PartyId, a.DemandId) is { } d ? texts.Demand(d) : a.DemandId))));
+        _out.WriteLine("  " + (preview.Refusals.Count == 0 ? _t.T("ui.reshuffle.agree")
+            : _t.T("ui.reshuffle.would_refuse", string.Join("; ", preview.Refusals.Select(r => (r.PartyId != null ? _t.Name(r.PartyId) + ": " : "") + texts.ReshuffleReason(r.Reason))))));
+        _out.WriteLine("  " + _t.T("ui.reshuffle.cost", Fmt.Number(preview.Cost, "0"), Fmt.Number(PoliticsLimits.ReshuffleRefusalCost, "0"), PoliticsLimits.ReshuffleCooldownTurns));
+        if (check) return;
+        var result = _game.Apply(new ReshuffleCoalition(drop, add, agreements));
+        _out.WriteLine(result.Accepted ? _t.T("ui.reshuffle.ok", Fmt.Number(preview.Cost, "0")) : texts.Error(result));
     }
 
     private void DoCourt(string[] args)

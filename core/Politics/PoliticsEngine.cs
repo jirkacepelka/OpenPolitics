@@ -197,7 +197,8 @@ internal sealed class PoliticsEngine
             _measures.ToList(), _income,
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Weight),
             _promises.ToList()),
-        new SortedDictionary<string, double>(_grudge, Ord));
+        new SortedDictionary<string, double>(_grudge, Ord),
+        new ReshuffleInfo(Math.Max(0, _nextReshuffleTurn - (_lastTurn + 1)), _reshuffle != null));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
@@ -288,6 +289,7 @@ internal sealed class PoliticsEngine
         ProposePolicy p => DoProposePolicy(p.PolicyId, p.Target),
         LeaveCoalition => DoLeave(),
         DismissPartner d => DoDismiss(d.PartyId),
+        ReshuffleCoalition r => DoReshuffle(r, reportTurn),
         NoConfidence => DoNoConfidence(),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
@@ -579,6 +581,11 @@ internal sealed class PoliticsEngine
                 Depart(partner, turn, events, announce: false);
                 AddGrudge(partner, _government.Leader, 0.5);
             }
+        if (_reshuffle != null)
+        {
+            if (PlayerRole == Role.Leader) ProcessReshuffle(turn, events);
+            else CancelReshuffle();
+        }
         if (confidence && PlayerRole == Role.Opposition)
         {
             double total = _seats.Values.Sum();
@@ -643,14 +650,14 @@ internal sealed class PoliticsEngine
 
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
-        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); HoldElection(turn, events); return events; }
+        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); HoldElection(turn, events); return events; }
         if (_phase == Phase.Formation) StepFormation(turn, events);
         else if (_phase == Phase.Governing)
         {
             if (!ProcessExits(turn, events)) { StepLoyalty(turn, effective, events); DecideProposals(turn, events); }
             else _proposals.Clear();
         }
-        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); }
+        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); }
         return events;
     }
 
@@ -795,7 +802,7 @@ internal sealed class PoliticsEngine
         {
             var party = _parties[partner];
             // mid-term demands have their own reward and penalty (see StepMidTermDemands), not the gradual shortfall
-            var mine = _government.Commitments.Where(c => c.PartyId == partner && c.StartTurn < 0).ToList();
+            var mine = _government.Commitments.Where(c => c.PartyId == partner && !c.MidTerm).ToList();
             double fulfil = CommitmentMath.Fulfil(mine, Current, turn, _government.FormedTurn);
             double shortfall = CommitmentMath.Shortfall(mine, Current, turn, _government.FormedTurn);
             double mood = LoyaltyModel.BaseMood(party, _groups, satisfaction);
@@ -839,7 +846,7 @@ internal sealed class PoliticsEngine
 
         // The sitting government fell if it lost its majority: the leader gets the first try at a new one.
         StepMidTermDemands(turn, events);
-        if (departed) FallIfNoMajority(turn, events);
+        if (departed && !PatchMajority(turn, events)) FallIfNoMajority(turn, events);
     }
 
     /// <summary>Partners whose voters are unhappy (poll below their election result) raise new demands during the term.</summary>
@@ -880,11 +887,173 @@ internal sealed class PoliticsEngine
             _nextDemand[partner] = 8 + _rng.NextInt(5);
             if (pick == null) continue;
             var demand = pick with { DueTurns = MidTermDueTurns };
-            var commitment = new Commitment(partner, demand, _lookup(pick.Kind, pick.Subject), turn + MidTermDueTurns, turn);
+            var commitment = new Commitment(partner, demand, _lookup(pick.Kind, pick.Subject), turn + MidTermDueTurns, turn, MidTerm: true);
             _government = _government with { Commitments = _government.Commitments.Concat(new[] { commitment }).ToList() };
             _midterm[partner] = (pick.Id, turn + MidTermDueTurns);
             events.Add(new DemandRaised(turn, partner, pick.Id, MidTermDueTurns));
         }
+    }
+
+    // ---- coalition reshuffle (decision 0013) -------------------------------------------------------------------
+
+    private sealed record QueuedReshuffle(IReadOnlyList<string> Drop, IReadOnlyList<string> Add, IReadOnlyList<AgreedDemand> Agreements, double Cost);
+    private QueuedReshuffle? _reshuffle;
+    private int _nextReshuffleTurn, _nextAiReshuffleTurn;
+
+    /// <summary>Everything a client needs to show before the player reshuffles: seats, cost, a hard error or the parties' likely answer.</summary>
+    public sealed record ReshuffleCheck(
+        string? ErrorKey, string? Detail, IReadOnlyList<string> Drop, IReadOnlyList<string> Add, IReadOnlyList<AgreedDemand> Agreements,
+        double Cost, IReadOnlyList<Refusal> Refusals, int SeatsHeld, int SeatsNeeded, int CooldownLeft);
+
+    private IReadOnlyList<AgreedDemand> AgreementsOf(IEnumerable<string> partners) =>
+        _government.Commitments.Where(c => partners.Contains(c.PartyId)).Select(c => new AgreedDemand(c.PartyId, c.Demand.Id)).Distinct().ToList();
+
+    /// <summary>Checks a reshuffle the player wants (reportTurn = the turn the report will carry); changes nothing.</summary>
+    public ReshuffleCheck CheckReshuffle(IReadOnlyList<string> drop, IReadOnlyList<string> add, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
+    {
+        var dropSet = drop.Distinct(Ord).OrderBy(x => x, Ord).ToList();
+        var addSet = add.Distinct(Ord).OrderBy(x => x, Ord).ToList();
+        var deals = agreements.Distinct().ToList();
+        double cost = PoliticsLimits.ReshuffleBaseCost + PoliticsLimits.ReshufflePerParty * (dropSet.Count + addSet.Count);
+        int total = _seats.Values.Sum(), needed = (int)Math.Floor(_rules.MajorityFraction * total) + 1;
+        var kept = _government.Parties.Where(p => p != _government.Leader && !dropSet.Contains(p)).ToList();
+        int held = new[] { _government.Leader }.Concat(kept).Concat(addSet).Distinct(Ord).Sum(p => _seats.GetValueOrDefault(p));
+        int cooldown = Math.Max(0, _nextReshuffleTurn - reportTurn);
+        ReshuffleCheck Error(string key, string? detail = null) =>
+            new(key, detail, dropSet, addSet, deals, cost, Array.Empty<Refusal>(), held, needed, cooldown);
+
+        if (_phase != Phase.Governing) return Error("error.wrong_phase");
+        if (PlayerRole != Role.Leader) return Error("error.not_leader");
+        if (cooldown > 0) return Error("error.reshuffle_cooldown", cooldown.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (_reshuffle != null) return Error("error.already_queued");
+        foreach (var d in dropSet)
+            if (d == Player || !_government.Parties.Contains(d)) return Error("error.unknown_party", d);
+        foreach (var a in addSet)
+            if (!_parties.ContainsKey(a) || _government.Parties.Contains(a) || _seats.GetValueOrDefault(a) <= 0) return Error("error.unknown_party", a);
+        if (dropSet.Count == 0 && addSet.Count == 0) return Error("error.no_change");
+        if (held < needed) return Error("error.would_lose_majority");
+        var refusals = CoalitionRules.Evaluate(new CoalitionProposal(Player, addSet, deals), _parties, _seats, _rules.MajorityFraction,
+            _rules.ProgramSlots, Relation, Resent, new SittingCoalition(kept, AgreementsOf(kept)));
+        if (refusals.FirstOrDefault(r => r.Reason is "unknown" or "slots" or "majority") is { } hard)
+            return Error("error.refused." + hard.Reason, $"{hard.PartyId}:{hard.DemandId}");
+        return new ReshuffleCheck(null, null, dropSet, addSet, deals, cost, refusals, held, needed, cooldown);
+    }
+
+    /// <summary>The agreements the AI would offer the parties the player brings in (null when not leading or a price cannot be paid).</summary>
+    public IReadOnlyList<AgreedDemand>? SuggestReshuffle(IReadOnlyList<string> drop, IReadOnlyList<string> add)
+    {
+        if (_phase != Phase.Governing || PlayerRole != Role.Leader) return null;
+        var kept = _government.Parties.Where(p => p != _government.Leader && !drop.Contains(p)).ToList();
+        return CoalitionBuilder.AllocateFor(Player, add.Where(a => !_government.Parties.Contains(a)).ToList(), kept, AgreementsOf(kept), _parties,
+            _rules.ProgramSlots, Relation, Resent);
+    }
+
+    private ActionResult DoReshuffle(ReshuffleCoalition r, int reportTurn)
+    {
+        var check = CheckReshuffle(r.Drop, r.Add, r.Agreements, reportTurn);
+        if (check.ErrorKey != null) return Fail(check.ErrorKey, check.Detail);
+        if (!TrySpend(check.Cost)) return Fail("error.not_enough_capital");
+        _reshuffle = new QueuedReshuffle(check.Drop, check.Add, check.Agreements, check.Cost);
+        return ActionResult.Ok;
+    }
+
+    private void CancelReshuffle()
+    {
+        if (_reshuffle == null) return;
+        _pc = Math.Min(MaxCapital, _pc + _reshuffle.Cost);
+        _reshuffle = null;
+    }
+
+    /// <summary>The parties answer the player's reshuffle at the end of the quarter, by the same rules as at formation.</summary>
+    private void ProcessReshuffle(int turn, List<PoliticalEvent> events)
+    {
+        var rs = _reshuffle!;
+        _reshuffle = null;
+        var check = CheckReshuffle(rs.Drop, rs.Add, rs.Agreements, turn);
+        if (check.ErrorKey != null) // something changed since it was asked (a partner left or was dismissed): nothing happens, all paid back
+        {
+            _pc = Math.Min(MaxCapital, _pc + rs.Cost);
+            events.Add(new ReshuffleRefused(turn, check.ErrorKey.Replace("error.refused.", "").Replace("error.", ""), null));
+            return;
+        }
+        if (check.Refusals.Count > 0)
+        {
+            var first = check.Refusals[0];
+            _pc = Math.Min(MaxCapital, _pc + rs.Cost - PoliticsLimits.ReshuffleRefusalCost);
+            if (first.PartyId != null && _relations.ContainsKey(first.PartyId))
+                _relations[first.PartyId] = Math.Max(0.0, _relations[first.PartyId] - 0.05);
+            _nextReshuffleTurn = turn + 1 + PoliticsLimits.ReshuffleRefusedCooldownTurns;
+            events.Add(new ReshuffleRefused(turn, first.Reason, first.PartyId));
+            return;
+        }
+        var affinityTop = new Dictionary<string, double>(Ord);
+        foreach (var d in check.Drop)
+        {
+            RemoveFromGovernment(d);
+            AddGrudge(d, _government.Leader, PoliticsLimits.ReshuffleGrudge);
+            if (_relations.ContainsKey(d)) _relations[d] = Math.Max(0.0, _relations[d] - PoliticsLimits.ReshuffleRelationHit);
+            // the dropped party's voters hold it against the player's party
+            var aff = _parties[d].Affinity;
+            double top = aff.Count == 0 ? 0.0 : aff.Values.Max();
+            if (top > 0)
+                foreach (var g in _groups.OrderBy(g => g.Id, Ord))
+                    if (aff.GetValueOrDefault(g.Id) is var a && a > 0) _momentum[g.Id] -= 0.04 * a / top;
+        }
+        foreach (var k in _government.Parties.Where(p => p != _government.Leader && p != Player).ToList())
+            _loyalty[k] = Math.Max(0.0, _loyalty.GetValueOrDefault(k, _loyaltyParams.Start) - PoliticsLimits.ReshuffleLoyaltyHit);
+        Join(check.Add, check.Agreements, turn);
+        _nextReshuffleTurn = turn + 1 + PoliticsLimits.ReshuffleCooldownTurns;
+        events.Add(new CoalitionReshuffled(turn, _government.Leader, check.Drop, check.Add));
+    }
+
+    /// <summary>Takes a party out of the government without the departure penalties (those are the caller's business).</summary>
+    private void RemoveFromGovernment(string partner)
+    {
+        _government = new Government(_government.Leader, _government.Parties.Where(p => p != partner).ToList(),
+            _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn);
+        _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner); _midterm.Remove(partner); _nextDemand.Remove(partner);
+    }
+
+    /// <summary>Newcomers join a sitting government: their agreements are due from today, they start at the formation loyalty.</summary>
+    private void Join(IReadOnlyList<string> added, IReadOnlyList<AgreedDemand> agreements, int turn)
+    {
+        var commitments = _government.Commitments.ToList();
+        foreach (var a in agreements.Where(a => added.Contains(a.PartyId)))
+        {
+            var d = _parties[a.PartyId].Demands.First(x => x.Id == a.DemandId);
+            commitments.Add(new Commitment(a.PartyId, d, _lookup(d.Kind, d.Subject), turn + d.DueTurns, turn));
+        }
+        var parties = _government.Parties.Concat(added).Distinct(Ord).OrderBy(x => x, Ord).ToList();
+        _government = new Government(_government.Leader, parties, commitments, _government.FormedTurn);
+        foreach (var p in added.Where(p => p != Player))
+        {
+            _nextDemand[p] = 6 + _rng.NextInt(5);
+            _loyalty[p] = LoyaltyModel.StartLoyalty(_loyaltyParams.Start, Relation(_government.Leader, p), Resent(p, _government.Leader));
+            foreach (var r in _parties[p].RedLines)
+                if (LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy))) _redLinesActive.Add(RedKey(p, r));
+        }
+    }
+
+    /// <summary>
+    /// An AI leader whose government just lost its majority because a partner walked out tries to patch it with one or two outside parties
+    /// (never the player's, never one whose red line is crossed right now), at most once per reshuffle cooldown. True when the majority holds.
+    /// </summary>
+    private bool PatchMajority(int turn, List<PoliticalEvent> events)
+    {
+        if (CoalitionRules.HasMajority(_government.Parties, _seats, _rules.MajorityFraction)) return true;
+        string leader = _government.Leader;
+        if (leader == Player || turn < _nextAiReshuffleTurn) return false;
+        var excluded = new HashSet<string>(Ord) { Player };
+        foreach (var p in _parties.Values)
+            if (p.RedLines.Any(r => LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy)))) excluded.Add(p.Id);
+        var kept = _government.Parties.Where(p => p != leader).ToList();
+        var patch = CoalitionBuilder.Complete(leader, kept, AgreementsOf(kept), _parties, _seats, _ranges, _rules.MajorityFraction,
+            _rules.ProgramSlots, Relation, excluded, Resent);
+        if (patch == null) return false;
+        Join(patch.Partners, patch.Agreements, turn);
+        _nextAiReshuffleTurn = turn + PoliticsLimits.ReshuffleCooldownTurns;
+        events.Add(new CoalitionReshuffled(turn, leader, Array.Empty<string>(), patch.Partners));
+        return true;
     }
 
     private void Depart(string partner, int turn, List<PoliticalEvent> events, bool announce = true)

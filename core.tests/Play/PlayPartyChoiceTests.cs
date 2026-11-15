@@ -97,3 +97,39 @@ public class PlayCapitalCostTests
         Assert.Contains("Only the leading party", PlayCz("set threshold 4.5\nquit\n", "base:civic_right"));
     }
 }
+
+/// <summary>The CLI's reshuffle verb (decision 0013).</summary>
+public class PlayReshuffleTests
+{
+    private static string PlayCz(string input, string? party = null)
+    {
+        var output = new StringWriter();
+        Assert.Equal(0, new PlayLoop(BasePackTests.LoadBase().Packs!, "base:cz_2015", 1, "en", 80, false, new StringReader(input), output, party).Run());
+        return output.ToString();
+    }
+
+    [Fact]
+    public void CheckPreviewsWithoutDoingAnything()
+    {
+        var o = PlayCz("reshuffle check drop union add civic\nquit\n");
+        Assert.Contains("COALITION RESHUFFLE", o);
+        Assert.Contains("needed (a majority)", o);
+        Assert.Contains("Cost 7 capital", o);
+        Assert.DoesNotContain("Reshuffle asked", o);
+    }
+
+    [Fact]
+    public void AReshuffleIsAskedAndAnsweredAtTheEndOfTheQuarter()
+    {
+        var o = PlayCz("\nreshuffle drop union add civic\n\nquit\n");
+        Assert.Contains("Reshuffle asked (7 capital paid)", o);
+        Assert.True(o.Contains("reshuffled the government") || o.Contains("The reshuffle was refused"), o[^2000..]);
+    }
+
+    [Fact]
+    public void WithoutArgumentsItExplainsAndAnOppositionPartyCannotReshuffle()
+    {
+        Assert.Contains("Usage: reshuffle", PlayCz("reshuffle\nquit\n"));
+        Assert.Contains("Only the leading party", PlayCz("reshuffle drop union\nquit\n", "base:civic_right"));
+    }
+}

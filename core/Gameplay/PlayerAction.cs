@@ -22,6 +22,14 @@ public sealed record LeaveCoalition : PoliticsAction;
 /// <summary>As government leader: dismiss a partner (allowed while the rest keep a majority). Costs 4 capital.</summary>
 public sealed record DismissPartner(string PartyId) : PoliticsAction;
 
+/// <summary>
+/// As government leader: reshuffle the coalition (decision 0013) - drop partners, bring in seated outside parties with the agreements they ask
+/// for, or both, as long as the new coalition keeps a majority. Paid when accepted (<see cref="Politics.PoliticsLimits.ReshuffleBaseCost"/> plus
+/// <see cref="Politics.PoliticsLimits.ReshufflePerParty"/> per party changed); the parties answer at the end of the quarter by the formation rules.
+/// A refusal refunds all but <see cref="Politics.PoliticsLimits.ReshuffleRefusalCost"/>. Once per <see cref="Politics.PoliticsLimits.ReshuffleCooldownTurns"/> quarters.
+/// </summary>
+public sealed record ReshuffleCoalition(IReadOnlyList<string> Drop, IReadOnlyList<string> Add, IReadOnlyList<AgreedDemand> Agreements) : PoliticsAction;
+
 /// <summary>As opposition: call a vote of no confidence. Costs 10 capital; passes with enough willing parties and unhappy partners.</summary>
 public sealed record NoConfidence : PoliticsAction;
 

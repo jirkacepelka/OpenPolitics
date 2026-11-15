@@ -13,7 +13,10 @@ public sealed record CountryPolitics(
     Government? Government = null, FormationInfo? Formation = null, Role PlayerRole = Role.Opposition,
     IReadOnlyDictionary<string, double>? Loyalty = null, IReadOnlyList<CommitmentStatus>? Commitments = null,
     IReadOnlyList<UltimatumInfo>? Ultimatums = null, PartyStatus? Party = null,
-    IReadOnlyDictionary<string, double>? Grudge = null);
+    IReadOnlyDictionary<string, double>? Grudge = null, ReshuffleInfo? Reshuffle = null);
+
+/// <summary>When the player's government can be reshuffled again (0 = now) and whether a reshuffle waits for the end of this quarter.</summary>
+public sealed record ReshuffleInfo(int CooldownLeft, bool Queued);
 
 /// <summary>How far an agreed demand is delivered (Progress) against how far it should be by now (Expected), both 0..1.</summary>
 public sealed record CommitmentStatus(string PartyId, string DemandId, double Progress, double Expected);
@@ -51,6 +54,10 @@ public sealed record PromiseBroken(int Turn, string PartyId, string DemandId) : 
 public sealed record PlayerLeftCoalition(int Turn) : PoliticalEvent(Turn);
 /// <summary>The player, as leader, dismissed a partner.</summary>
 public sealed record PartnerDismissed(int Turn, string PartyId) : PoliticalEvent(Turn);
+/// <summary>The government was reshuffled by its leader (the player or an AI leader): Dropped left it, Added joined with fresh agreements.</summary>
+public sealed record CoalitionReshuffled(int Turn, string Leader, IReadOnlyList<string> Dropped, IReadOnlyList<string> Added) : PoliticalEvent(Turn);
+/// <summary>The player's reshuffle was refused: Reason as in <see cref="Refusal"/> (price, grudge, red_line, contradiction, majority, ...).</summary>
+public sealed record ReshuffleRefused(int Turn, string Reason, string? PartyId) : PoliticalEvent(Turn);
 public sealed record NoConfidencePassed(int Turn) : PoliticalEvent(Turn);
 public sealed record NoConfidenceFailed(int Turn) : PoliticalEvent(Turn);
 /// <summary>The leader agreed to move a policy toward the player's proposal (the move itself follows as a government measure).</summary>

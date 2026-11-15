@@ -23,4 +23,14 @@ public static class PoliticsLimits
     /// base (was 2) and cut the governing extras (were 2 and 3) because policy changes now cost capital.
     /// </summary>
     public const double BaseIncome = 3.5, LeaderIncome = 1.0, CoalitionIncome = 2.0;
+
+    /// <summary>
+    /// Coalition reshuffle (decision 0013): costs ReshuffleBaseCost + ReshufflePerParty per party dropped or added, paid when the leader asks; a refusal
+    /// refunds all but ReshuffleRefusalCost. After a reshuffle the next one waits ReshuffleCooldownTurns quarters (ReshuffleRefusedCooldownTurns after
+    /// a refusal). A dropped party resents the leader by ReshuffleGrudge (it refuses to sit with it while that is above the grudge veto) and its
+    /// relation with the player falls by ReshuffleRelationHit; partners that stay lose ReshuffleLoyaltyHit loyalty.
+    /// </summary>
+    public const double ReshuffleBaseCost = 3, ReshufflePerParty = 2, ReshuffleRefusalCost = 2;
+    public const int ReshuffleCooldownTurns = 8, ReshuffleRefusedCooldownTurns = 2;
+    public const double ReshuffleGrudge = 0.9, ReshuffleRelationHit = 0.2, ReshuffleLoyaltyHit = 5;
 }

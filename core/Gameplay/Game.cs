@@ -166,6 +166,21 @@ public sealed class Game
         return ActionResult.Ok;
     }
 
+    /// <summary>
+    /// What reshuffling the coalition would do (decision 0013): the seats it would hold and need, the cost, a hard error (ErrorKey, e.g.
+    /// error.would_lose_majority or error.reshuffle_cooldown) or the refusals the parties would answer with at the end of the quarter. Changes nothing.
+    /// </summary>
+    public ReshufflePreview PreviewReshuffle(IReadOnlyList<string> drop, IReadOnlyList<string> add, IReadOnlyList<AgreedDemand> agreements)
+    {
+        if (_politics == null) return new ReshufflePreview(0, 0, false, 0, "error.no_politics", null, Array.Empty<Refusal>(), 0, false);
+        var c = _politics.CheckReshuffle(drop, add, agreements, _turn + 1);
+        return new ReshufflePreview(c.SeatsHeld, c.SeatsNeeded, c.SeatsHeld >= c.SeatsNeeded, c.Cost, c.ErrorKey, c.Detail, c.Refusals, c.CooldownLeft,
+            _politics.Capital + 1e-9 >= c.Cost);
+    }
+
+    /// <summary>The agreements the AI would offer the parties brought in by a reshuffle (null when the player does not lead or a price cannot be paid).</summary>
+    public IReadOnlyList<AgreedDemand>? SuggestReshuffle(IReadOnlyList<string> drop, IReadOnlyList<string> add) => _politics?.SuggestReshuffle(drop, add);
+
     /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
     public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 

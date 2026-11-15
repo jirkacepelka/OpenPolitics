@@ -48,6 +48,8 @@ public sealed class Texts
         PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T("ui.event.promise_broken", Demand(bd)),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
+        CoalitionReshuffled r => _t.T("ui.event.coalition_reshuffled", _t.Name(r.Leader), Names(r.Dropped), Names(r.Added)),
+        ReshuffleRefused r => _t.T("ui.event.reshuffle_refused", ReshuffleReason(r.Reason)),
         NoConfidencePassed => _t.T("ui.event.no_confidence_passed"),
         NoConfidenceFailed => _t.T("ui.event.no_confidence_failed"),
         PolicyProposalAccepted a when _packs.Policies.FirstOrDefault(p => p.Id == a.PolicyId) is { } ap =>
@@ -58,12 +60,18 @@ public sealed class Texts
         _ => null,
     };
 
+    private string Names(IReadOnlyList<string> ids) => ids.Count == 0 ? _t.T("ui.reshuffle.nobody") : string.Join(", ", ids.Select(_t.Name));
+
+    /// <summary>Why the parties turned a reshuffle down (a <see cref="Refusal"/> reason), in plain words.</summary>
+    public string ReshuffleReason(string reason) =>
+        _t.T(reason is "price" or "grudge" or "red_line" or "contradiction" ? "ui.reshuffle.reason." + reason : "ui.reshuffle.reason.other");
+
     /// <summary>Plain-language text for a refused action (error key + optional detail).</summary>
     public string Error(ActionResult r)
     {
         string key = "ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
         // a policy change the party cannot pay for: "cost|capital" in the detail (decision 0013)
-        if (r.ErrorKey == "error.policy_cost" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
         string text = _t.T(key);
         if (r.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && r.Detail is { Length: > 1 } detail)
         {
