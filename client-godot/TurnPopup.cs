@@ -152,8 +152,8 @@ public static class TurnPopup
         }
 
         var buttons = Ui.HBox(16);
-        var left = Ui.Btn(t.T(s.HasPolitics ? "ui.popup.open_politics" : "ui.brief.charts"), () => { Done(); if (s.HasPolitics) main.OpenScreen<PoliticsScreen>(); else main.OpenScreen<ChartsScreen>(); }, "", null, null, false, 40);
-        var right = Ui.Btn(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), Done, "", null, null, d.Blocking, 40);
+        var left = Ui.Btn(t.T(s.HasPolitics ? "ui.popup.open_politics" : "ui.brief.charts"), () => { Done(); if (s.HasPolitics) main.OpenScreen<PoliticsScreen>(); else main.OpenScreen<ChartsScreen>(); }, "ButtonSecondary", null, null, false, 42);
+        var right = Ui.Btn(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), Done, "", null, null, d.Blocking, 42);
         left.SizeFlagsHorizontal = right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         left.AddThemeFontOverride("font", AppTheme.Bold); right.AddThemeFontOverride("font", AppTheme.Bold);
         buttons.AddChild(left); buttons.AddChild(right);

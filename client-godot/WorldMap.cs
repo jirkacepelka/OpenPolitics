@@ -111,7 +111,7 @@ public partial class WorldMap : Control
         _laidOut = field.Size;
         float W = field.Size.X, H = field.Size.Y;
         _hub = new Vector2(W / 2, H / 2);
-        _hubW = Math.Clamp(W * 0.085f, 96, 150); _hubH = _hubW * 0.46f;
+        _hubH = Math.Clamp(W * 0.04f, 44, 64); _hubW = _hubH * 2.3f;
 
         // Radii: the nodes cover about 30 % of the field.
         float area = W * H;
