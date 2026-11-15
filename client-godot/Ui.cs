@@ -92,7 +92,7 @@ public static class Ui
     public static Control Section(string text, Control? right = null)
     {
         var row = HBox(10);
-        row.AddChild(L(text, Tx.Overline, AppTheme.Ink2));
+        row.AddChild(L(text.TrimEnd(':', ' '), Tx.Overline, AppTheme.Ink2));
         var line = new HairLine { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
         row.AddChild(line);
         if (right != null) row.AddChild(right);

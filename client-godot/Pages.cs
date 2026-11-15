@@ -29,14 +29,16 @@ public sealed class VotersScreen : Screen
             string dislike = string.Join(", ", likes.Where(x => x.op < -0.1).OrderBy(x => x.op).Take(2).Select(x => t.Name(x.p.Id)));
             string id = g.Id;
             var row = Detail.EffectRow(Icons.For(id), $"{t.Name(id)} · {Ui.Num(g.Size * 100, "0")} %", sat, Ui.Signed(sat, "0.00"), () => main.OpenDetail("group", id),
-                $"{t.Name(id)}\n{t.T(Moods.Key(sat))}" + (like.Length > 0 ? $"\n{t.T("ui.vp.likes")}: {like}" : "") + (dislike.Length > 0 ? $"\n{t.T("ui.vp.dislikes")}: {dislike}" : ""), true);
-            d.Body.AddChild(row);
+                $"{t.Name(id)}\n{t.T(Moods.Key(sat))}" + (like.Length > 0 ? $"\n{t.T("ui.vp.likes")}: {like}" : "") + (dislike.Length > 0 ? $"\n{t.T("ui.vp.dislikes")}: {dislike}" : ""), true, 270);
+            var item = Ui.VBox(0);
+            item.AddChild(row);
             if (like.Length + dislike.Length > 0)
             {
                 var sub = Ui.L((like.Length > 0 ? $"{t.T("ui.vp.likes")}: {like}" : "") + (like.Length > 0 && dislike.Length > 0 ? "   ·   " : "") + (dislike.Length > 0 ? $"{t.T("ui.vp.dislikes")}: {dislike}" : ""), Tx.Small, AppTheme.Ink3);
                 sub.ClipText = true; sub.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-                d.Body.AddChild(Ui.Margin(sub, 36, 0, 0, 6));
+                item.AddChild(Ui.Margin(sub, 36, 0, 0, 2));
             }
+            d.Body.AddChild(item);
         }
     }
 }

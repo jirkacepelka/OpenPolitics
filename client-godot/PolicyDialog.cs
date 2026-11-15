@@ -15,14 +15,14 @@ public static class Detail
     /// An effect row in the Democracy 4 style: pictogram, name, a long dark track with a diverging fill from the centre (green right,
     /// red left) and the signed number in brackets. <paramref name="fill"/> is -1..1.
     /// </summary>
-    public static Control EffectRow(IconKind? icon, string name, double fill, string number, Action? onClick = null, string tooltip = "", bool group = false)
+    public static Control EffectRow(IconKind? icon, string name, double fill, string number, Action? onClick = null, string tooltip = "", bool group = false, float nameWidth = 0)
     {
         var row = Ui.HBox(12);
         row.CustomMinimumSize = new Vector2(0, 30);
         if (icon != null) row.AddChild(group ? new PictoDisc(icon.Value, 24, AppTheme.Panel2, AppTheme.Ink2) : new PictoDisc(icon.Value, 24, AppTheme.Chrome, Colors.White));
         else row.AddChild(Ui.Gap(24));
         var l = Ui.L(name, Tx.BodyStrong);
-        l.CustomMinimumSize = new Vector2(Layout.Compact ? 120 : Layout.Wide ? 210 : 165, 0);
+        l.CustomMinimumSize = new Vector2(nameWidth > 0 && !Layout.Compact ? nameWidth : Layout.Compact ? 120 : Layout.Wide ? 210 : 165, 0);
         l.ClipText = true; l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         l.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         row.AddChild(l);

@@ -15,7 +15,7 @@ public static class ChartDialog
         d.FillHeight = true;
         int tpy = s.Packs.GetScenario(s.ScenarioId).TurnsPerYear;
         int range = 0;
-        var chart = new Chart(large: true) { CustomMinimumSize = new Vector2(300, Math.Max(260, Layout.Size.Y - 330)) };
+        var chart = new Chart(large: true) { CustomMinimumSize = new Vector2(300, Math.Max(240, Layout.Size.Y - (Layout.Short ? 230 : 270))) };
         var legend = new HFlowContainer();
         legend.AddThemeConstantOverride("h_separation", 6); legend.AddThemeConstantOverride("v_separation", 6);
         void Fill()
@@ -26,11 +26,14 @@ public static class ChartDialog
             if (series.Count <= 1) return;
             foreach (var line in series)
             {
-                var b = new IconTextButton(null) { Text = "●  " + line.Name, ToggleMode = true, ButtonPressed = !chart.Hidden.Contains(line.Name), ThemeTypeVariation = "ButtonSeg", FocusMode = Control.FocusModeEnum.None };
-                b.AddThemeColorOverride("font_color", line.Color);
+                var b = new IconTextButton(null) { Text = "●  " + line.Name, ToggleMode = true, ButtonPressed = !chart.Hidden.Contains(line.Name), ThemeTypeVariation = "ButtonSecondary", FocusMode = Control.FocusModeEnum.None };
+                foreach (var fc in new[] { "font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(fc, line.Color);
+                b.AddThemeStyleboxOverride("pressed", AppTheme.Box(AppTheme.Surface, 0, line.Color, 2, 12, 4));
+                b.AddThemeStyleboxOverride("hover_pressed", AppTheme.Box(AppTheme.Panel, 0, line.Color, 2, 12, 4));
+                b.Modulate = b.ButtonPressed ? Colors.White : new Color(1, 1, 1, 0.45f);
                 b.CustomMinimumSize = new Vector2(0, 28);
                 string name = line.Name;
-                b.Toggled += on => { if (on) chart.Hidden.Remove(name); else chart.Hidden.Add(name); chart.QueueRedraw(); };
+                b.Toggled += on => { if (on) chart.Hidden.Remove(name); else chart.Hidden.Add(name); b.Modulate = on ? Colors.White : new Color(1, 1, 1, 0.45f); chart.QueueRedraw(); };
                 legend.AddChild(b);
             }
         }
