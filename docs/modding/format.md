@@ -62,9 +62,16 @@ unemployment, inflation, debt, interest_rate, revenue, spending`. All other valu
   delay_turns: 1            # turns until a change takes effect
   revenue_base: base:gdp    # tax policy: revenue = parameter / 100 x this value
   cost_per_unit: 1          # spending policy: spending = parameter x cost_per_unit x GDP / 100
+  capital_cost: 1.5         # optional, 0..10, default 1: how much political capital a change costs (weight)
 ```
 
 `min` and `max` bound the lever the player can move, not any simulated value.
+
+`capital_cost` (decision 0013) weighs what the leading party pays in political capital for changing the lever:
+`cost = round(capital_cost x (1 + 20 x |change| / (max - min)))`, at least 1 for any move, 0 when `capital_cost` is 0 (a free lever). A tenth of
+the range of an ordinary lever costs 3 points, half the range 11. The base pack gives heavier weights (1.5-2.5) to pensions, income tax, the
+retirement age, electoral rules, migration and similar levers and lighter ones (0.75) to the small add-on programmes. Indexation
+(`gdp`/`inflation`/`none`) is free; cancelling a scheduled change (back to the value in force) is free but refunds nothing.
 
 ## Edges (`edges/*.yaml`)
 
@@ -130,6 +137,24 @@ dividing by zero gives 0.
   start_policies: {base:vat: 15}      # optional overrides of policy defaults
 ```
 
+A political scenario adds a `politics` block (see `data/base/scenarios/cz_2015.yaml`):
+
+```yaml
+  politics:
+    player_party: base:social_alliance   # the default party; the player may pick any party at the start
+    support: {base:citizens_movement: 0.30, base:social_alliance: 0.17}   # starting poll shares
+    government: [base:social_alliance, base:peoples_union, base:citizens_movement]
+    leader: base:social_alliance
+    turns_to_election: 12
+    agreements:                          # optional: demands already in the coalition agreement
+      - {party: base:citizens_movement, demand: infrastructure}
+```
+
+`player_party` is only the default (decision 0013): clients let the player choose any party (`Simulation.NewGame(packs, scenario, seed,
+playerParty)`, CLI `--party`, the start screen's party cards). The chosen party's starting role follows from `government` and `leader`:
+the leader governs and sets policy, other government parties are junior partners, everybody else is in opposition. Saves record the
+chosen party (`player_party:` in the save file).
+
 ## Localization
 
 `localization/cs.yaml` and `en.yaml` are flat `key: text` maps. Required keys: `name.<id>` for every value, policy and
@@ -157,4 +182,11 @@ voter group, plus each country `name_key` and event `text_key`.
 dotnet run --project tools/OpenPolitics.Cli -- run --packs data/base --scenario base:cz_2015_sandbox --seed 42 --turns 80
 # many games with a scripted strategy; exit code 1 if unstable
 dotnet run --project tools/OpenPolitics.Cli -- batch --packs data/base --games 1000 --strategy random --turns 80
+# the political layer; --party picks the player's party (full id or the part after the colon), --party all prints one row per party
+dotnet run --project tools/OpenPolitics.Cli -- batch --politics --packs data/base --games 200 --turns 80 --strategy keeper --party all
+# play as another party (play --party list shows the parties with their starting roles)
+dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --party civic_right
 ```
+
+Politics strategies: `ignorer`, `keeper` (delivers the coalition agreement), `random`, `extreme`, `activist` (campaigns, criticises, courts),
+`reformer` (governs like the AI governor with its own platform, pays for every change and reshuffles away a partner under ultimatum).

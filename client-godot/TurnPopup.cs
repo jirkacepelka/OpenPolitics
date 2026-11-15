@@ -1,5 +1,6 @@
 using Godot;
 using OpenPolitics.Core.Gameplay;
+using OpenPolitics.Core.Politics;
 using OpenPolitics.Core.Presentation;
 
 using static Godot.Control;
@@ -61,7 +62,8 @@ public static class TurnPopup
     {
         var t = s.T;
         var pol = s.Politics;
-        string title = welcome ? t.T("ui.brief.welcome_title") : pol?.Formation?.Offer is { } o ? t.T("ui.event.offer_made", t.Name(o.Formateur))
+        string role = pol?.PlayerRole switch { Role.Partner => "_partner", Role.Opposition => "_opposition", _ => "" };
+        string title = welcome ? t.T("ui.brief.welcome_title" + role) : pol?.Formation?.Offer is { } o ? t.T("ui.event.offer_made", t.Name(o.Formateur))
             : s.Digest.Count > 0 ? Shorten(s.Digest[0]) : t.T("ui.brief.quiet_title");
         var d = main.NewDialog("", null, 900);
         d.Key = "briefing";
@@ -72,7 +74,7 @@ public static class TurnPopup
         var head = Centred(Ui.L(Ui.Fix(title), Tx.Title, AppTheme.Ink, true));
         head.AddThemeFontSizeOverride("font_size", 26);
         d.Body.AddChild(head);
-        if (welcome) d.Body.AddChild(Ui.L(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
+        if (welcome) d.Body.AddChild(Ui.L(s.HasPolitics ? t.T("ui.client.welcome_politics" + role, t.Name(pol!.PlayerParty)) : t.T("ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
 
         // Decisions first.
         if (pol != null)

@@ -19,7 +19,7 @@ godot --path client-godot
 
 Packs are read from `data/base` (override with the environment variable `OPENPOLITICS_PACKS`). Saves go to Godot's
 `user://saves` directory. The start screen offers the political scenario (Czechia 2015, coalition government) and the economy sandbox,
-in Czech or English.
+in Czech or English; for the political scenario you pick your party (decision 0013).
 
 ## The interface
 
@@ -46,15 +46,21 @@ drawn in code; the only bundled asset is the Inter font.
     change, indexation for spending), effect rows for voter groups and indicators (a dark track with a diverging green/red fill; with no
     change dialled in it shows what the policy acts on), the big slider with ticks, the value in force as a ghost disc and stripes for a
     scheduled change, cost and budget change, the political-capital box, and **Apply changes / Cancel change / Revert changes**.
+    Changing a policy costs the leader political capital (decision 0013): the capital box shows what the dialled change costs, a soft green
+    band on the slider marks what the capital pays for now, and **Apply changes · N** is disabled when the change costs more than you have.
   - *Indicator*: value and its change, a chart with a range switch, why it moved last quarter, what it influences (click a row to jump).
   - *Voter group*, *party*: mood or poll with a chart, what they like, demands, relations.
   - *Voters*, *Charts*, *Budget*, *Politics* (parliament half-circle, polls with the threshold mark, compass, coalition and government
-    formation), *Your party* (tabs: overview, platform with a compact slider and a priority stepper per policy, promises, relations,
+    formation; for the leader of a sitting government a **Reshuffle the coalition** card - partners to drop, seated outside parties to bring in
+    with the demands they ask for, the seats the new coalition would hold, what the parties would answer, cost and cooldown, and the confirm
+    button; the parliament card has a button that scrolls to it), *Your party* (tabs: overview, platform with a compact slider and a priority stepper per policy, promises, relations,
     actions and stances), *News*.
 - **Briefing** after each quarter (and a welcome at the start), styled after Democracy 4's intro modal: big title, decisions first (accept
   or decline an offer, form a government, running ultimatums), six key indicators as pills with traffic bars, the news, two full-width
   buttons.
-- **Start screen**: scenario cards, language, seed, the display card, load and start.
+- **Start screen**: scenario cards, the party cards of the political scenario (colour, name, starting role - leads the government, junior
+  partner or opposition -, poll share and seats, a mini compass and its words; the role is explained under the cards), language, seed,
+  the display card, load and start. The welcome briefing depends on the role.
 - Keyboard: Space = End quarter, M = map, 1-6 = the screens, Esc = close / clear the lens, Ctrl+S = quick save, F11 = full screen.
 
 ## Display settings and responsiveness
@@ -75,6 +81,10 @@ in-game menu, applies live and is saved in `user://display.cfg`.
 GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh            # headless
 GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh /tmp/shots # windowed, writes PNGs
 ```
+
+Besides every screen of every scenario it presses a party card on the start screen, plays the political scenario as an opposition party
+(Civic Right), checks that the policy dialog refuses an unaffordable change and charges an affordable one, and asks a coalition reshuffle
+from the Politics screen (shots `start-party`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`).
 
 ## Look and feel
 
