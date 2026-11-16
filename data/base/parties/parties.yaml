@@ -13,14 +13,14 @@
     base:defence: {target: 0.5, weight: 0.2}
     base:electoral_threshold: {target: 7, weight: 0.4}
     base:electoral_method: {target: 0, weight: 0.3}
-    base:pensions: {target: 10, weight: 0.4}
-    base:health_spending: {target: 7, weight: 0.3}
-    base:police: {target: 1.7, weight: 0.3}
-    base:retirement_age: {target: 64, weight: 0.2}
-    base:research: {target: 1.2, weight: 0.2}
-    base:social_benefits: {target: 7.5, weight: 0.3}
+    base:pensions: {target: 10, weight: 0.2}
+    base:health_spending: {target: 7.2, weight: 0.15}
+    base:police: {target: 1.8, weight: 0.2}
+    base:retirement_age: {target: 63.5, weight: 0.15}
+    base:research: {target: 1.2, weight: 0.15}
+    base:social_benefits: {target: 7, weight: 0.2}
     base:wealth_tax: {target: 0, weight: 0.2}
-    base:rural_development: {target: 0.5, weight: 0.2}
+    base:property_tax: {target: 0, weight: 0.2}
   affinity: {base:low_income: 0.10, base:middle_class: 0.20, base:high_income: 0.30, base:pensioners: 0.20, base:young_urban: -0.10, base:rural_conservatives: 0.20}
   price: 4
   demands:
@@ -95,9 +95,9 @@
     base:wealth_tax: {target: 0, weight: 0.4}
     base:property_tax: {target: 0, weight: 0.3}
     base:electoral_threshold: {target: 6, weight: 0.3}
-    base:pensions: {target: 8, weight: 0.4}
+    base:pensions: {target: 9, weight: 0.3}
     base:health_spending: {target: 6.5, weight: 0.2}
-    base:defence: {target: 1.5, weight: 0.4}
+    base:defence: {target: 1.2, weight: 0.2}
     base:minimum_wage: {target: 3, weight: 0.3}
     base:rent_control: {target: 1, weight: 0.3}
     base:university_fees: {target: 4, weight: 0.2}
@@ -134,8 +134,8 @@
     base:rural_development: {target: 1, weight: 0.5}
     base:retirement_age: {target: 62, weight: 0.4}
     base:surveillance: {target: 4, weight: 0.2}
-    base:income_tax: {target: 23, weight: 0.3}
-    base:social_benefits: {target: 8.5, weight: 0.3}
+    base:income_tax: {target: 22, weight: 0.3}
+    base:social_benefits: {target: 8, weight: 0.3}
     base:excise_taxes: {target: 0.3, weight: 0.2}
     base:drug_policy: {target: 2, weight: 0.3}
     base:environment_regulation: {target: 3.5, weight: 0.3}
