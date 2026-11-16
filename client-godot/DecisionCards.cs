@@ -17,7 +17,41 @@ public static class DecisionCards
     // The player's own coalition draft, shared by the briefing and the Politics screen.
     public static readonly HashSet<string> Invited = new(StringComparer.Ordinal);
     public static readonly HashSet<(string Party, string Demand)> Agreed = new();
+    /// <summary>Decision 0016: counter values offered for negotiable demands, portfolios given (portfolio → party) and concessions (party → units).</summary>
+    public static readonly Dictionary<(string Party, string Demand), double> Targets = new();
+    public static readonly Dictionary<string, string> Portfolios = new(StringComparer.Ordinal);
+    public static readonly Dictionary<string, int> Concessions = new(StringComparer.Ordinal);
     private static bool _adjust;
+    /// <summary>The counter-offer picks (index into the party's open demands / the free portfolios, 0 = nothing); public for the smoke test.</summary>
+    public static int _counterDemand, _counterPortfolio;
+
+    private static void ClearDraft() { Invited.Clear(); Agreed.Clear(); Targets.Clear(); Portfolios.Clear(); Concessions.Clear(); }
+
+    /// <summary>The player's draft as a coalition proposal.</summary>
+    public static CoalitionProposal DraftProposal(string player) => new(player, Invited.OrderBy(x => x, StringComparer.Ordinal).ToList(),
+        Agreed.OrderBy(a => a.Party, StringComparer.Ordinal).ThenBy(a => a.Demand, StringComparer.Ordinal)
+            .Select(a => new AgreedDemand(a.Party, a.Demand, Targets.TryGetValue(a, out var t) ? t : null)).ToList(),
+        Portfolios.Where(kv => Invited.Contains(kv.Value)).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new PortfolioGrant(kv.Value, kv.Key)).ToList(),
+        Concessions.Where(kv => kv.Value > 0 && Invited.Contains(kv.Key)).OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => new Concession(kv.Key, kv.Value)).ToList());
+
+    /// <summary>Puts a whole proposal (the AI's suggestion or a partner's counter terms) into the draft.</summary>
+    public static void Load(CoalitionProposal p)
+    {
+        ClearDraft();
+        Invited.UnionWith(p.Partners);
+        foreach (var a in p.Agreements) { Agreed.Add((a.PartyId, a.DemandId)); if (a.Target is { } t) Targets[(a.PartyId, a.DemandId)] = t; }
+        foreach (var g in p.PortfolioList) Portfolios[g.PortfolioId] = g.PartyId;
+        foreach (var c in p.ConcessionList) Concessions[c.PartyId] = c.Units;
+    }
+
+    private static void TakeCounter(string party, CounterTerms c)
+    {
+        Agreed.RemoveWhere(a => a.Party == party);
+        foreach (var k in Targets.Keys.Where(k => k.Party == party).ToList()) Targets.Remove(k);
+        foreach (var k in Portfolios.Where(kv => kv.Value == party).Select(kv => kv.Key).ToList()) Portfolios.Remove(k);
+        foreach (var a in c.Agreements) { Agreed.Add((a.PartyId, a.DemandId)); if (a.Target is { } t) Targets[(a.PartyId, a.DemandId)] = t; }
+        foreach (var g in c.Portfolios) Portfolios[g.PortfolioId] = g.PartyId;
+    }
 
     /// <summary>The card for one decision, or null when the decision has no card here (the caller shows it otherwise).</summary>
     public static Control? For(Main main, Session s, Decision d, Action refresh) => d.Kind switch
@@ -47,7 +81,53 @@ public static class DecisionCards
         row.AddChild(acc); row.AddChild(rej);
         box.AddChild(row);
         box.AddChild(Ui.L(t.T("ui.formation.offer_hint_client"), Tx.Small, AppTheme.Ink3, true));
+        CounterSection(s, offer, box, refresh);
         return Ui.Panel(box, "Inset");
+    }
+
+    /// <summary>Decision 0016: the invited party's counter-offer - one of its demands and/or a portfolio, the formateur's likely answer, Join on these terms.</summary>
+    private static void CounterSection(Session s, CoalitionProposal offer, VBoxContainer box, Action refresh)
+    {
+        var t = s.T;
+        var pol = s.Politics!;
+        box.AddChild(Ui.Section(t.T("ui.neg.counter_title")));
+        if (pol.Formation?.CounterUsed == true)
+        {
+            box.AddChild(Ui.L(Ui.Fix(pol.Formation.CounterAnswer == "accepted" ? t.T("ui.neg.counter_sent_yes") : t.T("ui.neg.counter_no", t.Name(offer.Formateur), s.Texts.CounterReason(pol.Formation.CounterAnswer))),
+                Tx.Body, AppTheme.WarnText, true));
+            return;
+        }
+        box.AddChild(Ui.L(t.T("ui.neg.counter_hint"), Tx.Small, AppTheme.Ink3, true));
+        var own = s.Packs.Parties.First(p => p.Id == pol.PlayerParty);
+        var demands = own.Demands.Where(d => !Texts.IsMet(d, s.Country) && !offer.Agreements.Any(a => a.PartyId == own.Id && a.DemandId == d.Id)).ToList();
+        var portfolios = s.Game.Portfolios.Where(pf => offer.PortfolioList.All(g => g.PortfolioId != pf.Id)).ToList();
+        var dbox = new OptionButton { FocusMode = FocusModeEnum.None, ClipText = true, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = SizeFlags.ExpandFill, Name = "CounterDemand" };
+        dbox.AddItem(t.T("ui.neg.counter_none"));
+        foreach (var d in demands) dbox.AddItem(Ui.Fix(s.Texts.Demand(d)));
+        _counterDemand = Math.Clamp(_counterDemand, 0, demands.Count);
+        dbox.Selected = _counterDemand;
+        var pbox = new OptionButton { FocusMode = FocusModeEnum.None, ClipText = true, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = SizeFlags.ExpandFill, Name = "CounterPortfolio" };
+        pbox.AddItem(t.T("ui.neg.counter_none"));
+        foreach (var pf in portfolios) pbox.AddItem(t.Name(pf.Id));
+        _counterPortfolio = Math.Clamp(_counterPortfolio, 0, portfolios.Count);
+        pbox.Selected = _counterPortfolio;
+        dbox.ItemSelected += i => { _counterDemand = (int)i; refresh(); };
+        pbox.ItemSelected += i => { _counterPortfolio = (int)i; refresh(); };
+        var pick = Ui.HBox(8); pick.AddChild(dbox); pick.AddChild(pbox);
+        box.AddChild(pick);
+        var extra = _counterDemand > 0 ? new[] { new AgreedDemand(own.Id, demands[_counterDemand - 1].Id) } : Array.Empty<AgreedDemand>();
+        var grants = _counterPortfolio > 0 ? new[] { new PortfolioGrant(own.Id, portfolios[_counterPortfolio - 1].Id) } : Array.Empty<PortfolioGrant>();
+        if (extra.Length + grants.Length == 0) return;
+        var preview = s.Game.PreviewCounter(extra, grants);
+        if (preview != null) box.AddChild(Ui.L(Ui.Fix(s.Texts.CounterPreviewText(preview, offer.Formateur)), Tx.Small, preview.Accepts ? AppTheme.GoodText : AppTheme.WarnText, true));
+        var go = Ui.Btn(t.T("ui.neg.counter_go"), () =>
+        {
+            if (s.Do(new CounterOffer(extra, grants), t.T(preview?.Accepts == true ? "ui.neg.counter_sent_yes" : "ui.neg.counter_sent_no"))) { _counterDemand = 0; _counterPortfolio = 0; }
+            refresh();
+        }, "ButtonSecondary", IconKind.Arrows, null, preview?.ErrorKey != null, 36);
+        go.Name = "CounterGo";
+        go.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        box.AddChild(go);
     }
 
     /// <summary>
@@ -57,7 +137,7 @@ public static class DecisionCards
     public static Control? Formation(Main main, Session s, Action refresh)
     {
         var t = s.T;
-        if (s.Politics is not { Formation: { PlayerIsFormateur: true } f } pol) { Invited.Clear(); Agreed.Clear(); _adjust = false; return null; }
+        if (s.Politics is not { Formation: { PlayerIsFormateur: true } f } pol) { ClearDraft(); _adjust = false; return null; }
         var rules = s.Packs.Countries.First(c => c.Politics != null).Politics!;
         int total = pol.Seats.Values.Sum(), needed = (int)Math.Floor(rules.MajorityFraction * total) + 1;
         var box = Ui.VBox(8);
@@ -70,13 +150,14 @@ public static class DecisionCards
             box.AddChild(Ui.L(Ui.Fix(t.T("ui.formation.suggested", string.Join(", ", parties.Select(t.Name)), seats, needed)), Tx.Body, AppTheme.Ink, true));
             foreach (var a in sug.Agreements)
                 if (s.Texts.DemandOf(a.PartyId, a.DemandId) is { } dm) box.AddChild(Ui.PartyName(s, a.PartyId, $"{t.Name(a.PartyId)}: {Ui.Fix(s.Texts.Demand(dm))}", Tx.Small));
+            foreach (var g in sug.PortfolioList) box.AddChild(Ui.PartyName(s, g.PartyId, t.T("ui.formation.portfolio_line", t.Name(g.PartyId), t.Name(g.PortfolioId)), Tx.Small));
             if (sug.Agreements.Count == 0) box.AddChild(Ui.L(t.T("ui.formation.no_agreements"), Tx.Small, AppTheme.Ink3, true));
         }
         else box.AddChild(Ui.L(t.T("ui.formation.no_suggestion"), Tx.Body, AppTheme.WarnText, true));
         var row = Ui.HBox(1);
         if (sug != null)
         {
-            var form = Ui.Btn(t.T("ui.formation.form_suggested"), () => { s.Do(new ProposeCoalition(sug.Partners, sug.Agreements), t.T("ui.formation.proposed")); refresh(); }, "", IconKind.Check, null, false, 40);
+            var form = Ui.Btn(t.T("ui.formation.form_suggested"), () => { s.Do(ProposeCoalition.From(sug), t.T("ui.formation.proposed")); refresh(); }, "", IconKind.Check, null, false, 40);
             form.Name = "FormSuggested";
             form.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             row.AddChild(form);
@@ -84,7 +165,7 @@ public static class DecisionCards
         var adjust = Ui.Btn(t.T(_adjust || sug == null ? "ui.formation.adjust_hide" : "ui.formation.adjust"), () =>
         {
             _adjust = !_adjust;
-            if (_adjust && Invited.Count == 0 && sug != null) { Invited.UnionWith(sug.Partners); Agreed.UnionWith(sug.Agreements.Select(a => (a.PartyId, a.DemandId))); }
+            if (_adjust && Invited.Count == 0 && sug != null) Load(sug);
             refresh();
         }, "ButtonSecondary", IconKind.Gear, null, sug == null, 40);
         adjust.Name = "Adjust";
@@ -95,52 +176,128 @@ public static class DecisionCards
         return Ui.Panel(box, "Inset");
     }
 
+    /// <summary>
+    /// The negotiation view (decision 0016): seats and majority, slots, portfolios and rounds left; per seated party an invite box and, when invited,
+    /// its answer (accepts / counters / refuses with the reason and numbers), a satisfaction bar, the price breakdown, its demands with their status
+    /// (acceptable / negotiable / red line / met), a half-way slider for negotiable ones, portfolios, concessions, the fixes and its counter terms;
+    /// Send the offer runs one round of talks.
+    /// </summary>
     private static void Draft(Session s, CountryPolitics pol, CountryPoliticsDef rules, VBoxContainer card, Action refresh)
     {
         var t = s.T;
-        int total = pol.Seats.Values.Sum();
-        int held = pol.Seats.GetValueOrDefault(pol.PlayerParty) + Invited.Sum(p => pol.Seats.GetValueOrDefault(p));
-        card.AddChild(Ui.L(t.T("ui.formation.majority_needed", (int)Math.Floor(rules.MajorityFraction * total), held, rules.ProgramSlots),
-            Tx.BodyStrong, held > total * rules.MajorityFraction ? AppTheme.GoodText : AppTheme.Ink2, true));
-        foreach (var party in s.Packs.Parties.Where(p => p.Id != pol.PlayerParty && pol.Seats.GetValueOrDefault(p.Id) > 0).OrderBy(p => p.Id, StringComparer.Ordinal))
+        var view = s.Game.AssessCoalition(DraftProposal(pol.PlayerParty));
+        if (view == null) return;
+        card.AddChild(Ui.Section(t.T("ui.neg.title")));
+        card.AddChild(Ui.L(t.T("ui.neg.hint"), Tx.Small, AppTheme.Ink3, true));
+        card.AddChild(Ui.L(t.T("ui.reshuffle.seats", view.SeatsHeld, view.SeatsNeeded, t.T(view.SeatsHeld >= view.SeatsNeeded ? "ui.politics.majority" : "ui.politics.no_majority")),
+            Tx.BodyStrong, view.SeatsHeld >= view.SeatsNeeded ? AppTheme.GoodText : AppTheme.Ink2, true));
+        card.AddChild(Ui.L(t.T("ui.neg.rounds", view.RoundsLeft, view.SlotsUsed, view.Slots, view.PortfoliosGiven, view.PortfoliosMax), Tx.Small, AppTheme.Ink2, true));
+        if (view.HardError != null && view.HardError != "error.refused.majority")
+            card.AddChild(Ui.L(Ui.Fix(s.Texts.Error(new ActionResult(false, view.HardError, view.HardDetail))), Tx.Small, AppTheme.WarnText, true));
+        var replies = pol.Formation?.Replies ?? Array.Empty<PartnerReply>();
+        foreach (var party in s.Packs.Parties.Where(p => p.Id != pol.PlayerParty && pol.Seats.GetValueOrDefault(p.Id) > 0).OrderByDescending(p => pol.Seats[p.Id]).ThenBy(p => p.Id, StringComparer.Ordinal))
         {
-            var line = Ui.HBox(8);
-            line.AddChild(new ColorDot(Ui.PartyColor(s, party.Id)));
-            var invite = new CheckBox
-            {
-                Text = $"{t.Name(party.Id)}  ·  {Ui.Fix(t.T("ui.formation.party_line", pol.Seats[party.Id], Fmt.Number(CoalitionRules.RequiredWeight(party, pol.Party?.Relations.GetValueOrDefault(party.Id, 0.3) ?? 0.3))))}",
-                ButtonPressed = Invited.Contains(party.Id), FocusMode = FocusModeEnum.None,
-            };
             string pid = party.Id;
-            invite.Toggled += on => { if (on) Invited.Add(pid); else { Invited.Remove(pid); Agreed.RemoveWhere(a => a.Party == pid); } refresh(); };
+            var line = Ui.HBox(8);
+            line.AddChild(new ColorDot(Ui.PartyColor(s, pid)));
+            var invite = new CheckBox { Text = $"{t.Name(pid)}  ·  {pol.Seats[pid]}", ButtonPressed = Invited.Contains(pid), FocusMode = FocusModeEnum.None, Name = "Invite_" + pid.Split(':').Last() };
+            invite.Toggled += on =>
+            {
+                if (on) Invited.Add(pid);
+                else { Invited.Remove(pid); Agreed.RemoveWhere(a => a.Party == pid); foreach (var k in Portfolios.Where(kv => kv.Value == pid).Select(kv => kv.Key).ToList()) Portfolios.Remove(k); Concessions.Remove(pid); }
+                refresh();
+            };
             line.AddChild(invite);
+            var v = view.Partners.FirstOrDefault(x => x.PartyId == pid);
+            if (v != null)
+            {
+                line.AddChild(new Meter(Math.Min(v.Satisfaction, 1.5), 0, 1.5, v.Satisfaction >= 1 ? AppTheme.Good : v.Satisfaction >= 0.7 ? AppTheme.Warn : AppTheme.Bad, 110, false, 8)
+                    { TooltipText = t.T("ui.neg.satisfaction", Ui.Num(v.Satisfaction * 100, "0")), SizeFlagsVertical = SizeFlags.ShrinkCenter });
+                line.AddChild(Ui.Pill(s.Texts.Verdict(v.Verdict), v.Verdict == "accept" ? AppTheme.Good : v.Verdict == "counter" ? AppTheme.Warn : AppTheme.Bad));
+            }
             card.AddChild(line);
-            if (!Invited.Contains(party.Id)) continue;
+            if (v == null) continue;
+            var inner = Ui.VBox(4);
+            inner.AddChild(Ui.L(Ui.Fix(s.Texts.NegotiationReason(v)), Tx.Body, v.Verdict == "accept" ? AppTheme.GoodText : v.Verdict == "counter" ? AppTheme.WarnText : AppTheme.BadText, true));
+            inner.AddChild(Ui.L(Ui.Fix(s.Texts.PriceBreakdown(v)), Tx.Small, AppTheme.Ink3, true));
+            if (replies.FirstOrDefault(r => r.PartyId == pid) is { } last)
+                inner.AddChild(Ui.L(t.T("ui.neg.last_replies") + ": " + s.Texts.Verdict(last.Verdict), Tx.Small, AppTheme.Ink2, true));
             foreach (var dm in party.Demands)
             {
+                var dv = v.Demands.First(x => x.DemandId == dm.Id);
                 string did = dm.Id;
-                var box = new CheckBox
-                {
-                    Text = $"{Ui.Fix(s.Texts.Demand(dm))}   ({Ui.Fix(t.T("ui.formation.weight", Fmt.Number(dm.Weight)))})",
-                    ButtonPressed = Agreed.Contains((pid, did)), FocusMode = FocusModeEnum.None,
-                };
+                var drow = Ui.HBox(8);
+                var box = new CheckBox { Text = $"{Ui.Fix(s.Texts.Demand(dm))}   (+{Fmt.Number(dv.Worth, "0.0")})", ButtonPressed = dv.Agreed, FocusMode = FocusModeEnum.None, Disabled = dv.Status == "met" };
                 box.AddThemeColorOverride("font_color", AppTheme.Ink2);
-                box.Toggled += on => { if (on) Agreed.Add((pid, did)); else Agreed.Remove((pid, did)); refresh(); };
-                var indent = Ui.Margin(box, 0, 0);
-                indent.AddThemeConstantOverride("margin_left", 36);
-                card.AddChild(indent);
+                box.Toggled += on => { if (on) Agreed.Add((pid, did)); else { Agreed.Remove((pid, did)); Targets.Remove((pid, did)); } refresh(); };
+                box.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                drow.AddChild(box);
+                drow.AddChild(Ui.Pill(s.Texts.DemandStatus(dv.Status), dv.Status switch { "red_line" => AppTheme.Bad, "negotiable" => AppTheme.Warn, "met" => AppTheme.Ink3, _ => AppTheme.Good }));
+                var indent = Ui.Margin(drow, 0, 0);
+                indent.AddThemeConstantOverride("margin_left", 30);
+                inner.AddChild(indent);
+                // a counter value for a negotiable demand: between the player's own position and the partner's target
+                if (dv.Agreed && dv.Anchor is { } anchor && s.Packs.Policies.FirstOrDefault(p => p.Id == dm.Subject) is { } pdef)
+                {
+                    var srow = Ui.HBox(8);
+                    double lo = Math.Min(anchor, dm.Target), hi = Math.Max(anchor, dm.Target);
+                    double cur = Targets.TryGetValue((pid, did), out var tv) ? tv : dm.Target;
+                    var slider = new PolicySlider(compact: true) { GovMarker = anchor };
+                    slider.Configure(lo, hi, Math.Max((hi - lo) / 100.0, 1e-3), dm.Target, null, cur);
+                    var value = Ui.Right(Ui.L(Ui.Fix(Fmt.Policy(pdef, cur, t)), Tx.Data));
+                    value.CustomMinimumSize = new Vector2(90, 0);
+                    slider.TargetChanged += x => { value.Text = Ui.Fix(Fmt.Policy(pdef, x, t)); if (Math.Abs(x - dm.Target) < 1e-9) Targets.Remove((pid, did)); else Targets[(pid, did)] = x; };
+                    srow.AddChild(slider); srow.AddChild(value);
+                    srow.AddChild(Ui.Btn(t.T("ui.neg.half_way"), () => { Targets[(pid, did)] = Negotiation.HalfWay(dm, anchor); refresh(); }, "ButtonGhost", null, null, false, 28));
+                    var si = Ui.Margin(srow, 0, 0);
+                    si.AddThemeConstantOverride("margin_left", 60);
+                    inner.AddChild(si);
+                }
             }
+            // portfolios (the four this party values most, and any it holds) and concessions
+            var pfFlow = new HFlowContainer();
+            pfFlow.AddThemeConstantOverride("h_separation", 10);
+            pfFlow.AddChild(Ui.L(t.T("ui.neg.portfolios") + ":", Tx.Label));
+            foreach (var pv in v.Portfolios.Where(x => x.HeldBy == null || x.HeldBy == pid).OrderByDescending(x => x.HeldBy == pid).ThenByDescending(x => x.Worth).Take(4))
+            {
+                string pfid = pv.PortfolioId;
+                var cb = new CheckBox { Text = $"{t.Name(pfid)} (+{Fmt.Number(pv.Worth, "0.0")})", ButtonPressed = pv.HeldBy == pid, FocusMode = FocusModeEnum.None, Name = "Portfolio_" + pfid.Split(':').Last() };
+                cb.Toggled += on => { if (on) Portfolios[pfid] = pid; else Portfolios.Remove(pfid); refresh(); };
+                pfFlow.AddChild(cb);
+            }
+            inner.AddChild(pfFlow);
+            var crow = Ui.HBox(8);
+            crow.AddChild(Ui.L(t.T("ui.neg.concessions") + ":", Tx.Label));
+            crow.AddChild(Ui.Segmented(Enumerable.Range(0, Negotiation.MaxConcessions + 1).Select(u => u == 0 ? "0" : $"{u} · {u * (int)Negotiation.ConcessionCost}").ToArray(),
+                Concessions.GetValueOrDefault(pid), i => { Concessions[pid] = i; refresh(); }));
+            inner.AddChild(crow);
+            foreach (var f in v.Fixes.Take(5)) inner.AddChild(Ui.L("• " + Ui.Fix(s.Texts.FixText(f)), Tx.Small, AppTheme.Ink2, true));
+            if (v.Counter is { } counter)
+            {
+                var cr = Ui.HBox(8);
+                var ct = Ui.L(Ui.Fix(s.Texts.CounterText(counter)), Tx.Small, AppTheme.WarnText, true);
+                ct.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                cr.AddChild(ct);
+                var take = Ui.Btn(t.T("ui.neg.use_counter"), () => { TakeCounter(pid, counter); refresh(); }, "ButtonSecondary", IconKind.Check, null, false, 30);
+                take.Name = "TakeCounter_" + pid.Split(':').Last();
+                cr.AddChild(take);
+                inner.AddChild(cr);
+            }
+            var wrap = Ui.Margin(inner, 0, 0);
+            wrap.AddThemeConstantOverride("margin_left", 28);
+            card.AddChild(wrap);
         }
-        var submit = Ui.Btn(t.T("ui.client.submit"), () =>
+        var buttons = Ui.HBox(8);
+        var send = Ui.Btn(t.T("ui.neg.send") + (view.ConcessionCost > 0 ? $" · {view.ConcessionCost:0}" : ""), () =>
         {
-            if (s.Do(new ProposeCoalition(Invited.OrderBy(x => x, StringComparer.Ordinal).ToList(),
-                    Agreed.OrderBy(a => a.Party, StringComparer.Ordinal).ThenBy(a => a.Demand, StringComparer.Ordinal).Select(a => new AgreedDemand(a.Party, a.Demand)).ToList()),
-                    t.T("ui.formation.proposed")))
-            { Invited.Clear(); Agreed.Clear(); _adjust = false; }
+            if (s.Do(new NegotiateCoalition(DraftProposal(pol.PlayerParty).Partners, DraftProposal(pol.PlayerParty).Agreements, DraftProposal(pol.PlayerParty).Portfolios,
+                    DraftProposal(pol.PlayerParty).Concessions), t.T(view.AllAccept ? "ui.neg.formed" : "ui.neg.replies")) && view.AllAccept)
+            { ClearDraft(); _adjust = false; }
             refresh();
-        }, "", IconKind.Check);
-        submit.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        card.AddChild(submit);
+        }, "", IconKind.Check, s.Texts.Explain("negotiation"), view.RoundsLeft <= 0 || view.HardError != null);
+        send.Name = "SendOffer";
+        buttons.AddChild(send);
+        card.AddChild(buttons);
     }
 
     /// <summary>

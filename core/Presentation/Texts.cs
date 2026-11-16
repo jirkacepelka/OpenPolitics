@@ -72,6 +72,8 @@ public sealed class Texts
         UltimatumDelivered d when Pol(d.PolicyId) is { } dp => _t.T("ui.event.myult_delivered", _t.Name(d.Leader), _t.Name(d.PolicyId), Fmt.Policy(dp, d.Target, _t)),
         UltimatumCarriedOut c => _t.T("ui.event.myult_carried_out", _t.Name(c.Leader), _t.Name(c.PolicyId)),
         UltimatumLapsed => _t.T("ui.event.myult_lapsed"),
+        CounterOfferAnswered c => c.Accepted ? _t.T("ui.event.counter_accepted", _t.Name(c.Formateur))
+            : _t.T("ui.event.counter_refused", _t.Name(c.Formateur), CounterReason(c.Reason)),
         FiscalCreditEarned c => _t.T("ui.event.fiscal_credit", "+" + N(c.Capital, "0.0"), Points(c.Points), N(c.From, "0.0"), N(c.To, "0.0")),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         CoalitionReshuffled r => _t.T("ui.event.coalition_reshuffled", _t.Name(r.Leader), Names(r.Dropped), Names(r.Added)),
@@ -174,6 +176,71 @@ public sealed class Texts
         return lines;
     }
 
+    // ---- formation talks (decision 0016, item 2) ---------------------------------------------------------------
+
+    /// <summary>"accepts" / "counters" / "refuses": a partner's answer in plain words.</summary>
+    public string Verdict(string verdict) => _t.T("ui.neg.verdict." + verdict);
+
+    /// <summary>Acceptable / negotiable / red line / met: how a partner sees one of its demands.</summary>
+    public string DemandStatus(string status) => _t.T("ui.neg.status." + status);
+
+    /// <summary>Why a partner refuses or counters, with the numbers (price shortfall, the red line crossed, the grudge, the distance).</summary>
+    public string NegotiationReason(PartnerView v) => v.Reason switch
+    {
+        null => _t.T("ui.neg.reason.ok", N(v.Offered, "0.0"), N(v.Required, "0.0")),
+        "price" => _t.T("ui.neg.reason.price", N(v.Offered, "0.0"), N(v.Required, "0.0"), N(v.Shortfall, "0.0")),
+        "red_line" => _t.T("ui.neg.reason.red_line", AgreementText(v.ReasonDemand)),
+        "grudge" => _t.T("ui.neg.reason.grudge", v.ReasonDemand != null ? _t.Name(v.ReasonDemand) : "?"),
+        "distance" => _t.T("ui.neg.reason.distance", N(v.Distance, "0.00"), N(Negotiation.DistanceVeto, "0.00")),
+        "contradiction" => _t.T("ui.neg.reason.contradiction", AgreementText(v.ReasonDemand)),
+        _ => v.Reason,
+    };
+
+    /// <summary>"Pensions >= …" for "party:demand" (the reason detail of a refusal).</summary>
+    private string AgreementText(string? partyDemand)
+    {
+        if (partyDemand == null) return "?";
+        int cut = partyDemand.LastIndexOf(':');
+        if (cut <= 0) return partyDemand;
+        string party = partyDemand[..cut], demand = partyDemand[(cut + 1)..];
+        return DemandOf(party, demand) is { } d ? _t.Name(party) + ": " + Demand(d) : partyDemand;
+    }
+
+    /// <summary>Where the price comes from: pack price, distance, strength, alternatives, relation and grudge.</summary>
+    public string PriceBreakdown(PartnerView v) => _t.T("ui.neg.price_breakdown", N(v.BasePrice), N(v.DistanceFactor, "0.00"), N(v.Distance, "0.00"),
+        N(v.StrengthFactor, "0.00"), N(v.AlternativesFactor, "0.00"), _t.T(v.HasAlternative ? "ui.neg.alt_yes" : "ui.neg.alt_no"), N(v.Relation, "0.00"), N(v.Grudge, "0.00"),
+        N(v.Required, "0.0"));
+
+    /// <summary>One line per thing that would change a partner's answer.</summary>
+    public string FixText(Fix f) => f.Kind switch
+    {
+        "add_demand" when f.PartyId != null && f.DemandId != null && DemandOf(f.PartyId, f.DemandId) is { } d => _t.T("ui.neg.fix.add_demand", Demand(d), N(f.Amount, "0.0")),
+        "half_way" when f.PartyId != null && f.DemandId != null && DemandOf(f.PartyId, f.DemandId) is { } d =>
+            _t.T("ui.neg.fix.half_way", Demand(d), Pol(d.Subject) is { } pd ? Fmt.Policy(pd, f.Amount, _t) : N(f.Amount)),
+        "drop_demand" => _t.T("ui.neg.fix.drop_demand", AgreementText(f.PartyId + ":" + f.DemandId)),
+        "give_portfolio" when f.PortfolioId != null => _t.T("ui.neg.fix.give_portfolio", _t.Name(f.PortfolioId), N(f.Amount, "0.0")),
+        "concede" => _t.T("ui.neg.fix.concede", N(f.Amount), N(Negotiation.ConcessionCost)),
+        "court" => _t.T("ui.neg.fix.court", f.PartyId != null ? _t.Name(f.PartyId) : "?", N(PartyRules.CourtCost)),
+        "wait" => _t.T("ui.neg.fix.wait", f.PartyId != null ? _t.Name(f.PartyId) : "?"),
+        _ => f.Kind,
+    };
+
+    /// <summary>What a partner's counter-offer asks: its demands and portfolios.</summary>
+    public string CounterText(CounterTerms c)
+    {
+        var parts = c.Agreements.Select(a => DemandOf(a.PartyId, a.DemandId) is { } d ? Demand(Negotiation.Effective(d, a)) : a.DemandId)
+            .Concat(c.Portfolios.Select(g => _t.Name(g.PortfolioId))).ToList();
+        return _t.T("ui.neg.counter_terms", parts.Count == 0 ? "–" : string.Join("; ", parts));
+    }
+
+    /// <summary>The AI formateur's likely answer to the player's counter-offer.</summary>
+    public string CounterPreviewText(CounterPreview p, string formateur) =>
+        p.ErrorKey != null ? Error(new ActionResult(false, p.ErrorKey, null))
+        : p.Accepts ? _t.T("ui.neg.counter_yes", _t.Name(formateur), N(p.Worth, "0.0"), N(p.Ceiling, "0.0"))
+        : _t.T("ui.neg.counter_no", _t.Name(formateur), CounterReason(p.Reason));
+
+    public string CounterReason(string? reason) => _t.T("ui.neg.counter_reason." + (reason ?? "too_much"));
+
     /// <summary>The status line of the party's open ultimatum: what it asks, the leader's answer so far and the quarters left.</summary>
     public string UltimatumStatus(PlayerUltimatumInfo u, string leader) =>
         _t.T("ui.myult.status_" + (u.Answer ?? "waiting"), _t.Name(leader), _t.Name(u.PolicyId),
@@ -211,6 +278,8 @@ public sealed class Texts
             N(PoliticsLimits.ProposalRelationSupport), N(PoliticsLimits.ProposalRelationOppose), N(PoliticsLimits.ProposalPartnerStrain), N(PoliticsLimits.ProposalWarmth),
             N(PoliticsLimits.ProposalBlockedHit), PoliticsLimits.ProposalCooldownTurns + 1),
         "reshuffle" => _t.T("ui.explain.reshuffle", N(PoliticsLimits.ReshuffleBaseCost), N(PoliticsLimits.ReshufflePerParty), PoliticsLimits.ReshuffleCooldownTurns, PoliticsLimits.ReshuffleRefusedCooldownTurns),
+        "negotiation" => _t.T("ui.explain.negotiation", N(Negotiation.DistanceSlope), N(Negotiation.DistanceVeto), N(Negotiation.ConcessionCost), N(Negotiation.ConcessionWorth),
+            Negotiation.MaxConcessions, PoliticsLimits.NegotiationRoundsPerQuarter, N(PoliticsLimits.NegotiationPatience), Negotiation.MaxPortfoliosPerPartner),
         "ultimatum" => _t.T("ui.explain.ultimatum", N(PoliticsLimits.UltimatumCost), PoliticsLimits.UltimatumMinDeadline, PoliticsLimits.UltimatumMaxDeadline,
             PoliticsLimits.UltimatumCooldownTurns, N(PoliticsLimits.UltimatumMaxMoveOfRange * 100) + " %", N(PoliticsLimits.UltimatumDeliveredCredibility * 100) + " %",
             N(PoliticsLimits.UltimatumCarriedOutCredibility * 100) + " %", N(PoliticsLimits.UltimatumWithdrawCredibility * 100) + " %", N(PartyRules.LeaveCredibility * 100) + " %"),

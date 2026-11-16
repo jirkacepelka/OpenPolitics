@@ -156,6 +156,20 @@ public static class PackValidator
                 err("E007", "country", c.Id, $"Country '{c.Id}' politics intervals and slots must be at least 1.");
             if (!(c.Politics.MajorityFraction > 0 && c.Politics.MajorityFraction < 1))
                 err("E007", "country", c.Id, $"Country '{c.Id}' majority_fraction must be in (0, 1).");
+            var seenPortfolios = new HashSet<string>(StringComparer.Ordinal);
+            var portfolioOf = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var pf in c.Politics.Portfolios ?? Array.Empty<PortfolioDef>())
+            {
+                if (!seenPortfolios.Add(pf.Id)) err("E002", "country", c.Id, $"Country '{c.Id}' lists portfolio '{pf.Id}' twice.");
+                if (!(pf.Value > 0 && pf.Value <= 10)) err("E007", "country", c.Id, $"Portfolio '{pf.Id}' value must be in (0, 10].");
+                foreach (var policy in pf.Policies)
+                {
+                    if (!policyIds.Contains(policy)) err("E004", "country", c.Id, $"Portfolio '{pf.Id}' refers to unknown policy '{policy}'.");
+                    else if (portfolioOf.TryGetValue(policy, out var other) && other != pf.Id)
+                        err("E007", "country", c.Id, $"Policy '{policy}' belongs to two portfolios ('{other}' and '{pf.Id}').");
+                    else portfolioOf[policy] = pf.Id;
+                }
+            }
         }
 
         foreach (var sc in set.Scenarios)

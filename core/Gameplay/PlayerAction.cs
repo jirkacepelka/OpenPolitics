@@ -33,8 +33,30 @@ public sealed record ReshuffleCoalition(IReadOnlyList<string> Drop, IReadOnlyLis
 /// <summary>As opposition: call a vote of no confidence. Costs 10 capital; passes with enough willing parties and unhappy partners.</summary>
 public sealed record NoConfidence : PoliticsAction;
 
-/// <summary>As formateur: offer a coalition. Partners join and the agreements become the government's commitments.</summary>
-public sealed record ProposeCoalition(IReadOnlyList<string> Partners, IReadOnlyList<AgreedDemand> Agreements) : PoliticsAction;
+/// <summary>
+/// As formateur: offer a coalition and form it at once if every party accepts (otherwise refused with the first reason). Partners join, the
+/// agreements become the government's commitments, the portfolios go to the partners and the concessions are paid (decision 0016).
+/// </summary>
+public sealed record ProposeCoalition(IReadOnlyList<string> Partners, IReadOnlyList<AgreedDemand> Agreements,
+    IReadOnlyList<PortfolioGrant>? Portfolios = null, IReadOnlyList<Concession>? Concessions = null) : PoliticsAction
+{
+    /// <summary>Forms exactly the given coalition (for example the one <see cref="Game.SuggestCoalition"/> proposes).</summary>
+    public static ProposeCoalition From(CoalitionProposal p) => new(p.Partners, p.Agreements, p.Portfolios, p.Concessions);
+}
+
+/// <summary>
+/// As formateur, one round of coalition talks (decision 0016): every invited party answers at once - accept, counter (the terms it would take) or
+/// refuse with a reason. All accept: the government forms. Otherwise the answers are shown and the formateur can improve the offer;
+/// <see cref="Politics.PoliticsLimits.NegotiationRoundsPerQuarter"/> rounds a quarter.
+/// </summary>
+public sealed record NegotiateCoalition(IReadOnlyList<string> Partners, IReadOnlyList<AgreedDemand> Agreements,
+    IReadOnlyList<PortfolioGrant>? Portfolios = null, IReadOnlyList<Concession>? Concessions = null) : PoliticsAction;
+
+/// <summary>
+/// As a party invited into an AI formateur's coalition (decision 0016): "we join if you also add this" - extra demands of the player's party and/or
+/// portfolios for it. The formateur answers at once: accepted, the government forms on these terms; refused, the offer stands. One per offer.
+/// </summary>
+public sealed record CounterOffer(IReadOnlyList<AgreedDemand> Agreements, IReadOnlyList<PortfolioGrant> Portfolios) : PoliticsAction;
 
 /// <summary>Accept the AI formateur's offer to join its coalition.</summary>
 public sealed record AcceptOffer : PoliticsAction;

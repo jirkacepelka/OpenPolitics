@@ -180,6 +180,32 @@ playerParty)`, CLI `--party`, the start screen's party cards). The chosen party'
 the leader governs and sets policy, other government parties are junior partners, everybody else is in opposition. Saves record the
 chosen party (`player_party:` in the save file).
 
+### Country politics and cabinet portfolios
+
+The country's `politics` block holds the rules of the political game: `electoral_system`, `election_interval_turns` (32 for Czechia since
+the term was doubled), `majority_fraction`, `max_formation_turns`, `caretaker_turns`, `program_slots` and, since decision 0016, an optional
+list of **cabinet portfolios** (ministries) that a formateur can give coalition partners in formation talks:
+
+```yaml
+  politics:
+    electoral_system: base:czech_pr
+    program_slots: 6
+    portfolios:
+      - {id: base:ministry_finance, value: 3, policies: [base:income_tax, base:vat, base:corporate_tax]}
+      - {id: base:ministry_health, value: 2, policies: [base:health_spending, base:drug_policy]}
+```
+
+- `id` (needs a `name.<id>` localization key), `value` in (0, 10]: what the portfolio pays toward a partner's price; the partner values it at
+  `value × (0.5 + 0.5 × its largest platform weight among the portfolio's policies)`, so a party gets more out of a ministry whose policies it
+  stresses. `policies`: the policy areas it is responsible for; a policy belongs to at most one portfolio (validator E007; unknown policy E004;
+  a repeated id E002).
+- A partner holding a portfolio is heard more on its policies (+0.15 on the leader's score for its proposals and ultimatums) and, as an AI
+  partner, is a little more loyal (+2 loyalty target per portfolio, at most +4). Partners together may hold at most two thirds of the portfolios,
+  each at most three; the leader holds the rest. Without `portfolios` the talks simply have none to give.
+- The price a party asks in talks is its `price` × (1 − relation / 2) × (1 + grudge) × a talk factor from ideological distance (platform and
+  compass), its strength against the formateur and whether it has another majority; from a talk distance of 0.42 it refuses outright. The
+  constants are in `core/Politics/Negotiation.cs` (decision 0016).
+
 ## Localization
 
 `localization/cs.yaml` and `en.yaml` are flat `key: text` maps. Required keys: `name.<id>` for every value, policy and

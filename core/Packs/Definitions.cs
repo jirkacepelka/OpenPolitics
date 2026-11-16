@@ -60,7 +60,14 @@ public sealed record ElectoralSystemDef(string Id, string Type, int Seats, strin
 
 public sealed record CountryPoliticsDef(
     string ElectoralSystem, int ElectionIntervalTurns, double MajorityFraction,
-    int MaxFormationTurns, int CaretakerTurns, int ProgramSlots);
+    int MaxFormationTurns, int CaretakerTurns, int ProgramSlots,
+    IReadOnlyList<PortfolioDef>? Portfolios = null);
+
+/// <summary>
+/// A cabinet portfolio (ministry) of a country (decision 0016): coalition partners can be given it in formation talks. Value is what it is worth
+/// toward a partner's price (more for a partner whose programme stresses its policies); Policies are the policy areas it is responsible for.
+/// </summary>
+public sealed record PortfolioDef(string Id, double Value, IReadOnlyList<string> Policies);
 
 /// <summary>A demand already written into the starting coalition agreement (party id, demand id).</summary>
 public sealed record AgreementDef(string Party, string Demand);

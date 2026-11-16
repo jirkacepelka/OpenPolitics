@@ -407,9 +407,19 @@ public static class PackReader
         var id = f.Str("id");
         var nameKey = f.Str("name_key");
         var parameters = f.NumMap("parameters");
-        var politics = ReadNested(f, f.Map("politics"), file, g => new CountryPoliticsDef(
-            g.Str("electoral_system"), g.Int("election_interval_turns", 16), g.Num("majority_fraction", 0.5),
-            g.Int("max_formation_turns", 4), g.Int("caretaker_turns", 2), g.Int("program_slots", 6)));
+        var politics = ReadNested(f, f.Map("politics"), file, g =>
+        {
+            var portfolios = new List<PortfolioDef>();
+            foreach (var item in g.Seq("portfolios"))
+            {
+                if (item is not YamlMappingNode m) { g.Error(item, "Each portfolio must be a mapping."); continue; }
+                var pf = ReadNested(g, m, file, h => new PortfolioDef(h.Str("id"), h.Num("value", 1.0), h.StrList("policies")));
+                if (pf != null) portfolios.Add(pf);
+            }
+            return new CountryPoliticsDef(
+                g.Str("electoral_system"), g.Int("election_interval_turns", 16), g.Num("majority_fraction", 0.5),
+                g.Int("max_formation_turns", 4), g.Int("caretaker_turns", 2), g.Int("program_slots", 6), portfolios);
+        });
         return new CountryDef(id, nameKey, parameters, file, politics);
     }
 

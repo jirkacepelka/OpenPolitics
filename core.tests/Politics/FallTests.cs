@@ -32,7 +32,8 @@ public class FallTests
         // b's demand is on spend (delivered), c's on tax (ignored): c leaves, a + b keep the majority.
         var g = New(Load(Parties(cPolicy: "base:tax"), "a", interval: 60));
         g.EndTurn();
-        Assert.True(g.Apply(new ProposeCoalition(new[] { "base:b", "base:c" }, new[] { Ag("b", "d1"), Ag("c", "d1") })).Accepted);
+        // decision 0016: c sits further away from a (tax 45 against 30), so its price is higher than its pack price 3: two demands
+        Assert.True(g.Apply(new ProposeCoalition(new[] { "base:b", "base:c" }, new[] { Ag("b", "d1"), Ag("c", "d1"), Ag("c", "d2") })).Accepted);
         Assert.True(g.Apply(new SetPolicy("base:spend", 43)).Accepted);
         var reports = Run(g, 30);
         Assert.Contains(Events<PartnerLeft>(reports), e => e.PartyId == "base:c");

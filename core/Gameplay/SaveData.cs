@@ -41,7 +41,9 @@ public sealed record SaveData(
         public string Mode { get; set; } = "";
         public List<string> Partners { get; set; } = new();
         public List<string> Drop { get; set; } = new();
-        public List<string> Agreements { get; set; } = new(); // "party|demand"
+        public List<string> Agreements { get; set; } = new(); // "party|demand" or "party|demand|counter value" (decision 0016)
+        public List<string>? Portfolios { get; set; } // "party|portfolio" (decision 0016)
+        public List<string>? Concessions { get; set; } // "party|units"
     }
 
     private static ISerializer Serializer => new SerializerBuilder()
@@ -78,14 +80,22 @@ public sealed record SaveData(
             else if (action is ProposeCoalition pc)
                 dto.Actions.Add(new ActionDto
                 {
-                    Turn = turn, Type = "propose_coalition", Partners = pc.Partners.ToList(),
-                    Agreements = pc.Agreements.Select(a => a.PartyId + "|" + a.DemandId).ToList(),
+                    Turn = turn, Type = "propose_coalition", Partners = pc.Partners.ToList(), Agreements = Agreed(pc.Agreements),
+                    Portfolios = Grants(pc.Portfolios), Concessions = Conceded(pc.Concessions),
                 });
+            else if (action is NegotiateCoalition nc)
+                dto.Actions.Add(new ActionDto
+                {
+                    Turn = turn, Type = "negotiate_coalition", Partners = nc.Partners.ToList(), Agreements = Agreed(nc.Agreements),
+                    Portfolios = Grants(nc.Portfolios), Concessions = Conceded(nc.Concessions),
+                });
+            else if (action is CounterOffer co)
+                dto.Actions.Add(new ActionDto { Turn = turn, Type = "counter_offer", Agreements = Agreed(co.Agreements), Portfolios = Grants(co.Portfolios) });
             else if (action is ReshuffleCoalition rc)
                 dto.Actions.Add(new ActionDto
                 {
                     Turn = turn, Type = "reshuffle_coalition", Drop = rc.Drop.ToList(), Partners = rc.Add.ToList(),
-                    Agreements = rc.Agreements.Select(a => a.PartyId + "|" + a.DemandId).ToList(),
+                    Agreements = Agreed(rc.Agreements),
                 });
             else if (action is Criticize cr) dto.Actions.Add(new ActionDto { Turn = turn, Type = "criticize", Policy = cr.ValueId });
             else if (action is TakeStance ts) dto.Actions.Add(new ActionDto { Turn = turn, Type = "take_stance", Policy = ts.MeasureId, Stance = ts.Stance.ToString() });
@@ -109,11 +119,33 @@ public sealed record SaveData(
         return Serializer.Serialize(dto);
     }
 
+    private static List<string> Agreed(IEnumerable<AgreedDemand> list) =>
+        list.Select(a => a.PartyId + "|" + a.DemandId + (a.Target is { } t ? "|" + t.ToString("R", CultureInfo.InvariantCulture) : "")).ToList();
+
+    private static List<string>? Grants(IEnumerable<PortfolioGrant>? list) => list == null ? null : list.Select(g => g.PartyId + "|" + g.PortfolioId).ToList();
+
+    private static List<string>? Conceded(IEnumerable<Concession>? list) =>
+        list == null ? null : list.Select(c => c.PartyId + "|" + c.Units.ToString(CultureInfo.InvariantCulture)).ToList();
+
     private static List<AgreedDemand> ParseAgreements(IEnumerable<string> items) => items.Select(x =>
     {
         var parts = x.Split('|');
-        if (parts.Length != 2) throw new FormatException($"Bad agreement '{x}' in save.");
-        return new AgreedDemand(parts[0], parts[1]);
+        if (parts.Length is not (2 or 3)) throw new FormatException($"Bad agreement '{x}' in save.");
+        return new AgreedDemand(parts[0], parts[1], parts.Length == 3 ? double.Parse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture) : null);
+    }).ToList();
+
+    private static List<PortfolioGrant>? ParseGrants(List<string>? items) => items?.Select(x =>
+    {
+        var parts = x.Split('|');
+        if (parts.Length != 2) throw new FormatException($"Bad portfolio '{x}' in save.");
+        return new PortfolioGrant(parts[0], parts[1]);
+    }).ToList();
+
+    private static List<Concession>? ParseConcessions(List<string>? items) => items?.Select(x =>
+    {
+        var parts = x.Split('|');
+        if (parts.Length != 2) throw new FormatException($"Bad concession '{x}' in save.");
+        return new Concession(parts[0], int.Parse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture));
     }).ToList();
 
     public static SaveData FromYaml(string yaml)
@@ -132,12 +164,9 @@ public sealed record SaveData(
                 "leave_coalition" => new LeaveCoalition(),
                 "dismiss_partner" => new DismissPartner(a.Party),
                 "no_confidence" => new NoConfidence(),
-                "propose_coalition" => new ProposeCoalition(a.Partners.ToList(), a.Agreements.Select(x =>
-                {
-                    var parts = x.Split('|');
-                    if (parts.Length != 2) throw new FormatException($"Bad agreement '{x}' in save.");
-                    return new AgreedDemand(parts[0], parts[1]);
-                }).ToList()),
+                "propose_coalition" => new ProposeCoalition(a.Partners.ToList(), ParseAgreements(a.Agreements), ParseGrants(a.Portfolios), ParseConcessions(a.Concessions)),
+                "negotiate_coalition" => new NegotiateCoalition(a.Partners.ToList(), ParseAgreements(a.Agreements), ParseGrants(a.Portfolios), ParseConcessions(a.Concessions)),
+                "counter_offer" => new CounterOffer(ParseAgreements(a.Agreements), ParseGrants(a.Portfolios) ?? new List<PortfolioGrant>()),
                 "reshuffle_coalition" => new ReshuffleCoalition(a.Drop.ToList(), a.Partners.ToList(), ParseAgreements(a.Agreements)),
                 "criticize" => new Criticize(a.Policy),
                 "take_stance" => new TakeStance(a.Policy, Enum.TryParse<Stance>(a.Stance, out var st) ? st : throw new FormatException($"Bad stance '{a.Stance}' in save.")),

@@ -43,6 +43,9 @@ public static class Smoke
                 // decision 0015: every decision answered in the briefing - forming the government as formateur, an ultimatum, promises
                 main.StartGame("base:cz_2015", 7, "en", "base:citizens_movement");
                 await DecisionsInBriefing(main, screenshots);
+                // decision 0016: a junior partner's ultimatum, and a counter-offer as an invited party
+                main.StartGame("base:cz_2015", 7, "en", "base:peoples_union");
+                await PartnerUltimatumAndCounter(main, screenshots);
             }
             GD.Print("SMOKE OK");
         }
@@ -170,7 +173,7 @@ public static class Smoke
         {
             var pol = s.Politics;
             if (pol?.Formation is { PlayerIsFormateur: true } && s.Game.SuggestCoalition() is { } sug)
-                Check(s.Do(new ProposeCoalition(sug.Partners, sug.Agreements)), "propose");
+                Check(s.Do(ProposeCoalition.From(sug)), "propose");
             else if (pol?.Formation?.Offer != null) Check(s.Do(new AcceptOffer()), "accept");
             if (q == 1) s.Do(new SetPolicy("base:research", 2.0));
             if (pol is { Phase: Phase.Governing }) { s.Do(new Campaign("base:middle_class", 1)); s.Do(new BuildOrganization()); }
@@ -328,6 +331,8 @@ public static class Smoke
         if (!s.Do(new ProposePolicy("base:income_tax", 19))) GD.Print("smoke: note: public proposal refused: " + s.Message);
         // the voter panel: Support for the party by default in opposition, Mood one click away (decision 0015)
         if (!Sidebar.ShowsSupport(s)) throw new Exception("the sidebar should show support for the party in opposition");
+        // a compact window has the narrow rail without the toggle: the full voter panel opens as a drawer
+        if (!FindAll<Button>(main).Any(b => b.Name == "ViewMood")) { main.ToggleSidebarDrawer(); await Frames(main, 3); }
         var moodButton = FindAll<Button>(main).FirstOrDefault(b => b.Name == "ViewMood") ?? throw new Exception("no Mood / Support toggle in the sidebar");
         moodButton.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(main, 2);
@@ -383,7 +388,30 @@ public static class Smoke
         var briefing = FindAll<Dialog>(main).Last(d => d.Key == "briefing");
         if (FindAll<CheckBox>(briefing).Count == 0) GD.Print("smoke: note: the draft shows no invitations");
         if (shots != null) Shot(main, shots, "briefing-formation");
-        if (!await PressInBriefing(main, "FormSuggested")) throw new Exception("no 'Form this coalition' button in the briefing");
+        // decision 0016: one round of talks with a thinner offer plus a portfolio; the parties answer (or accept and the government forms)
+        var draftPartner = DecisionCards.Invited.OrderBy(x => x, StringComparer.Ordinal).FirstOrDefault();
+        if (draftPartner != null)
+        {
+            DecisionCards.Agreed.RemoveWhere(a => a.Party == draftPartner);
+            if (s.Game.Portfolios.FirstOrDefault() is { } pf) DecisionCards.Portfolios[pf.Id] = draftPartner;
+            main.CloseDialogs();
+            main.ShowBriefing(force: true);
+            await Frames(main, 4);
+            if (!await PressInBriefing(main, "SendOffer")) throw new Exception("no Send the offer button in the negotiation view");
+            if (s.Politics is { Phase: Phase.Formation, Formation: { Replies.Count: 0 } }) throw new Exception("the parties gave no answer to the offer");
+            if (s.Politics?.Formation is { PlayerIsFormateur: true })
+            {
+                main.CloseDialogs();
+                main.ShowBriefing(force: true);
+                await Frames(main, 4);
+                bool took = await PressInBriefing(main, "TakeCounter_");
+                await Frames(main, 2);
+                if (shots != null) Shot(main, shots, "negotiation");
+                GD.Print($"smoke: negotiation round answered ({string.Join(", ", s.Politics.Formation!.Replies!.Select(r => r.PartyId + "=" + r.Verdict))}), counter taken: {took}");
+            }
+            else GD.Print("smoke: the offer was accepted at once");
+        }
+        if (s.Politics?.Formation is { PlayerIsFormateur: true } && !await PressInBriefing(main, "FormSuggested")) throw new Exception("no 'Form this coalition' button in the briefing");
         if (s.Politics is not { Phase: Phase.Governing, PlayerRole: Role.Leader }) throw new Exception("the coalition was not formed from the briefing");
         main.CloseDialogs();
         main.PopupsEnabled = false;
@@ -392,7 +420,7 @@ public static class Smoke
         // lead without delivering anything until a partner gives an ultimatum
         for (int q = 0; q < 40 && !(s.Politics is { PlayerRole: Role.Leader, Ultimatums.Count: > 0 }); q++)
         {
-            if (s.Politics?.Formation is { PlayerIsFormateur: true } && s.Game.SuggestCoalition() is { } sug) s.Do(new ProposeCoalition(sug.Partners, sug.Agreements));
+            if (s.Politics?.Formation is { PlayerIsFormateur: true } && s.Game.SuggestCoalition() is { } sug) s.Do(ProposeCoalition.From(sug));
             s.EndQuarter(); main.CloseDialogs(); await Frame(main);
         }
         if (s.Politics is not { PlayerRole: Role.Leader, Ultimatums.Count: > 0 } pol) throw new Exception("no ultimatum reached the leading player in 40 quarters");
@@ -419,7 +447,7 @@ public static class Smoke
         // the window for promises: the briefing offers a Promise button per goal
         for (int q = 0; q < 20 && OpenPolitics.Core.Presentation.Decisions.Promisable(s.Country, s.Packs).Count == 0; q++)
         {
-            if (s.Politics?.Formation is { PlayerIsFormateur: true } && s.Game.SuggestCoalition() is { } sug) s.Do(new ProposeCoalition(sug.Partners, sug.Agreements));
+            if (s.Politics?.Formation is { PlayerIsFormateur: true } && s.Game.SuggestCoalition() is { } sug) s.Do(ProposeCoalition.From(sug));
             else if (s.Politics?.Formation?.Offer != null) s.Do(new AcceptOffer());
             s.EndQuarter(); main.CloseDialogs(); await Frame(main);
         }
@@ -444,6 +472,57 @@ public static class Smoke
         await Frames(main, 2);
         if (s.Turn - start < 1 || s.Turn - start > 4) throw new Exception("x4 moved " + (s.Turn - start) + " quarters");
         if (s.Turn - start < 4 && !OpenPolitics.Core.Presentation.Decisions.AnyUrgent(s.Country, s.Packs) && !Main.Blocking(s)) throw new Exception("x4 stopped without a decision");
+        main.CloseDialogs();
+        main.PopupsEnabled = false;
+    }
+
+    /// <summary>
+    /// Decision 0016: as People's Union (a junior partner at the start) open the Actions tab with the Ultimatum card, give an ultimatum, see its
+    /// countdown and the leader's answer in the briefing, withdraw it if it still runs; then, after an election, make a counter-offer to an offer.
+    /// </summary>
+    private static async Task PartnerUltimatumAndCounter(Main main, string? shots)
+    {
+        var s = main.Session!;
+        main.PopupsEnabled = false;
+        if (s.Politics!.PlayerRole != Role.Partner) throw new Exception("people's union should start as a junior partner");
+        s.EndQuarter(); main.CloseDialogs(); await Frame(main);
+        var party = main.Screens.OfType<PartyScreen>().First();
+        typeof(PartyScreen).GetField("_tab", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(party, 4);
+        main.Open(party);
+        await Frames(main, 4);
+        var go = FindAll<BaseButton>(main).FirstOrDefault(b => b.Name == "UltimatumGo") ?? throw new Exception("no Ultimatum card in the partner's Actions tab");
+        if (shots != null) Shot(main, shots, "ultimatum-card");
+        if (!go.Disabled) { go.EmitSignal(BaseButton.SignalName.Pressed); await Frames(main, 3); }
+        if (s.Politics!.PlayerUltimatum == null) throw new Exception("the ultimatum was not given from the card");
+        main.Open(party);
+        await Frames(main, 4);
+        if (shots != null) Shot(main, shots, "ultimatum-card-open");
+        main.Open(null);
+        s.EndQuarter(); main.CloseDialogs(); await Frame(main);
+        GD.Print($"smoke: ultimatum given; answer {s.Politics?.PlayerUltimatum?.Answer ?? "settled"}");
+        if (s.Politics?.PlayerUltimatum != null)
+        {
+            main.PopupsEnabled = true;
+            main.ShowBriefing(force: true);
+            await Frames(main, 4);
+            if (shots != null) Shot(main, shots, "briefing-own-ultimatum");
+            if (!await PressInBriefing(main, "BriefUltimatumWithdraw")) throw new Exception("no Withdraw button for the own ultimatum in the briefing");
+            if (s.Politics?.PlayerUltimatum != null) throw new Exception("withdrawing from the briefing did nothing");
+            main.CloseDialogs();
+            main.PopupsEnabled = false;
+        }
+        // an offer from an AI formateur: counter it with one of the party's demands
+        for (int q = 0; q < 60 && s.Politics?.Formation?.Offer == null; q++) { s.EndQuarter(); main.CloseDialogs(); await Frame(main); }
+        if (s.Politics?.Formation?.Offer == null) { GD.Print("smoke: note: no offer to counter in 60 quarters"); return; }
+        DecisionCards._counterDemand = 1; DecisionCards._counterPortfolio = 0;
+        main.PopupsEnabled = true;
+        main.ShowBriefing(force: true);
+        await Frames(main, 4);
+        if (shots != null) Shot(main, shots, "briefing-counter");
+        if (!await PressInBriefing(main, "CounterGo")) GD.Print("smoke: note: no counter button (nothing to ask)");
+        else if (s.Politics?.Formation is { CounterUsed: false } && s.Politics.Phase == Phase.Formation) throw new Exception("the counter-offer was not sent");
+        GD.Print($"smoke: counter-offer answered: {s.Politics?.Formation?.CounterAnswer ?? (s.Politics?.Phase == Phase.Governing ? "accepted (formed)" : "-")}");
+        if (s.Politics?.Formation?.Offer != null) s.Do(new AcceptOffer());
         main.CloseDialogs();
         main.PopupsEnabled = false;
     }

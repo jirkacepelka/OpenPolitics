@@ -83,6 +83,19 @@ public static class PoliticsLimits
     /// <summary>A partner that holds the portfolio of a policy is heard more on it: the leader's score for its proposals and ultimatums rises by this.</summary>
     public const double PortfolioProposalBonus = 0.15;
 
+    /// <summary>An AI partner's loyalty target rises by PortfolioLoyalty per cabinet portfolio it holds (at most PortfolioLoyaltyMax).</summary>
+    public const double PortfolioLoyalty = 2, PortfolioLoyaltyMax = 4;
+
+    /// <summary>
+    /// Formation talks (decision 0016): the player as formateur has NegotiationRoundsPerQuarter offers a quarter; a partner that refuses an offer
+    /// loses NegotiationPatience relation (impatience); a concession unit also raises the relation by ConcessionRelation when the government forms.
+    /// A partner's counter-offer is accepted while what it gets stays under its price × (1 + CounterSlack), plus CounterPivotalBonus when the
+    /// formateur has no coalition without it; never against a formateur position weighted CounterPlatformWeight or more.
+    /// </summary>
+    public const int NegotiationRoundsPerQuarter = 3;
+    public const double NegotiationPatience = 0.02, ConcessionRelation = 0.05;
+    public const double CounterSlack = 0.5, CounterPivotalBonus = 2, CounterPlatformWeight = 0.5;
+
     /// <summary>The chance that an AI leader patches a majority lost to a walk-out with outside parties (when such a patch exists) instead of falling.</summary>
     public const double AiPatchChance = 0.5;
 }

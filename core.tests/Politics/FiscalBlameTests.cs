@@ -123,7 +123,7 @@ public class FiscalBlameTests
         for (int i = 0; i < 30; i++)
         {
             var pol = g.State.Countries.Single().Value.Politics!;
-            if (pol.Formation is { PlayerIsFormateur: true } && g.SuggestCoalition() is { } s) g.Apply(new ProposeCoalition(s.Partners, s.Agreements));
+            if (pol.Formation is { PlayerIsFormateur: true } && g.SuggestCoalition() is { } s) g.Apply(ProposeCoalition.From(s));
             else if (pol.Formation?.Offer != null) g.Apply(new AcceptOffer());
             var r = g.EndTurn();
             if (r.PoliticalEvents.OfType<GovernmentFormed>().Any())

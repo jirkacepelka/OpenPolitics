@@ -113,6 +113,10 @@ public sealed class PlayLoop
                 case "oppose": DoAnswer(support: false); break;
                 case "announce": DoProposePolicy(cmd.Args); break; // decision 0015: an alias of propose
                 case "ultimatum": DoUltimatum(cmd.Args); break;
+                case "offer": DoOffer(cmd.Args); break;
+                case "counter": DoCounter(cmd.Args); break;
+                case "portfolio": DoPortfolio(cmd.Args); break;
+                case "concede": DoConcede(cmd.Args); break;
                 case "withdraw": Report(_game.Apply(new WithdrawUltimatum()), "ui.myult.withdrawn", quiet: true); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
@@ -161,6 +165,10 @@ public sealed class PlayLoop
         ["dismiss"] = "dismiss", ["vyloucit"] = "dismiss",
         ["reshuffle"] = "reshuffle", ["prestavba"] = "reshuffle", ["prestavet"] = "reshuffle",
         ["ultimatum"] = "ultimatum",
+        ["offer"] = "offer", ["jednani"] = "offer", ["vyjednat"] = "offer",
+        ["counter"] = "counter", ["protinavrh"] = "counter",
+        ["portfolio"] = "portfolio", ["resort"] = "portfolio",
+        ["concede"] = "concede", ["ustupek"] = "concede",
         ["withdraw"] = "withdraw", ["stahnout"] = "withdraw", ["stahni"] = "withdraw",
         ["confidence"] = "confidence", ["nedoveru"] = "confidence", ["nedovera"] = "confidence",
     };
@@ -821,7 +829,7 @@ public sealed class PlayLoop
         if (party == null || party.Id == pol.PlayerParty || n < 1 || n > party.Demands.Count)
         { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args))); return; }
         var key = new AgreedDemand(party.Id, party.Demands[n - 1].Id);
-        if (!_draftAgreements.Remove(key)) _draftAgreements.Add(key);
+        if (_draftAgreements.RemoveAll(a => a.PartyId == key.PartyId && a.DemandId == key.DemandId) == 0) _draftAgreements.Add(key);
         _draftPartners.Add(party.Id);
         ShowCoalition();
     }
@@ -830,11 +838,143 @@ public sealed class PlayLoop
     {
         var s = _game.SuggestCoalition();
         if (s == null) { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
-        Report(_game.Apply(new ProposeCoalition(s.Partners, s.Agreements)), "ui.formation.proposed");
+        Report(_game.Apply(ProposeCoalition.From(s)), "ui.formation.proposed");
     }
 
     private void DoSubmit() =>
-        Report(_game.Apply(new ProposeCoalition(_draftPartners.ToList(), _draftAgreements.ToList())), "ui.formation.proposed");
+        Report(_game.Apply(new ProposeCoalition(_draftPartners.ToList(), _draftAgreements.ToList(), _draftPortfolios.ToList(), _draftConcessions.ToList())), "ui.formation.proposed");
+
+    // ---- formation talks (decision 0016) -------------------------------------------------------------------------
+
+    private readonly List<PortfolioGrant> _draftPortfolios = new();
+    private readonly List<Concession> _draftConcessions = new();
+
+    private CoalitionProposal Draft() => new(Current.Politics!.PlayerParty, _draftPartners.ToList(), _draftAgreements.ToList(), _draftPortfolios.ToList(), _draftConcessions.ToList());
+
+    /// <summary>offer: how each invited party sees the draft; offer send: one round of talks; offer counter: take the parties' counter terms.</summary>
+    private void DoOffer(string[] args)
+    {
+        var pol = Current.Politics;
+        if (pol?.Formation is not { PlayerIsFormateur: true }) { _out.WriteLine(_t.T("ui.err.not_formateur")); return; }
+        if (_draftPartners.Count == 0 && _game.SuggestCoalition() is { } sug)
+        {
+            _draftPartners.UnionWith(sug.Partners); _draftAgreements.AddRange(sug.Agreements); _draftPortfolios.AddRange(sug.PortfolioList);
+        }
+        string word = args.Length > 0 ? Localizer.Fold(args[0]) : "";
+        var texts = new Texts(_packs, _t);
+        if (word is "send" or "poslat" or "posli")
+        {
+            var r = _game.Apply(new NegotiateCoalition(_draftPartners.ToList(), _draftAgreements.ToList(), _draftPortfolios.ToList(), _draftConcessions.ToList()));
+            if (!r.Accepted) { _out.WriteLine(texts.Error(r)); return; }
+            if (r.Detail == "formed") { _draftPartners.Clear(); _draftAgreements.Clear(); _draftPortfolios.Clear(); _draftConcessions.Clear(); _out.WriteLine(_t.T("ui.neg.formed")); ShowPolitics(); return; }
+            _out.WriteLine(_t.T("ui.neg.replies"));
+            foreach (var rep in Current.Politics?.Formation?.Replies ?? Array.Empty<PartnerReply>())
+                _out.WriteLine($"  {_t.Name(rep.PartyId)}: {texts.Verdict(rep.Verdict)}" + (rep.Counter != null ? "  " + texts.CounterText(rep.Counter) : ""));
+        }
+        else if (word is "counter" or "protinavrh")
+        {
+            foreach (var rep in pol.Formation.Replies ?? Array.Empty<PartnerReply>())
+            {
+                if (rep.Counter == null) continue;
+                _draftAgreements.RemoveAll(a => a.PartyId == rep.PartyId); _draftAgreements.AddRange(rep.Counter.Agreements);
+                _draftPortfolios.RemoveAll(g => g.PartyId == rep.PartyId); _draftPortfolios.AddRange(rep.Counter.Portfolios);
+            }
+        }
+        var view = _game.AssessCoalition(Draft())!;
+        _out.WriteLine($"\n{_t.T("ui.neg.title")}");
+        _out.WriteLine("  " + _t.T("ui.reshuffle.seats", view.SeatsHeld, view.SeatsNeeded, _t.T(view.SeatsHeld >= view.SeatsNeeded ? "ui.politics.majority" : "ui.politics.no_majority")));
+        _out.WriteLine("  " + _t.T("ui.neg.rounds", view.RoundsLeft, view.SlotsUsed, view.Slots, view.PortfoliosGiven, view.PortfoliosMax));
+        if (view.HardError != null) _out.WriteLine("  " + texts.Error(new ActionResult(false, view.HardError, view.HardDetail)));
+        foreach (var v in view.Partners)
+        {
+            _out.WriteLine($"\n  {_t.Name(v.PartyId)} ({v.Seats}): {texts.Verdict(v.Verdict)} - {texts.NegotiationReason(v)}");
+            _out.WriteLine("     " + texts.PriceBreakdown(v));
+            var def = _packs.Parties.First(p => p.Id == v.PartyId);
+            for (int i = 0; i < def.Demands.Count; i++)
+            {
+                var dv = v.Demands.First(x => x.DemandId == def.Demands[i].Id);
+                string target = dv.AgreedTarget is { } t && _policyById.TryGetValue(def.Demands[i].Subject, out var pd) ? " @ " + Fmt.Policy(pd, t, _t) : "";
+                _out.WriteLine($"     [{(dv.Agreed ? "x" : " ")}] {i + 1}) {DemandText(def.Demands[i])}{target}  ({texts.DemandStatus(dv.Status)}, {Fmt.Number(dv.Worth, "0.0")})");
+            }
+            var held = v.Portfolios.Where(x => x.HeldBy == v.PartyId).Select(x => _t.Name(x.PortfolioId)).ToList();
+            if (held.Count > 0) _out.WriteLine("     " + _t.T("ui.neg.portfolios") + ": " + string.Join(", ", held));
+            if (v.Counter != null) _out.WriteLine("     " + texts.CounterText(v.Counter));
+            foreach (var f in v.Fixes) _out.WriteLine("     - " + texts.FixText(f));
+        }
+        _out.WriteLine("\n  " + _t.T("ui.help.offer"));
+    }
+
+    /// <summary>
+    /// counter PARTY N VALUE|half|off (formateur: a counter value for demand N in the draft); counter N [PORTFOLIO] (an invited party: we join if you
+    /// also add our demand N and/or that portfolio).
+    /// </summary>
+    private void DoCounter(string[] args)
+    {
+        var pol = Current.Politics;
+        var texts = new Texts(_packs, _t);
+        if (pol?.Formation is { Offer: { } offer })
+        {
+            var own = _packs.Parties.First(p => p.Id == pol.PlayerParty);
+            var extra = new List<AgreedDemand>(); var grants = new List<PortfolioGrant>();
+            foreach (var token in args)
+            {
+                if (int.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var n) && n >= 1 && n <= own.Demands.Count) extra.Add(new AgreedDemand(own.Id, own.Demands[n - 1].Id));
+                else if (Resolve(token, _game.Portfolios, p => p.Id, numbers: false) is { } pf) grants.Add(new PortfolioGrant(own.Id, pf.Id));
+                else { _out.WriteLine(_t.T("ui.err.usage_counter")); return; }
+            }
+            var preview = _game.PreviewCounter(extra, grants)!;
+            _out.WriteLine(texts.CounterPreviewText(preview, offer.Formateur));
+            if (preview.ErrorKey != null || args.Length == 0) return;
+            var r = _game.Apply(new CounterOffer(extra, grants));
+            _out.WriteLine(!r.Accepted ? texts.Error(r) : _t.T(r.Detail == "accepted" ? "ui.neg.counter_sent_yes" : "ui.neg.counter_sent_no"));
+            if (r.Accepted) ShowPolitics();
+            return;
+        }
+        if (pol?.Formation is not { PlayerIsFormateur: true } || args.Length < 3) { _out.WriteLine(_t.T("ui.err.usage_counter")); return; }
+        var party = ResolveParty(string.Join(" ", args[..^2]));
+        if (party == null || !int.TryParse(args[^2], NumberStyles.None, CultureInfo.InvariantCulture, out var k) || k < 1 || k > party.Demands.Count)
+        { _out.WriteLine(_t.T("ui.err.usage_counter")); return; }
+        var d = party.Demands[k - 1];
+        _draftAgreements.RemoveAll(a => a.PartyId == party.Id && a.DemandId == d.Id);
+        string v = Localizer.Fold(args[^1]);
+        double? target = null;
+        var me = _packs.Parties.First(p => p.Id == pol.PlayerParty);
+        if (v is "half" or "napul") target = Negotiation.Anchor(me, d) is { } an ? Negotiation.HalfWay(d, an) : null;
+        else if (v is not ("off" or "full" or "cele") && double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var x)) target = x;
+        if (v is not ("off")) _draftAgreements.Add(new AgreedDemand(party.Id, d.Id, target));
+        _draftPartners.Add(party.Id);
+        DoOffer(Array.Empty<string>());
+    }
+
+    /// <summary>portfolio PARTY PORTFOLIO: give (or take back) a portfolio in the draft.</summary>
+    private void DoPortfolio(string[] args)
+    {
+        var pol = Current.Politics;
+        if (pol?.Formation is not { PlayerIsFormateur: true } || args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_portfolio")); return; }
+        var party = ResolveParty(string.Join(" ", args[..^1]));
+        var pf = Resolve(args[^1], _game.Portfolios, p => p.Id, numbers: true);
+        if (party == null || pf == null) { _out.WriteLine(_t.T("ui.err.usage_portfolio")); return; }
+        if (_draftPortfolios.RemoveAll(g => g.PortfolioId == pf.Id && g.PartyId == party.Id) == 0)
+        {
+            _draftPortfolios.RemoveAll(g => g.PortfolioId == pf.Id);
+            _draftPortfolios.Add(new PortfolioGrant(party.Id, pf.Id));
+            _draftPartners.Add(party.Id);
+        }
+        DoOffer(Array.Empty<string>());
+    }
+
+    /// <summary>concede PARTY N: N concession units (0-2) for a party in the draft.</summary>
+    private void DoConcede(string[] args)
+    {
+        var pol = Current.Politics;
+        if (pol?.Formation is not { PlayerIsFormateur: true } || args.Length < 2 || !int.TryParse(args[^1], NumberStyles.None, CultureInfo.InvariantCulture, out var n))
+        { _out.WriteLine(_t.T("ui.err.usage_concede")); return; }
+        var party = ResolveParty(string.Join(" ", args[..^1]));
+        if (party == null) { _out.WriteLine(_t.T("ui.err.usage_concede")); return; }
+        _draftConcessions.RemoveAll(c => c.PartyId == party.Id);
+        if (n > 0) _draftConcessions.Add(new Concession(party.Id, Math.Min(n, Negotiation.MaxConcessions)));
+        DoOffer(Array.Empty<string>());
+    }
 
     /// <summary>Prints the outcome of an action: a success text, or the error (with the refusal detail).</summary>
     /// <summary>Applies an action and, when accepted, prints how far it moved the party's support per voter group (decision 0015).</summary>
@@ -852,7 +992,7 @@ public sealed class PlayLoop
     {
         if (result.Accepted)
         {
-            _draftPartners.Clear(); _draftAgreements.Clear();
+            _draftPartners.Clear(); _draftAgreements.Clear(); _draftPortfolios.Clear(); _draftConcessions.Clear();
             _out.WriteLine(_t.T(successKey, args));
             if (_pendingNote != null) { _out.WriteLine("  " + _pendingNote); _pendingNote = null; }
             if (!quiet) ShowPolitics();

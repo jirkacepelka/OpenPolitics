@@ -197,6 +197,18 @@ public sealed class Game
     /// <summary>What giving the leader an ultimatum would bring now (decision 0016); null without politics. Changes nothing.</summary>
     public UltimatumPreview? PreviewUltimatum(string kind, string subjectId, int deadline) => _politics?.PreviewUltimatum(kind, subjectId, deadline, _turn + 1);
 
+    /// <summary>
+    /// How the invited parties see the player's coalition offer as formateur (decision 0016): price, what the offer pays, answer and reason, demand
+    /// statuses, portfolios, counter-offers and fixes. Null without politics. Changes nothing.
+    /// </summary>
+    public NegotiationView? AssessCoalition(CoalitionProposal draft) => _politics?.AssessCoalition(draft);
+
+    /// <summary>What the AI formateur would answer to the player's counter-offer as an invited party (decision 0016); null without politics.</summary>
+    public CounterPreview? PreviewCounter(IReadOnlyList<AgreedDemand> extra, IReadOnlyList<PortfolioGrant> portfolios) => _politics?.PreviewCounter(extra, portfolios);
+
+    /// <summary>The cabinet portfolios of the country (decision 0016); empty without politics or without portfolios in the pack.</summary>
+    public IReadOnlyList<PortfolioDef> Portfolios => _country.Politics?.Portfolios ?? Array.Empty<PortfolioDef>();
+
     /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
     public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 

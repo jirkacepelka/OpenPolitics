@@ -54,7 +54,7 @@ public class FormationActionTests
         g.EndTurn();
         var s = g.SuggestCoalition()!;
         Assert.Equal("base:a", s.Formateur);
-        Assert.True(g.Apply(new ProposeCoalition(s.Partners, s.Agreements)).Accepted);
+        Assert.True(g.Apply(ProposeCoalition.From(s)).Accepted);
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public class FormationActionTests
         var g = New(packs, 9);
         g.EndTurn();
         var s = g.SuggestCoalition()!;
-        Assert.True(g.Apply(new ProposeCoalition(s.Partners, s.Agreements)).Accepted);
+        Assert.True(g.Apply(ProposeCoalition.From(s)).Accepted);
         Run(g, 3);
         Assert.True(g.Apply(new CallEarlyElection()).Accepted);
         g.EndTurn();

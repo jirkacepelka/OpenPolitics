@@ -68,6 +68,39 @@ public class PoliticsDataTests
         Assert.Equal("t:p1", s.Leader);
     }
 
+    private const string Portfolios =
+        "    portfolios:\n      - {id: t:finance, value: 3, policies: [t:tax]}\n      - {id: t:empty, value: 1, policies: []}\n";
+
+    [Fact]
+    public void ReadsCabinetPortfolios()
+    {
+        var r = TestPacks.Load(f =>
+        {
+            AddPolitics(f);
+            f["countries/c.yaml"] += Portfolios;
+            foreach (var lang in new[] { "cs", "en" }) f[$"localization/{lang}.yaml"] += "name.t:finance: F\nname.t:empty: E\n";
+        });
+        Assert.Empty(r.Diagnostics);
+        var list = r.Packs!.Countries.Single().Politics!.Portfolios!;
+        Assert.Equal(2, list.Count);
+        Assert.Equal(("t:finance", 3.0), (list[0].Id, list[0].Value));
+        Assert.Equal(new[] { "t:tax" }, list[0].Policies);
+        Assert.Empty(list[1].Policies);
+    }
+
+    [Fact]
+    public void PortfolioWithUnknownPolicyOrBadValueIsAnError()
+    {
+        var r = TestPacks.Load(f =>
+        {
+            AddPolitics(f);
+            f["countries/c.yaml"] += "    portfolios:\n      - {id: t:finance, value: 3, policies: [t:nope]}\n      - {id: t:finance, value: 0, policies: [t:tax]}\n";
+        });
+        Assert.Contains(r.Diagnostics, d => d.Message.Contains("t:nope"));
+        Assert.Contains(r.Diagnostics, d => d.Message.Contains("value"));
+        Assert.Contains(r.Diagnostics, d => d.Message.Contains("twice"));
+    }
+
     [Fact]
     public void ScenariosAndCountriesWithoutPoliticsStillLoad()
     {

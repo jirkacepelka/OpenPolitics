@@ -23,7 +23,7 @@ public class FormationGateTests(ITestOutputHelper output)
         {
             var pol = g.State.Countries.Values.Single().Politics!;
             if (pol.Formation is { PlayerIsFormateur: true } && g.SuggestCoalition() is { } s)
-                g.Apply(new ProposeCoalition(s.Partners, s.Agreements));
+                g.Apply(ProposeCoalition.From(s));
             else if (pol.Formation?.Offer != null) g.Apply(new AcceptOffer());
             var r = g.EndTurn();
             events.AddRange(r.PoliticalEvents);
@@ -86,7 +86,7 @@ public class FormationGateTests(ITestOutputHelper output)
             {
                 var pol = g.State.Countries.Values.Single().Politics!;
                 if (pol.Formation is { PlayerIsFormateur: true } && g.SuggestCoalition() is { } s)
-                    g.Apply(new ProposeCoalition(s.Partners, s.Agreements));
+                    g.Apply(ProposeCoalition.From(s));
                 else if (pol.Formation?.Offer != null) g.Apply(new AcceptOffer());
                 foreach (var e in g.EndTurn().PoliticalEvents)
                 {

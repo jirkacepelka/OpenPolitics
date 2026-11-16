@@ -75,8 +75,16 @@ public sealed record CommitmentStatus(string PartyId, string DemandId, double Pr
 /// <summary>A partner's deadline: deliver the named demand (or win back its trust) before TurnsLeft runs out.</summary>
 public sealed record UltimatumInfo(string PartyId, string? DemandId, int TurnsLeft);
 
-/// <summary>An attempt to form a government. Offer is set while the AI's coalition waits for the player's answer.</summary>
-public sealed record FormationInfo(string Formateur, int Attempt, int TurnsLeft, bool PlayerIsFormateur, CoalitionProposal? Offer);
+/// <summary>
+/// An attempt to form a government. Offer is set while the AI's coalition waits for the player's answer. Decision 0016: Replies are the invited
+/// parties' answers to the player's last offer as formateur, RoundsLeft the offers left this quarter; CounterUsed / CounterAnswer the player's
+/// counter-offer to an AI formateur ("accepted" or the refusal reason).
+/// </summary>
+public sealed record FormationInfo(string Formateur, int Attempt, int TurnsLeft, bool PlayerIsFormateur, CoalitionProposal? Offer,
+    IReadOnlyList<PartnerReply>? Replies = null, int RoundsLeft = 0, bool CounterUsed = false, string? CounterAnswer = null);
+
+/// <summary>The AI formateur answered the player's counter-offer (decision 0016): Accepted (the government forms) or refused with Reason.</summary>
+public sealed record CounterOfferAnswered(int Turn, string Formateur, bool Accepted, string? Reason) : PoliticalEvent(Turn);
 
 public abstract record PoliticalEvent(int Turn);
 

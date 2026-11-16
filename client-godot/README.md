@@ -63,11 +63,18 @@ drawn in code; the only bundled asset is the Inter font.
     promises before this election are used, whether breaking it would cost you); relations; actions with an explanation per card: the campaign
     card says how many points of support the campaign wins at once, and one **Propose a policy** card for every party that does not lead
     (policy picker, slider, who decides - the leader's likely answer for a partner, public for the opposition -, the points of support per group,
-    the credibility cost, Propose · 3 / · 2); stances), *News*. After an action the message says how far the party's support moved
+    the credibility cost, Propose · 3 / · 2); for a junior partner an **Ultimatum to the leader** card (decision 0016: demand or programme
+    position, deadline 2-6 quarters, the leader's likely answer, the party's leverage and the stakes, Give the ultimatum · 4; while it runs its
+    status and Withdraw); the overview also has a **Fiscal credit** tile next to fiscal blame; stances), *News*. After an action the message says how far the party's support moved
     ("+2.1 pts among Middle class"). The policy dialog notes when a high deficit or debt softens the voters' dislike of a cut.
 - **Briefing** after each quarter (and a welcome at the start, and after loading a save), styled after Democracy 4's intro modal: big title,
   then every open decision (decision 0015, `Decisions.Open`), each answered inline: accept or decline an offer; as formateur the suggested
-  coalition with its agreements and seats - **Form this coalition** - or **Adjust** (invite each party, tick its demands, send); a
+  coalition with its agreements and seats - **Form this coalition** - or **Adjust**, the negotiation view of decision 0016 (per seated party an
+  invite box, a satisfaction bar and its answer - accepts / counters / refuses -, the reason with numbers and the price breakdown, its demands
+  with acceptable / negotiable / red line / met pills and a half-way slider for negotiable ones, the portfolios it values most, concessions
+  0-2, what would fix a refusal, its counter terms with **Take its terms**, and **Send the offer**, three offers a quarter); as an invited
+  party a **Counter-offer** section under the offer (one of your demands and/or a portfolio, the formateur's likely answer, **Join on these
+  terms**); the own ultimatum's countdown and the leader's answer with **Withdraw**; a
   **Proposal** card (Support / Oppose); an ultimatum to the leader's government with what can be done about it (deliver: opens the policy;
   court the partner; reshuffle; dismiss); the window for promises with a **Promise** button per goal. Then six key indicators as pills, the
   news, two buttons in the footer. The Politics badge counts exactly these decisions; only an offer blocks the quarter. **x4** stops at the
@@ -103,7 +110,10 @@ opposition it waits for a proposal, answers it with the Support button of the br
 overview, programme, promises and actions tabs (shots `proposal-briefing`, `proposal-answered`, `party0014-tab0..4`). Decision 0015: it
 checks the Mood / Support toggle; as Citizens' Movement it forms the government from the briefing (Adjust, then Form this coalition), leads until a
 partner gives an ultimatum and courts it from the briefing, promises from the briefing when the window opens, and checks that x4 stops at a
-decision (shots `briefing-formation`, `briefing-ultimatum`, `briefing-promise`).
+decision (shots `briefing-formation`, `briefing-ultimatum`, `briefing-promise`). Decision 0016: in the same formation it sends one round of talks with a
+thinner offer plus a portfolio and takes a party's counter terms (shot `negotiation`); as People's Union (a junior partner) it gives an
+ultimatum from the Actions tab, withdraws it from the briefing and, at the next formation, makes a counter-offer to an AI formateur's offer
+(shots `ultimatum-card`, `ultimatum-card-open`, `briefing-own-ultimatum`, `briefing-counter`).
 
 ## Look and feel
 

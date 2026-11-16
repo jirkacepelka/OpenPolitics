@@ -14,7 +14,7 @@ internal static class FormationFixture
     public static PackSet Load(Spec[] parties, string player, string[]? government = null, string? leader = null,
         int interval = 16, int turnsToElection = 1, int maxFormation = 4, int caretaker = 2, int slots = 6,
         string? redLines = null, string? agreements = null, bool extraGroups = false, bool grumpy = false,
-        double? slowTarget = null, Action<Dictionary<string, string>>? mutate = null)
+        double? slowTarget = null, Action<Dictionary<string, string>>? mutate = null, string? portfolios = null)
     {
         return GameFixture.Load(f =>
         {
@@ -40,7 +40,8 @@ internal static class FormationFixture
             mutate?.Invoke(f);
             f["electoral_systems/pr.yaml"] = "- id: base:pr\n  type: proportional\n  seats: 200\n  method: dhondt\n  threshold: 0.05\n";
             f["countries/c.yaml"] = "- id: base:czechia\n  name_key: country.czechia\n  politics:\n    electoral_system: base:pr\n" +
-                $"    election_interval_turns: {interval}\n    majority_fraction: 0.5\n    max_formation_turns: {maxFormation}\n    caretaker_turns: {caretaker}\n    program_slots: {slots}\n";
+                $"    election_interval_turns: {interval}\n    majority_fraction: 0.5\n    max_formation_turns: {maxFormation}\n    caretaker_turns: {caretaker}\n    program_slots: {slots}\n" +
+                (portfolios ?? "");
             var gov = government ?? new[] { parties[0].Id };
             f["scenarios/s.yaml"] =
                 "- id: base:test\n  country: base:czechia\n  start_year: 2015\n  turns_per_year: 4\n" +
@@ -71,7 +72,7 @@ internal static class FormationFixture
         for (int i = 0; i < turns; i++)
         {
             var f = Pol(g).Formation;
-            if (f is { PlayerIsFormateur: true } && join && g.SuggestCoalition() is { } s) Assert.True(g.Apply(new ProposeCoalition(s.Partners, s.Agreements)).Accepted);
+            if (f is { PlayerIsFormateur: true } && join && g.SuggestCoalition() is { } s) Assert.True(g.Apply(ProposeCoalition.From(s)).Accepted);
             else if (f?.Offer != null) g.Apply(join ? new AcceptOffer() : new RejectOffer());
             each?.Invoke(g);
             reports.Add(g.EndTurn());

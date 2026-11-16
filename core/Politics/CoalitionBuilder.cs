@@ -11,7 +11,7 @@ public static class CoalitionBuilder
         string formateur, IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats,
         IReadOnlyDictionary<string, double> policyRange, double fraction, int programSlots,
         Func<string, string, double> relation, ISet<string> excluded,
-        Func<string, string, double>? grudge = null, Func<DemandDef, bool>? alreadyMet = null)
+        Func<string, string, double>? grudge = null, Func<DemandDef, bool>? alreadyMet = null, Talks? talks = null)
     {
         grudge ??= (_, _) => 0.0;
         if (!parties.TryGetValue(formateur, out var lead)) return null;
@@ -36,10 +36,11 @@ public static class CoalitionBuilder
 
         foreach (var c in candidates.OrderBy(c => c.Score).ThenBy(c => c.Size).ThenBy(c => c.Key, StringComparer.Ordinal))
         {
-            var agreements = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge, alreadyMet: alreadyMet);
-            if (agreements == null) continue;
-            var proposal = new CoalitionProposal(formateur, c.Partners, agreements);
-            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, alreadyMet: alreadyMet).Count == 0) return proposal;
+            if (talks != null && c.Partners.Any(p => talks.Veto(formateur, p))) continue;
+            var deal = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge, alreadyMet: alreadyMet, talks: talks);
+            if (deal == null) continue;
+            var proposal = new CoalitionProposal(formateur, c.Partners, deal.Value.Agreements, deal.Value.Portfolios.Count > 0 ? deal.Value.Portfolios : null);
+            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, alreadyMet: alreadyMet, talks: talks).Count == 0) return proposal;
         }
         return null;
     }
@@ -68,12 +69,16 @@ public static class CoalitionBuilder
     public static IReadOnlyList<AgreedDemand>? AllocateFor(
         string leader, IReadOnlyList<string> added, IReadOnlyList<string> kept, IReadOnlyList<AgreedDemand> existing,
         IReadOnlyDictionary<string, PartyDef> parties, int programSlots, Func<string, string, double> relation, Func<string, string, double>? grudge = null,
-        Func<DemandDef, bool>? alreadyMet = null)
+        Func<DemandDef, bool>? alreadyMet = null, Talks? talks = null)
     {
         grudge ??= (_, _) => 0.0;
         if (added.Any(a => !parties.ContainsKey(a)) || kept.Any(k => !parties.ContainsKey(k)) || !parties.ContainsKey(leader)) return null;
-        var demands = existing.Select(a => parties.GetValueOrDefault(a.PartyId)?.Demands.FirstOrDefault(d => d.Id == a.DemandId)).Where(d => d != null).Select(d => d!).ToList();
-        return Allocate(leader, added.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList(), parties, programSlots, relation, grudge, kept, demands, alreadyMet);
+        var demands = existing.Select(a => parties.GetValueOrDefault(a.PartyId)?.Demands.FirstOrDefault(d => d.Id == a.DemandId) is { } d ? Negotiation.Effective(d, a) : null)
+            .Where(d => d != null).Select(d => d!).ToList();
+        // a reshuffle or a patch-up pays with agreements only: portfolios are handed out at formation
+        var noPortfolios = talks == null ? null : talks with { AllowPortfolios = false };
+        return Allocate(leader, added.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList(), parties, programSlots, relation, grudge, kept, demands,
+            alreadyMet, noPortfolios)?.Agreements;
     }
 
     /// <summary>
@@ -85,10 +90,11 @@ public static class CoalitionBuilder
         string leader, IReadOnlyList<string> kept, IReadOnlyList<AgreedDemand> existing,
         IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats, IReadOnlyDictionary<string, double> policyRange,
         double fraction, int programSlots, Func<string, string, double> relation, ISet<string> excluded, Func<string, string, double>? grudge = null,
-        Func<DemandDef, bool>? alreadyMet = null)
+        Func<DemandDef, bool>? alreadyMet = null, Talks? talks = null)
     {
         grudge ??= (_, _) => 0.0;
         if (!parties.TryGetValue(leader, out var lead)) return null;
+        var noPortfolios = talks == null ? null : talks with { AllowPortfolios = false };
         var sitting = new SittingCoalition(kept, existing);
         var eligible = parties.Keys
             .Where(id => id != leader && !kept.Contains(id) && !excluded.Contains(id) && seats.GetValueOrDefault(id) > 0)
@@ -109,10 +115,11 @@ public static class CoalitionBuilder
         }
         foreach (var c in candidates.OrderBy(c => c.Size).ThenBy(c => c.Score).ThenBy(c => c.Key, StringComparer.Ordinal))
         {
-            var agreements = AllocateFor(leader, c.Added, kept, existing, parties, programSlots, relation, grudge, alreadyMet);
+            if (noPortfolios != null && c.Added.Any(p => noPortfolios.Veto(leader, p))) continue;
+            var agreements = AllocateFor(leader, c.Added, kept, existing, parties, programSlots, relation, grudge, alreadyMet, noPortfolios);
             if (agreements == null || existing.Count + agreements.Count > programSlots) continue;
             var proposal = new CoalitionProposal(leader, c.Added, agreements);
-            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, sitting, alreadyMet).Count == 0) return proposal;
+            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, sitting, alreadyMet, noPortfolios).Count == 0) return proposal;
         }
         return null;
     }
@@ -121,31 +128,47 @@ public static class CoalitionBuilder
     public static double Priority(PartyDef party, DemandDef demand) =>
         demand.Kind == "policy" && party.Platform.TryGetValue(demand.Subject, out var pos) ? pos.Weight : 0.5;
 
-    private static List<AgreedDemand>? Allocate(
+    /// <summary>
+    /// The AI formateur's offer to each partner (ordinal order): its demands by weight × (0.5 + priority), skipping any that cross a member's red line
+    /// or contradict what is chosen, until the price (with the talk factor, decision 0016) is paid; when the program slots or the demands run out,
+    /// cabinet portfolios the partner values most (when the talks allow them). Null when a price cannot be paid.
+    /// </summary>
+    private static (List<AgreedDemand> Agreements, List<PortfolioGrant> Portfolios)? Allocate(
         string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, int slots,
         Func<string, string, double> relation, Func<string, string, double> grudge,
-        IReadOnlyList<string>? kept = null, IReadOnlyList<DemandDef>? existing = null, Func<DemandDef, bool>? alreadyMet = null)
+        IReadOnlyList<string>? kept = null, IReadOnlyList<DemandDef>? existing = null, Func<DemandDef, bool>? alreadyMet = null, Talks? talks = null)
     {
         var members = new List<string> { formateur }; members.AddRange(partners);
         if (kept != null) members.AddRange(kept);
         var redLines = members.SelectMany(m => parties[m].RedLines).ToList();
         var chosen = new List<(string Party, DemandDef Demand)>();
+        var grants = new List<PortfolioGrant>();
         var already = existing ?? Array.Empty<DemandDef>();
+        bool portfolios = talks is { AllowPortfolios: true } && talks.Portfolios.Count > 0;
+        int maxGrants = portfolios ? Negotiation.MaxPartnerPortfolios(talks!.Portfolios.Count) : 0;
         foreach (var partner in partners) // ordinal order
         {
-            double need = CoalitionRules.RequiredWeight(parties[partner], relation(formateur, partner), grudge(partner, formateur)), got = 0;
+            double need = CoalitionRules.RequiredWeight(parties[partner], relation(formateur, partner), grudge(partner, formateur), talks?.Factor(formateur, partner) ?? 1.0), got = 0;
             foreach (var d in parties[partner].Demands.OrderByDescending(d => d.Weight * (0.5 + Priority(parties[partner], d))).ThenBy(d => d.Id, StringComparer.Ordinal))
             {
                 if (got + 1e-12 >= need) break;
-                if (chosen.Count >= slots) return null;
+                if (chosen.Count >= slots) { if (portfolios) break; return null; }
                 if (redLines.Any(r => CoalitionRules.DemandConflictsWithRedLine(d, r))) continue;
                 if (chosen.Any(c => CoalitionRules.DemandsContradict(c.Demand, d)) || already.Any(e => CoalitionRules.DemandsContradict(e, d))) continue;
                 if (CoalitionRules.Worth(d, alreadyMet) <= 0) continue; // a goal that is already met is no concession
                 chosen.Add((partner, d));
                 got += d.Weight;
             }
+            if (portfolios && got + 1e-12 < need)
+                foreach (var pf in talks!.Portfolios.Where(pf => grants.All(g => g.PortfolioId != pf.Id))
+                             .OrderByDescending(pf => Negotiation.PortfolioWorth(parties[partner], pf)).ThenBy(pf => pf.Id, StringComparer.Ordinal))
+                {
+                    if (got + 1e-12 >= need || grants.Count >= maxGrants || grants.Count(g => g.PartyId == partner) >= Negotiation.MaxPortfoliosPerPartner) break;
+                    grants.Add(new PortfolioGrant(partner, pf.Id));
+                    got += Negotiation.PortfolioWorth(parties[partner], pf);
+                }
             if (got + 1e-12 < need) return null;
         }
-        return chosen.Select(c => new AgreedDemand(c.Party, c.Demand.Id)).ToList();
+        return (chosen.Select(c => new AgreedDemand(c.Party, c.Demand.Id)).ToList(), grants);
     }
 }

@@ -202,7 +202,7 @@ public static class PoliticsBatch
 
         // Formation questions are answered the same way by every strategy.
         if (pol.Formation is { PlayerIsFormateur: true } && game.SuggestCoalition() is { } s)
-            game.Apply(new ProposeCoalition(s.Partners, s.Agreements));
+            game.Apply(ProposeCoalition.From(s));
         else if (pol.Formation?.Offer != null) game.Apply(new AcceptOffer());
 
         AnswerProposals(game, pol, strategy, rng, counter);

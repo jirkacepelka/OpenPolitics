@@ -71,15 +71,16 @@ public class PartyActionTests
     public void CourtedPartyIsCheaperInCoalitionTalks()
     {
         Game Formateur() { var g = New(Load(Parties(), "a", interval: 60, turnsToElection: 1)); g.EndTurn(); return g; }
-        ProposeCoalition WithD2() => new(new[] { "base:b" }, new[] { new AgreedDemand("base:b", "d2") });
+        var draft = new CoalitionProposal("base:a", new[] { "base:b" }, new[] { new AgreedDemand("base:b", "d2") });
 
         var plain = Formateur();
-        Assert.Equal("error.refused.price", plain.Apply(WithD2()).ErrorKey); // needs 2.4 * 0.85 = 2.04 > 2
-
+        double before = plain.AssessCoalition(draft)!.Partners.Single().Required;
         var courted = Formateur();
         Assert.True(courted.Apply(new Court("base:b")).Accepted);
-        Assert.True(courted.Apply(new Court("base:b")).Accepted); // relation 0.5 -> needs 1.8
-        Assert.True(courted.Apply(WithD2()).Accepted);
+        Assert.True(courted.Apply(new Court("base:b")).Accepted); // relation 0.3 -> 0.5
+        double after = courted.AssessCoalition(draft)!.Partners.Single().Required;
+        // decision 0016 keeps the relation term of the price: (1 - 0.5 x relation), now times the talk factor
+        Assert.Equal((1 - 0.5 * 0.5) / (1 - 0.5 * 0.3), after / before, 9);
     }
 
     [Fact]

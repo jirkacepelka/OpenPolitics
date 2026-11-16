@@ -38,7 +38,7 @@ public class TextsTests
     }
 
     public static readonly string[] Topics = { "capital", "organisation", "credibility", "cohesion", "relations", "fiscal_blame", "campaign", "organise", "court",
-        "criticize", "stance", "promise", "priority", "shift", "propose", "announce", "proposals", "reshuffle", "exits", "fiscal_credit", "ultimatum" };
+        "criticize", "stance", "promise", "priority", "shift", "propose", "announce", "proposals", "reshuffle", "exits", "fiscal_credit", "ultimatum", "negotiation" };
 
     [Fact]
     public void EveryStatAndActionIsExplainedInBothLanguagesWithTheEngineNumbers()
@@ -89,6 +89,27 @@ public class TextsTests
                 all += text;
             }
             Assert.DoesNotContain("{", all);
+        }
+    }
+
+    [Fact]
+    public void NegotiationTextsSayWhyWithNumbersInBothLanguages()
+    {
+        var v = new PartnerView("base:peoples_union", 18, 3, 3.6, 2.0, 0.55, "counter", "price", null, 1.6, 0.08, 0.94, 0.98, 0.95, false, 0.3, 0,
+            Array.Empty<DemandView>(), Array.Empty<PortfolioView>(), 0, new CounterTerms(Array.Empty<AgreedDemand>(), new[] { new PortfolioGrant("base:peoples_union", "base:ministry_health") }),
+            new[] { new Fix("give_portfolio", "base:peoples_union", null, "base:ministry_health", 1.5), new Fix("concede", "base:peoples_union", null, null, 2), new Fix("court", "base:peoples_union"),
+                new Fix("wait", "base:civic_right") });
+        Assert.Contains("1.6 short", For("en").NegotiationReason(v));
+        foreach (var lang in new[] { "cs", "en" })
+        {
+            var t = For(lang);
+            var all = t.NegotiationReason(v) + t.PriceBreakdown(v) + t.CounterText(v.Counter!) + string.Join(" ", v.Fixes.Select(t.FixText))
+                + t.NegotiationReason(v with { Reason = "distance" }) + t.NegotiationReason(v with { Reason = "grudge", ReasonDemand = "base:civic_right" })
+                + t.CounterPreviewText(new CounterPreview(false, "platform", 3, 3, 4, null), "base:social_alliance")
+                + t.Event(new CounterOfferAnswered(3, "base:social_alliance", false, "too_much"), Role.Opposition)
+                + t.Verdict("refuse") + t.DemandStatus("negotiable");
+            Assert.DoesNotContain("{", all);
+            Assert.DoesNotContain("ui.", all);
         }
     }
 

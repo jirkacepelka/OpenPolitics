@@ -100,6 +100,7 @@ internal sealed class PoliticsEngine
         _scenario = scenario.Politics!;
         _player = playerParty ?? _scenario.PlayerParty;
         _rules = country.Politics!;
+        _portfolios = (_rules.Portfolios ?? Array.Empty<PortfolioDef>()).ToList();
         _lookup = lookup;
         _dt = 1.0 / turnsPerYear;
         _groups = packs.VoterGroups;
@@ -237,7 +238,7 @@ internal sealed class PoliticsEngine
         _phase, ElectionIn, Sorted(_poll), Sorted(_seats), _government.Parties.ToList(), _government.Leader,
         Player, _government,
         _phase == Phase.Formation && _attempt >= 1 && _attempt <= _queue.Count
-            ? new FormationInfo(_queue[_attempt - 1], _attempt, _turnsLeft, PlayerIsFormateur, _offer) : null,
+            ? new FormationInfo(_queue[_attempt - 1], _attempt, _turnsLeft, PlayerIsFormateur, _offer, _replies, _roundsLeft, _counterUsed, _counterAnswer) : null,
         PlayerRole,
         new SortedDictionary<string, double>(_loyalty, Ord),
         _government.Commitments.Select(c => new CommitmentStatus(c.PartyId, c.Demand.Id,
@@ -369,7 +370,9 @@ internal sealed class PoliticsEngine
 
     public ActionResult Execute(PlayerAction action, int reportTurn) => action switch
     {
-        ProposeCoalition p => DoPropose(p.Partners, p.Agreements, reportTurn),
+        ProposeCoalition p => DoPropose(p.Partners, p.Agreements, reportTurn, p.Portfolios, p.Concessions),
+        NegotiateCoalition n => DoNegotiate(new CoalitionProposal(Player, n.Partners, n.Agreements, n.Portfolios, n.Concessions), reportTurn),
+        CounterOffer c => DoCounter(c.Agreements, c.Portfolios, reportTurn),
         AcceptOffer => DoAcceptOffer(reportTurn),
         RejectOffer => DoRejectOffer(reportTurn),
         CallEarlyElection => DoCallEarlyElection(),
@@ -425,6 +428,7 @@ internal sealed class PoliticsEngine
             var updated = party with { Platform = platform };
             _parties[Player] = updated;
             _support.UpdateParty(updated);
+            _talkCache.Clear();
             _credibility = Math.Max(0.0, _credibility - PartyRules.ShiftCredibility * Math.Abs(delta) / range);
         }
         return ActionResult.Ok;
@@ -462,6 +466,7 @@ internal sealed class PoliticsEngine
             var updated = party with { Platform = platform };
             _parties[Player] = updated;
             _support.UpdateParty(updated);
+            _talkCache.Clear();
             _credibility = Math.Max(0.0, _credibility - PartyRules.PriorityCredibility * Math.Abs(delta));
         }
         return ActionResult.Ok;
@@ -585,16 +590,15 @@ internal sealed class PoliticsEngine
     /// <summary>What the AI would propose if the player's party were formateur now; null when it is not.</summary>
     public CoalitionProposal? Suggest() => PlayerIsFormateur ? BuildFor(Player) : null;
 
-    private ActionResult DoPropose(IReadOnlyList<string> partners, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
+    private ActionResult DoPropose(IReadOnlyList<string> partners, IReadOnlyList<AgreedDemand> agreements, int reportTurn,
+        IReadOnlyList<PortfolioGrant>? portfolios = null, IReadOnlyList<Concession>? concessions = null)
     {
         if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
-        var proposal = new CoalitionProposal(Player,
-            partners.Where(p => p != Player).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements.Distinct().ToList());
-        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent, alreadyMet: AlreadyMet);
+        var proposal = Normalize(new CoalitionProposal(Player, partners, agreements, portfolios, concessions));
+        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent, alreadyMet: AlreadyMet, talks: Talks);
         if (refusals.Count > 0)
             return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
-        _pending.Add(Form(reportTurn, proposal));
-        return ActionResult.Ok;
+        return FormOnTerms(proposal, reportTurn);
     }
 
     private ActionResult DoAcceptOffer(int reportTurn)
@@ -677,7 +681,8 @@ internal sealed class PoliticsEngine
             r.Policy == policyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current)));
         double fit = _parties[leader].Platform.TryGetValue(policyId, out var pos) && range > 0
             ? 1.0 - Math.Min(1.0, Math.Abs(target - pos.Target) / range) : 0.5;
-        double score = 0.4 * Relation(leader, Player) + 0.2 * share + 0.4 * fit;
+        double score = 0.4 * Relation(leader, Player) + 0.2 * share + 0.4 * fit
+            + (HoldsPortfolioFor(Player, policyId) ? PoliticsLimits.PortfolioProposalBonus : 0.0); // decision 0016: a partner is heard on its own portfolio
         return redLine ? (false, "red_line") : score >= ProposalThreshold ? (true, null) : (false, "score");
     }
 
@@ -830,6 +835,8 @@ internal sealed class PoliticsEngine
     public List<PoliticalEvent> Step(int turn, IReadOnlyDictionary<string, double> satisfaction)
     {
         _lastTurn = turn;
+        _talkCache.Clear();
+        _roundsLeft = PoliticsLimits.NegotiationRoundsPerQuarter;
         var events = new List<PoliticalEvent>(_pending);
         _pending.Clear();
         TickParty(turn, events);
@@ -897,6 +904,8 @@ internal sealed class PoliticsEngine
     private void BeginFormation(int turn, List<PoliticalEvent> events, string? first)
     {
         _excluded.Clear();
+        _replies = Array.Empty<PartnerReply>();
+        _roundsLeft = PoliticsLimits.NegotiationRoundsPerQuarter;
         _queue = FormationMarket(first);
         _phase = Phase.Formation;
         _attempt = 1;
@@ -946,6 +955,7 @@ internal sealed class PoliticsEngine
         if (proposal.Partners.Contains(Player))
         {
             _offer = proposal;
+            _counterUsed = false; _counterAnswer = null;
             events.Add(new OfferMade(turn, proposal));
             return;
         }
@@ -954,11 +964,12 @@ internal sealed class PoliticsEngine
 
     private CoalitionProposal? BuildFor(string formateur) =>
         CoalitionBuilder.Build(formateur, _parties, _seats, _ranges, _rules.MajorityFraction, _rules.ProgramSlots,
-            Relation, _excluded, Resent, AlreadyMet);
+            Relation, _excluded, Resent, AlreadyMet, Talks);
 
     private void FailAttempt(int turn, string formateur, List<PoliticalEvent> events)
     {
         events.Add(new FormationFailed(turn, formateur));
+        _replies = Array.Empty<PartnerReply>();
         _attempt++;
         _excluded.Clear();
         _offer = null;
@@ -978,11 +989,14 @@ internal sealed class PoliticsEngine
         var commitments = new List<Commitment>();
         foreach (var a in proposal.Agreements)
         {
-            var d = _parties[a.PartyId].Demands.First(x => x.Id == a.DemandId);
+            var d = Negotiation.Effective(_parties[a.PartyId].Demands.First(x => x.Id == a.DemandId), a);
             commitments.Add(new Commitment(a.PartyId, d, _lookup(d.Kind, d.Subject), turn + d.DueTurns));
         }
         var parties = new[] { proposal.Formateur }.Concat(proposal.Partners).Distinct(Ord).OrderBy(x => x, Ord).ToList();
-        _government = new Government(proposal.Formateur, parties, commitments, turn);
+        var holders = new SortedDictionary<string, string>(Ord);
+        foreach (var g in proposal.PortfolioList) holders[g.PortfolioId] = g.PartyId;
+        _government = new Government(proposal.Formateur, parties, commitments, turn, holders);
+        _replies = Array.Empty<PartnerReply>();
         SetBaseline(parties); // a new government is measured from the deficit it inherits
         _phase = Phase.Governing;
         _offer = null;
@@ -1029,7 +1043,10 @@ internal sealed class PoliticsEngine
                 else _redLinesActive.Remove(key);
             }
 
-            double target = LoyaltyModel.Target(fulfil, shortfall, mood, violated);
+            // decision 0016: a partner that holds cabinet portfolios has a stake in the government
+            int held = _government.PortfolioHolders.Count(kv => kv.Value == partner);
+            double target = Math.Min(100.0, LoyaltyModel.Target(fulfil, shortfall, mood, violated)
+                + Math.Min(PoliticsLimits.PortfolioLoyaltyMax, PoliticsLimits.PortfolioLoyalty * held));
             double loyalty = LoyaltyModel.Step(_loyalty.GetValueOrDefault(partner, lp.Start), target,
                 party.Swing ? lp.SwingLambda : lp.Lambda, _dt);
             if (crossed) loyalty = Math.Max(0.0, loyalty - lp.Shock);
@@ -1377,7 +1394,7 @@ internal sealed class PoliticsEngine
         foreach (var p in _parties.Values)
             if (p.RedLines.Any(r => LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy)))) excluded.Add(p.Id);
         return CoalitionBuilder.Complete(leader, kept, AgreementsOf(kept), _parties, _seats, _ranges, _rules.MajorityFraction,
-            _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet) != null;
+            _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet, Talks) != null;
     }
 
     /// <summary>
@@ -1519,7 +1536,8 @@ internal sealed class PoliticsEngine
     }
 
     /// <summary>Whether a party holds the cabinet portfolio a policy belongs to (decision 0016, item 2).</summary>
-    private bool HoldsPortfolioFor(string party, string policyId) => false;
+    private bool HoldsPortfolioFor(string party, string policyId) =>
+        _portfolios.FirstOrDefault(pf => pf.Policies.Contains(policyId)) is { } pf && _government.PortfolioHolders.GetValueOrDefault(pf.Id) == party;
 
     private void LapseUltimatum(int turn, List<PoliticalEvent> events)
     {
@@ -1527,6 +1545,285 @@ internal sealed class PoliticsEngine
         _myUltimatum = null;
         _nextUltimatumTurn = turn + PoliticsLimits.UltimatumCooldownTurns;
         events.Add(new UltimatumLapsed(turn));
+    }
+
+    // ---- formation talks: prices that respect party differences, portfolios, rounds, counter-offers (decision 0016, item 2) ----
+
+    private readonly List<PortfolioDef> _portfolios;
+    private readonly Dictionary<string, double> _talkCache = new(Ord);
+    private int _roundsLeft = PoliticsLimits.NegotiationRoundsPerQuarter;
+    private IReadOnlyList<PartnerReply> _replies = Array.Empty<PartnerReply>();
+    private bool _counterUsed;
+    private string? _counterAnswer;
+
+    /// <summary>The terms of talks in this country: the price factor, the distance veto and the cabinet portfolios.</summary>
+    private Talks Talks => new(PriceFactor, TooFar, _portfolios);
+
+    private double Cached(string key, Func<double> compute)
+    {
+        if (_talkCache.TryGetValue(key, out var v)) return v;
+        v = compute();
+        _talkCache[key] = v;
+        return v;
+    }
+
+    private double TalkDistance(string a, string b) =>
+        Cached($"d|{a}|{b}", () => Negotiation.TalkDistance(_parties[a], _parties[b], _ranges, _policyDefs));
+
+    private bool HasAlternative(string partner, string formateur) =>
+        Cached($"alt|{partner}|{formateur}", () => Negotiation.HasAlternative(partner, formateur, _seats, _rules.MajorityFraction, TalkDistance) ? 1.0 : 0.0) > 0.5;
+
+    /// <summary>The talk factor on a partner's price toward a formateur: ideological distance × strength × alternatives (decision 0016).</summary>
+    private double PriceFactor(string formateur, string partner) => Cached($"f|{formateur}|{partner}", () =>
+        Negotiation.DistanceFactor(TalkDistance(formateur, partner))
+        * Negotiation.StrengthFactor(_seats.GetValueOrDefault(partner), _seats.GetValueOrDefault(formateur))
+        * Negotiation.AlternativesFactor(HasAlternative(partner, formateur)));
+
+    private bool TooFar(string formateur, string partner) => TalkDistance(formateur, partner) >= Negotiation.DistanceVeto;
+
+    private CoalitionProposal Normalize(CoalitionProposal draft) => new(Player,
+        draft.Partners.Where(p => p != Player).Distinct(Ord).OrderBy(p => p, Ord).ToList(), draft.Agreements.Distinct().ToList(),
+        draft.PortfolioList.Distinct().ToList(), draft.ConcessionList.Where(c => c.Units != 0).ToList());
+
+    private double ConcessionCost(CoalitionProposal p) => Negotiation.ConcessionCost * p.ConcessionList.Sum(c => Math.Max(0, c.Units));
+
+    /// <summary>The government forms on the player's terms: concessions are paid and win some goodwill.</summary>
+    private ActionResult FormOnTerms(CoalitionProposal proposal, int reportTurn)
+    {
+        if (!TrySpend(ConcessionCost(proposal))) return Fail("error.not_enough_capital");
+        foreach (var c in proposal.ConcessionList.Where(c => c.Units > 0 && _relations.ContainsKey(c.PartyId)))
+            _relations[c.PartyId] = Math.Min(1.0, _relations[c.PartyId] + PoliticsLimits.ConcessionRelation * c.Units);
+        _pending.Add(Form(reportTurn, proposal));
+        return ActionResult.Ok;
+    }
+
+    /// <summary>
+    /// How every invited party sees the player's offer as formateur (decision 0016): its price and what the offer pays, its answer and why, its demands
+    /// (acceptable / negotiable / red line / met) and portfolios, the counter-offer it would make and what would fix a refusal. Changes nothing.
+    /// </summary>
+    public NegotiationView AssessCoalition(CoalitionProposal draft)
+    {
+        var p = Normalize(draft);
+        var talks = Talks;
+        int total = _seats.Values.Sum(), needed = (int)Math.Floor(_rules.MajorityFraction * total) + 1;
+        int held = new[] { Player }.Concat(p.Partners).Sum(x => _seats.GetValueOrDefault(x));
+        var refusals = CoalitionRules.Evaluate(p, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent, alreadyMet: AlreadyMet, talks: talks);
+        string? hard = null, detail = null;
+        if (!PlayerIsFormateur) hard = "error.not_formateur";
+        else if (refusals.FirstOrDefault(r => r.Reason is "unknown" or "slots" or "majority" or "portfolios") is { } h)
+        { hard = "error.refused." + h.Reason; detail = $"{h.PartyId}:{h.DemandId}"; }
+        var formateur = _parties[Player];
+        var members = new[] { Player }.Concat(p.Partners).Where(_parties.ContainsKey).ToList();
+        // every valid agreement with its effective demand
+        var agreed = new List<(AgreedDemand A, DemandDef D, double Worth)>();
+        foreach (var a in p.Agreements)
+            if (_parties.TryGetValue(a.PartyId, out var owner) && CoalitionRules.AgreementWorth(a, owner, formateur, AlreadyMet) is { } aw) agreed.Add((a, aw.Demand, aw.Worth));
+        var views = new List<PartnerView>();
+        foreach (var partner in p.Partners.Where(_parties.ContainsKey))
+            views.Add(AssessPartner(partner, p, agreed, members, talks));
+        bool all = hard == null && views.All(v => v.Verdict == "accept");
+        return new NegotiationView(views, held, needed, p.Agreements.Count, _rules.ProgramSlots, p.PortfolioList.Count, Negotiation.MaxPartnerPortfolios(_portfolios.Count),
+            ConcessionCost(p), hard, detail, all, _roundsLeft);
+    }
+
+    private PartnerView AssessPartner(string partner, CoalitionProposal p, List<(AgreedDemand A, DemandDef D, double Worth)> agreed, List<string> members, Talks talks)
+    {
+        var def = _parties[partner];
+        var formateur = _parties[Player];
+        double rel = Relation(Player, partner), grudge = Resent(partner, Player);
+        double dist = TalkDistance(Player, partner);
+        bool alternative = HasAlternative(partner, Player);
+        double fd = Negotiation.DistanceFactor(dist), fs = Negotiation.StrengthFactor(_seats.GetValueOrDefault(partner), _seats.GetValueOrDefault(Player));
+        double fa = Negotiation.AlternativesFactor(alternative);
+        double required = CoalitionRules.RequiredWeight(def, rel, grudge, fd * fs * fa);
+        var redLines = members.SelectMany(m => _parties[m].RedLines.Select(r => (Owner: m, Line: r))).ToList();
+        string? CrossedBy(DemandDef d) => redLines.FirstOrDefault(x => CoalitionRules.DemandConflictsWithRedLine(d, x.Line)).Owner;
+
+        var demandViews = new List<DemandView>();
+        foreach (var d in def.Demands)
+        {
+            var mine = agreed.FirstOrDefault(x => x.A.PartyId == partner && x.A.DemandId == d.Id);
+            bool isAgreed = mine.A != null;
+            var effective = isAgreed ? mine.D : d;
+            double? anchor = Negotiation.Anchor(formateur, d);
+            string? lineOwner = CrossedBy(effective);
+            string status = AlreadyMet(d) ? "met" : lineOwner != null ? "red_line" : anchor != null ? "negotiable" : "acceptable";
+            demandViews.Add(new DemandView(d.Id, status, d.Weight, isAgreed ? mine.Worth : CoalitionRules.Worth(d, AlreadyMet), anchor,
+                anchor is { } an ? Negotiation.HalfWay(d, an) : null, isAgreed, isAgreed ? mine.A!.Target : null, lineOwner));
+        }
+        var grants = p.PortfolioList;
+        var portfolioViews = _portfolios.Select(pf => new PortfolioView(pf.Id, Negotiation.PortfolioWorth(def, pf), grants.FirstOrDefault(g => g.PortfolioId == pf.Id)?.PartyId)).ToList();
+        int units = p.ConcessionList.FirstOrDefault(c => c.PartyId == partner)?.Units ?? 0;
+        double offered = agreed.Where(x => x.A.PartyId == partner).Sum(x => x.Worth)
+            + grants.Where(g => g.PartyId == partner).Sum(g => talks.Portfolio(g.PortfolioId) is { } pf ? Negotiation.PortfolioWorth(def, pf) : 0.0)
+            + Negotiation.ConcessionWorth * Math.Clamp(units, 0, Negotiation.MaxConcessions);
+        double shortfall = Math.Max(0.0, required - offered);
+        var fixes = new List<Fix>();
+        string verdict = "accept"; string? reason = null, reasonDemand = null;
+        CounterTerms? counter = null;
+
+        var grudgeWith = members.FirstOrDefault(m => m != partner && (Resent(partner, m) >= CoalitionRules.GrudgeVeto || Resent(m, partner) >= CoalitionRules.GrudgeVeto));
+        var crossing = agreed.FirstOrDefault(x => def.RedLines.Any(r => CoalitionRules.DemandConflictsWithRedLine(x.D, r)));
+        var contradicting = agreed.Where(x => x.A.PartyId == partner).FirstOrDefault(x => agreed.Any(o => o.A != x.A && CoalitionRules.DemandsContradict(o.D, x.D)));
+        if (grudgeWith != null) { verdict = "refuse"; reason = "grudge"; reasonDemand = grudgeWith; fixes.Add(new Fix("wait", grudgeWith)); }
+        else if (talks.Veto(Player, partner)) { verdict = "refuse"; reason = "distance"; }
+        else if (crossing.A != null)
+        {
+            verdict = "refuse"; reason = "red_line"; reasonDemand = $"{crossing.A.PartyId}:{crossing.A.DemandId}";
+            var orig = _parties[crossing.A.PartyId].Demands.First(d => d.Id == crossing.A.DemandId);
+            if (Negotiation.Anchor(formateur, orig) is { } an && !def.RedLines.Any(r => CoalitionRules.DemandConflictsWithRedLine(orig with { Target = Negotiation.HalfWay(orig, an) }, r)))
+                fixes.Add(new Fix("half_way", crossing.A.PartyId, crossing.A.DemandId, null, Negotiation.HalfWay(orig, an)));
+            fixes.Add(new Fix("drop_demand", crossing.A.PartyId, crossing.A.DemandId));
+        }
+        else if (contradicting.A != null) { verdict = "refuse"; reason = "contradiction"; reasonDemand = $"{partner}:{contradicting.A.DemandId}"; fixes.Add(new Fix("drop_demand", partner, contradicting.A.DemandId)); }
+        else if (shortfall > 1e-9)
+        {
+            reason = "price";
+            counter = Counter(partner, p, agreed, members, required, offered, talks);
+            verdict = counter != null ? "counter" : "refuse";
+            // what would pay the rest: free demands, portfolios, concessions, courting
+            int freeSlots = _rules.ProgramSlots - p.Agreements.Count;
+            foreach (var dv in demandViews.Where(v => !v.Agreed && v.Worth > 0 && v.Status is "acceptable" or "negotiable").OrderByDescending(v => v.Worth).ThenBy(v => v.DemandId, Ord).Take(Math.Max(0, Math.Min(3, freeSlots))))
+                fixes.Add(new Fix("add_demand", partner, dv.DemandId, null, dv.Worth));
+            foreach (var pv in portfolioViews.Where(v => v.HeldBy == null).OrderByDescending(v => v.Worth).ThenBy(v => v.PortfolioId, Ord).Take(2))
+                fixes.Add(new Fix("give_portfolio", partner, null, pv.PortfolioId, pv.Worth));
+            if (units < Negotiation.MaxConcessions) fixes.Add(new Fix("concede", partner, null, null, Negotiation.MaxConcessions - units));
+            if (rel < 1.0) fixes.Add(new Fix("court", partner));
+        }
+        return new PartnerView(partner, _seats.GetValueOrDefault(partner), def.Price, required, offered, required > 0 ? offered / required : 1.0, verdict, reason, reasonDemand,
+            shortfall, dist, fd, fs, fa, alternative, rel, grudge, demandViews, portfolioViews, units, counter, fixes);
+    }
+
+    /// <summary>
+    /// The terms a partner would ask for itself to close a price gap (decision 0016): the full value of a demand it was offered only half-way, then its
+    /// own demands in the order the AI formateur offers them (no red line of a member, no contradiction, while program slots are free), then the
+    /// portfolios it values most that nobody holds. Null when even that does not pay its price.
+    /// </summary>
+    private CounterTerms? Counter(string partner, CoalitionProposal p, List<(AgreedDemand A, DemandDef D, double Worth)> agreed, List<string> members,
+        double required, double offered, Talks talks)
+    {
+        var def = _parties[partner];
+        var redLines = members.SelectMany(m => _parties[m].RedLines).ToList();
+        var mine = agreed.Where(x => x.A.PartyId == partner).Select(x => x.A).ToList(); // only valid terms are kept
+        var others = agreed.Where(x => x.A.PartyId != partner).Select(x => x.D).ToList();
+        var chosen = new List<DemandDef>();
+        double got = offered;
+        // 1. insist on the full demand where a counter value was offered
+        for (int i = 0; i < mine.Count; i++)
+        {
+            if (mine[i].Target == null || got + 1e-12 >= required) continue;
+            var full = def.Demands.First(d => d.Id == mine[i].DemandId);
+            if (redLines.Any(r => CoalitionRules.DemandConflictsWithRedLine(full, r)) || others.Any(o => CoalitionRules.DemandsContradict(o, full))) continue;
+            double before = agreed.First(x => x.A == mine[i]).Worth;
+            got += CoalitionRules.Worth(full, AlreadyMet) - before;
+            mine[i] = mine[i] with { Target = null };
+        }
+        foreach (var a in mine) chosen.Add(Negotiation.Effective(def.Demands.First(d => d.Id == a.DemandId), a));
+        int slotsLeft = _rules.ProgramSlots - p.Agreements.Count;
+        // 2. more of its own demands
+        foreach (var d in def.Demands.OrderByDescending(d => d.Weight * (0.5 + CoalitionBuilder.Priority(def, d))).ThenBy(d => d.Id, Ord))
+        {
+            if (got + 1e-12 >= required || slotsLeft <= 0) break;
+            if (mine.Any(a => a.DemandId == d.Id) || CoalitionRules.Worth(d, AlreadyMet) <= 0) continue;
+            if (redLines.Any(r => CoalitionRules.DemandConflictsWithRedLine(d, r))) continue;
+            if (others.Concat(chosen).Any(o => CoalitionRules.DemandsContradict(o, d))) continue;
+            mine.Add(new AgreedDemand(partner, d.Id));
+            chosen.Add(d);
+            got += d.Weight;
+            slotsLeft--;
+        }
+        // 3. portfolios
+        var grants = p.PortfolioList.Where(g => g.PartyId == partner).ToList();
+        int all = p.PortfolioList.Count;
+        foreach (var pf in _portfolios.Where(pf => p.PortfolioList.All(g => g.PortfolioId != pf.Id))
+                     .OrderByDescending(pf => Negotiation.PortfolioWorth(def, pf)).ThenBy(pf => pf.Id, Ord))
+        {
+            if (got + 1e-12 >= required || grants.Count >= Negotiation.MaxPortfoliosPerPartner || all >= Negotiation.MaxPartnerPortfolios(_portfolios.Count)) break;
+            grants.Add(new PortfolioGrant(partner, pf.Id));
+            got += Negotiation.PortfolioWorth(def, pf);
+            all++;
+        }
+        return got + 1e-12 >= required ? new CounterTerms(mine, grants) : null;
+    }
+
+    /// <summary>
+    /// One round of talks (decision 0016): every invited party answers the player's offer at once. When all accept, the government forms (the
+    /// concessions are paid); otherwise their answers are kept for the briefing and the parties that refused lose a little patience. A hard error
+    /// (not formateur, majority, slots, portfolios, an unknown term, no rounds left this quarter) is refused for free.
+    /// </summary>
+    private ActionResult DoNegotiate(CoalitionProposal draft, int reportTurn)
+    {
+        if (!PlayerIsFormateur) return Fail("error.not_formateur");
+        if (_roundsLeft <= 0) return Fail("error.no_rounds");
+        var p = Normalize(draft);
+        var view = AssessCoalition(p);
+        if (view.HardError != null) return Fail(view.HardError, view.HardDetail);
+        if (view.AllAccept)
+        {
+            if (FormOnTerms(p, reportTurn) is { Accepted: false } failed) return failed;
+            _roundsLeft--;
+            return new ActionResult(true, null, "formed");
+        }
+        _roundsLeft--;
+        _replies = view.Partners.Select(v => new PartnerReply(v.PartyId, v.Verdict, v.Reason, v.ReasonDemand, v.Shortfall, v.Counter)).ToList();
+        foreach (var v in view.Partners.Where(v => v.Verdict == "refuse" && _relations.ContainsKey(v.PartyId)))
+            _relations[v.PartyId] = Math.Max(0.0, _relations[v.PartyId] - PoliticsLimits.NegotiationPatience);
+        return new ActionResult(true, null, "replies");
+    }
+
+    /// <summary>
+    /// What the AI formateur would say to the player's counter-offer as an invited partner (decision 0016): the offer plus the extra demands and
+    /// portfolios for the player's party. Changes nothing.
+    /// </summary>
+    public CounterPreview PreviewCounter(IReadOnlyList<AgreedDemand> extra, IReadOnlyList<PortfolioGrant> portfolios)
+    {
+        if (_offer is not { } offer) return new CounterPreview(false, null, 0, 0, 0, "error.no_offer");
+        if (_counterUsed) return new CounterPreview(false, "used", 0, 0, 0, "error.counter_used");
+        var own = _parties[Player];
+        var formateur = _parties[offer.Formateur];
+        if (extra.Count + portfolios.Count == 0) return new CounterPreview(false, null, 0, 0, 0, "error.no_change");
+        foreach (var a in extra)
+            if (a.PartyId != Player || own.Demands.All(d => d.Id != a.DemandId) || offer.Agreements.Any(x => x.PartyId == Player && x.DemandId == a.DemandId))
+                return new CounterPreview(false, null, 0, 0, 0, "error.unknown_demand");
+        foreach (var g in portfolios)
+            if (g.PartyId != Player || _portfolios.All(pf => pf.Id != g.PortfolioId) || offer.PortfolioList.Any(x => x.PortfolioId == g.PortfolioId))
+                return new CounterPreview(false, null, 0, 0, 0, "error.unknown_portfolio");
+        var proposal = offer with { Agreements = offer.Agreements.Concat(extra.Distinct()).ToList(), Portfolios = offer.PortfolioList.Concat(portfolios.Distinct()).ToList() };
+        var talks = Talks;
+        double required = CoalitionRules.RequiredWeight(own, Relation(offer.Formateur, Player), Resent(Player, offer.Formateur), talks.Factor(offer.Formateur, Player));
+        double worth = proposal.Agreements.Where(a => a.PartyId == Player).Sum(a => CoalitionRules.AgreementWorth(a, own, formateur, AlreadyMet)?.Worth ?? 0.0)
+            + proposal.PortfolioList.Where(g => g.PartyId == Player).Sum(g => talks.Portfolio(g.PortfolioId) is { } pf ? Negotiation.PortfolioWorth(own, pf) : 0.0);
+        var excluded = new HashSet<string>(_excluded, Ord) { Player };
+        bool pivotal = CoalitionBuilder.Build(offer.Formateur, _parties, _seats, _ranges, _rules.MajorityFraction, _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet, talks) == null;
+        double ceiling = required * (1 + PoliticsLimits.CounterSlack) + (pivotal ? PoliticsLimits.CounterPivotalBonus : 0.0);
+        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, (a, b) => Relation(a, b), Resent, alreadyMet: AlreadyMet, talks: talks);
+        string? reason = refusals.FirstOrDefault(r => r.Reason is "slots" or "red_line" or "contradiction" or "portfolios")?.Reason;
+        if (reason == null && extra.Select(a => own.Demands.First(d => d.Id == a.DemandId))
+                .Any(d => d.Kind == "policy" && formateur.Platform.TryGetValue(d.Subject, out var pos) && pos.Weight >= PoliticsLimits.CounterPlatformWeight
+                          && !CommitmentMath.Satisfied(d, pos.Target)))
+            reason = "platform";
+        if (reason == null && worth > ceiling + 1e-9) reason = "too_much";
+        return new CounterPreview(reason == null, reason, worth, required, ceiling, null);
+    }
+
+    /// <summary>The player's counter-offer as an invited partner: accepted, the government forms on the improved terms; refused, the offer stands.</summary>
+    private ActionResult DoCounter(IReadOnlyList<AgreedDemand> extra, IReadOnlyList<PortfolioGrant> portfolios, int reportTurn)
+    {
+        var preview = PreviewCounter(extra, portfolios);
+        if (preview.ErrorKey != null) return Fail(preview.ErrorKey);
+        var offer = _offer!;
+        _counterUsed = true;
+        if (!preview.Accepts)
+        {
+            _counterAnswer = preview.Reason;
+            _pending.Add(new CounterOfferAnswered(reportTurn, offer.Formateur, false, preview.Reason));
+            return new ActionResult(true, null, "refused:" + preview.Reason);
+        }
+        var improved = offer with { Agreements = offer.Agreements.Concat(extra.Distinct()).ToList(), Portfolios = offer.PortfolioList.Concat(portfolios.Distinct()).ToList() };
+        _counterAnswer = "accepted";
+        _pending.Add(new CounterOfferAnswered(reportTurn, offer.Formateur, true, null));
+        _pending.Add(Form(reportTurn, improved));
+        return new ActionResult(true, null, "accepted");
     }
 
     // ---- coalition reshuffle (decision 0013) -------------------------------------------------------------------
@@ -1541,7 +1838,8 @@ internal sealed class PoliticsEngine
         double Cost, IReadOnlyList<Refusal> Refusals, int SeatsHeld, int SeatsNeeded, int CooldownLeft);
 
     private IReadOnlyList<AgreedDemand> AgreementsOf(IEnumerable<string> partners) =>
-        _government.Commitments.Where(c => partners.Contains(c.PartyId)).Select(c => new AgreedDemand(c.PartyId, c.Demand.Id)).Distinct().ToList();
+        _government.Commitments.Where(c => partners.Contains(c.PartyId)).Select(c => new AgreedDemand(c.PartyId, c.Demand.Id,
+            _parties[c.PartyId].Demands.FirstOrDefault(d => d.Id == c.Demand.Id) is { } orig && orig.Target != c.Demand.Target ? c.Demand.Target : null)).Distinct().ToList();
 
     /// <summary>Checks a reshuffle the player wants (reportTurn = the turn the report will carry); changes nothing.</summary>
     public ReshuffleCheck CheckReshuffle(IReadOnlyList<string> drop, IReadOnlyList<string> add, IReadOnlyList<AgreedDemand> agreements, int reportTurn)
@@ -1568,7 +1866,7 @@ internal sealed class PoliticsEngine
         if (dropSet.Count == 0 && addSet.Count == 0) return Error("error.no_change");
         if (held < needed) return Error("error.would_lose_majority");
         var refusals = CoalitionRules.Evaluate(new CoalitionProposal(Player, addSet, deals), _parties, _seats, _rules.MajorityFraction,
-            _rules.ProgramSlots, Relation, Resent, new SittingCoalition(kept, AgreementsOf(kept)), AlreadyMet);
+            _rules.ProgramSlots, Relation, Resent, new SittingCoalition(kept, AgreementsOf(kept)), AlreadyMet, Talks with { AllowPortfolios = false });
         if (refusals.FirstOrDefault(r => r.Reason is "unknown" or "slots" or "majority") is { } hard)
             return Error("error.refused." + hard.Reason, $"{hard.PartyId}:{hard.DemandId}");
         return new ReshuffleCheck(null, null, dropSet, addSet, deals, cost, refusals, held, needed, cooldown);
@@ -1580,7 +1878,7 @@ internal sealed class PoliticsEngine
         if (_phase != Phase.Governing || PlayerRole != Role.Leader) return null;
         var kept = _government.Parties.Where(p => p != _government.Leader && !drop.Contains(p)).ToList();
         return CoalitionBuilder.AllocateFor(Player, add.Where(a => !_government.Parties.Contains(a)).ToList(), kept, AgreementsOf(kept), _parties,
-            _rules.ProgramSlots, Relation, Resent, AlreadyMet);
+            _rules.ProgramSlots, Relation, Resent, AlreadyMet, Talks);
     }
 
     private ActionResult DoReshuffle(ReshuffleCoalition r, int reportTurn)
@@ -1645,9 +1943,13 @@ internal sealed class PoliticsEngine
     private void RemoveFromGovernment(string partner)
     {
         _government = new Government(_government.Leader, _government.Parties.Where(p => p != partner).ToList(),
-            _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn);
+            _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn, PortfoliosWithout(partner));
         _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner); _midterm.Remove(partner); _nextDemand.Remove(partner);
     }
+
+    /// <summary>The partners' portfolios without those of a party that leaves (they go back to the leader).</summary>
+    private SortedDictionary<string, string> PortfoliosWithout(string party) =>
+        new(_government.PortfolioHolders.Where(kv => kv.Value != party).ToDictionary(kv => kv.Key, kv => kv.Value), Ord);
 
     /// <summary>Newcomers join a sitting government: their agreements are due from today, they start at the formation loyalty.</summary>
     private void Join(IReadOnlyList<string> added, IReadOnlyList<AgreedDemand> agreements, int turn)
@@ -1659,7 +1961,7 @@ internal sealed class PoliticsEngine
             commitments.Add(new Commitment(a.PartyId, d, _lookup(d.Kind, d.Subject), turn + d.DueTurns, turn));
         }
         var parties = _government.Parties.Concat(added).Distinct(Ord).OrderBy(x => x, Ord).ToList();
-        _government = new Government(_government.Leader, parties, commitments, _government.FormedTurn);
+        _government = new Government(_government.Leader, parties, commitments, _government.FormedTurn, _government.Portfolios);
         SetBaseline(added);
         foreach (var p in added.Where(p => p != Player))
         {
@@ -1685,7 +1987,7 @@ internal sealed class PoliticsEngine
             if (p.RedLines.Any(r => LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy)))) excluded.Add(p.Id);
         var kept = _government.Parties.Where(p => p != leader).ToList();
         var patch = CoalitionBuilder.Complete(leader, kept, AgreementsOf(kept), _parties, _seats, _ranges, _rules.MajorityFraction,
-            _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet);
+            _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet, Talks);
         if (patch == null) return false;
         // occasionally, not always: whether the leader strikes the deal in time is a coin flip (keeps falls in the range of decision 0011)
         if (_rng.NextDouble() >= PoliticsLimits.AiPatchChance) return false;
@@ -1703,7 +2005,7 @@ internal sealed class PoliticsEngine
         AddGrudge(partner, _government.Leader, 0.5 + 0.1 * unmet);
         AddGrudge(_government.Leader, partner, 0.3);
         _government = new Government(_government.Leader, _government.Parties.Where(p => p != partner).ToList(),
-            _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn);
+            _government.Commitments.Where(c => c.PartyId != partner).ToList(), _government.FormedTurn, PortfoliosWithout(partner));
         _loyalty.Remove(partner); _warned.Remove(partner); _ultimatums.Remove(partner); _midterm.Remove(partner); _nextDemand.Remove(partner);
     }
 }
