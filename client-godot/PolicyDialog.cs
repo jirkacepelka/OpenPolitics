@@ -295,6 +295,10 @@ public static class PolicyDialog
             double gmax = Math.Max(0.05, groups.Select(g => Math.Abs(g.Pressure)).DefaultIfEmpty(0).Max());
             foreach (var g in groups)
                 box.AddChild(Detail.EffectRow(Icons.For(g.GroupId), t.Name(g.GroupId), g.Pressure / gmax, "(" + Ui.Signed(g.Pressure * 100, "0") + ")", () => main.OpenDetail("group", g.GroupId), "", true));
+            // decision 0014 (e): with a high deficit or debt voters accept the cure more readily
+            if (preview.Necessity < 0.999 && s.Packs.Policies.FirstOrDefault(x => x.Id == preview.PolicyId) is { } pdef
+                && OpenPolitics.Core.Voters.Necessity.AusterityDirection(pdef) * (preview.To - preview.From) > 0)
+                box.AddChild(Ui.L(t.T("ui.pd.necessity", Ui.Num(preview.Necessity * 100, "0")), Tx.Small, AppTheme.Ink2, true));
             var rows = new List<(string Id, double Signed, double Like, string Text)>();
             foreach (var e in preview.Values)
             {

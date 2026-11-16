@@ -44,13 +44,14 @@ public static class TurnPopup
     /// <summary>True when there is anything to tell or decide.</summary>
     public static bool HasContent(Session s) => s.Digest.Count > 0 || DecisionCount(s) > 0;
 
-    /// <summary>Decisions that wait: an offer to answer or a government to form, plus running ultimatums.</summary>
+    /// <summary>Decisions that wait: an offer to answer or a government to form, running ultimatums and an unanswered proposal (decision 0014).</summary>
     public static int DecisionCount(Session s)
     {
         if (s.Politics is not { } pol) return 0;
         int n = 0;
         if (pol.Formation is { } f && (f.Offer != null || f.PlayerIsFormateur)) n++;
         n += pol.Ultimatums?.Count ?? 0;
+        n += pol.Proposals?.Count(p => p.Answer == null) ?? 0;
         return n;
     }
 
@@ -103,6 +104,11 @@ public static class TurnPopup
                 box.AddChild(open);
                 d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
                 d.Body.AddChild(Ui.Panel(box, "Inset"));
+            }
+            foreach (var p in pol.Proposals ?? Array.Empty<ProposalInfo>())
+            {
+                d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
+                d.Body.AddChild(ProposalCard(s, p));
             }
             if (pol.Ultimatums is { Count: > 0 } ultimatums)
                 foreach (var u in ultimatums)
@@ -166,6 +172,54 @@ public static class TurnPopup
         return d;
 
         void Done() { s.Digest.Clear(); d.Close(); }
+    }
+
+    /// <summary>
+    /// A proposal to support or oppose (decision 0014): who proposes what in shown units, what an answer means (fits / goes against the programme,
+    /// whether the player's seats decide), and Support / Oppose buttons that answer inline. <paramref name="refresh"/> redraws the host afterwards.
+    /// </summary>
+    public static Control ProposalCard(Session s, ProposalInfo p, Action? refresh = null)
+    {
+        var box = Ui.VBox(8);
+        Fill(s, p, box, refresh);
+        return Ui.Panel(box, "Inset");
+    }
+
+    private static void Fill(Session s, ProposalInfo p, VBoxContainer box, Action? refresh)
+    {
+        var t = s.T;
+        Ui.Clear(box);
+        var head = Ui.HBox(10);
+        head.AddChild(new PictoDisc(Icons.For(p.PolicyId), 30));
+        var (who, what) = s.Texts.Proposal(p);
+        var titles = Ui.VBox(2);
+        titles.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        titles.AddChild(Ui.PartyName(s, p.Proposer, who, Tx.Label));
+        titles.AddChild(Ui.L(Ui.Fix(what), Tx.BodyStrong, AppTheme.Ink, true));
+        head.AddChild(titles);
+        head.AddChild(Ui.Pill(t.T("ui.proposal.heading"), p.Fit > 1e-9 ? AppTheme.Good : p.Fit < -1e-9 ? AppTheme.Bad : AppTheme.Chrome));
+        box.AddChild(head);
+        var hints = s.Texts.ProposalHints(p);
+        for (int i = 0; i < hints.Count; i++)
+            box.AddChild(Ui.L(hints[i], i == 0 ? Tx.Body : Tx.Small, i == 0 ? (p.Fit > 1e-9 ? AppTheme.GoodText : p.Fit < -1e-9 ? AppTheme.BadText : AppTheme.Ink2) : AppTheme.Ink3, true));
+        if (p.Answer is { } answer)
+        {
+            box.AddChild(Ui.L(t.T(answer == Stance.Support ? "ui.proposal.answered_support" : "ui.proposal.answered_oppose"), Tx.BodyStrong, AppTheme.Ink2));
+            return;
+        }
+        void Answer(PlayerAction action, string ok)
+        {
+            if (!s.Do(action, ok)) return;
+            var now = s.Politics?.Proposals?.FirstOrDefault(x => x.Id == p.Id);
+            if (refresh != null) refresh();
+            else if (now != null && GodotObject.IsInstanceValid(box)) Fill(s, now, box, null);
+        }
+        var row = Ui.HBox(1);
+        var yes = Ui.Btn(t.T("ui.client.support"), () => Answer(new SupportProposal(p.Id), t.T("ui.proposal.ok_support", t.Name(p.PolicyId))), "", IconKind.Check, s.Texts.Explain("proposals"), false, 40);
+        var no = Ui.Btn(t.T("ui.client.oppose"), () => Answer(new OpposeProposal(p.Id), t.T("ui.proposal.ok_oppose", t.Name(p.PolicyId))), "ButtonSecondary", IconKind.Close, s.Texts.Explain("proposals"), false, 40);
+        yes.SizeFlagsHorizontal = no.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        row.AddChild(yes); row.AddChild(no);
+        box.AddChild(row);
     }
 
     private static string Shorten(string s)

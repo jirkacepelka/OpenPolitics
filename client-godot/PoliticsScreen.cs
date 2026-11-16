@@ -53,6 +53,7 @@ public sealed class PoliticsScreen : Screen
         bool majority = held > total * rules.MajorityFraction;
 
         Formation(s, pol, d.Body, main);
+        foreach (var p in pol.Proposals ?? Array.Empty<ProposalInfo>()) d.Body.AddChild(TurnPopup.ProposalCard(s, p, Rebuild));
 
         var grid = new FlowGrid { MinColumn = 330, MaxColumns = 3, Gap = 12 };
         // Parliament
@@ -147,7 +148,7 @@ public sealed class PoliticsScreen : Screen
         head.AddChild(new PictoDisc(IconKind.Arrows, 34));
         head.AddChild(Ui.L(t.T("ui.client.reshuffle"), Tx.Heading));
         box.AddChild(head);
-        box.AddChild(Ui.L(t.T("ui.client.reshuffle_hint"), Tx.Small, AppTheme.Ink2, true));
+        box.AddChild(Ui.L(t.T("ui.client.reshuffle_hint") + " " + s.Texts.Explain("reshuffle"), Tx.Small, AppTheme.Ink2, true));
         var info = pol.Reshuffle;
         if (info is { Queued: true })
         {

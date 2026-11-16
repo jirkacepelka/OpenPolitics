@@ -38,6 +38,8 @@ public static class Smoke
                 await Play(main, "base:cz_2015", "en", screenshots, "opposition");
                 main.StartGame("base:cz_2015", 11, "en");
                 await CostAndReshuffle(main, screenshots);
+                main.StartGame("base:cz_2015", 7, "en", "base:civic_right");
+                await ProposalPromiseProgram(main, screenshots);
             }
             GD.Print("SMOKE OK");
         }
@@ -279,6 +281,59 @@ public static class Smoke
             await Frame(main);
         }
         GD.Print($"smoke: {scenarioId} [{language}] ok, turn {s.Turn}");
+    }
+
+    /// <summary>
+    /// Decision 0014: as the opposition, wait for a proposal, answer it with the Support button in the briefing, make a promise once the election is
+    /// near, announce a policy proposal, and walk through the programme, promises and actions tabs of the party screen.
+    /// </summary>
+    private static async Task ProposalPromiseProgram(Main main, string? shots)
+    {
+        var s = main.Session!;
+        var t = s.T;
+        ProposalInfo? open = null;
+        for (int q = 0; q < 16 && open == null; q++)
+        {
+            s.EndQuarter();
+            main.CloseDialogs();
+            await Frame(main);
+            open = s.Politics?.Proposals?.FirstOrDefault(p => p.Answer == null);
+        }
+        if (open == null) throw new Exception("no proposal reached the opposition in 16 quarters");
+        if (TurnPopup.DecisionCount(s) < 1) throw new Exception("the open proposal is not counted as a decision");
+        main.PopupsEnabled = true;
+        main.ShowBriefing(force: true);
+        await Frames(main, 4);
+        if (shots != null) Shot(main, shots, "proposal-briefing");
+        var dlg = FindAll<Dialog>(main).LastOrDefault(d => d.Key == "briefing") ?? throw new Exception("no briefing");
+        var support = FindAll<IconTextButton>(dlg).FirstOrDefault(b => b.Text == t.T("ui.client.support")) ?? throw new Exception("no Support button in the briefing");
+        support.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (s.Politics?.Proposals?.FirstOrDefault(p => p.Id == open.Id)?.Answer != Stance.Support) throw new Exception("the proposal was not answered from the briefing");
+        if (shots != null) Shot(main, shots, "proposal-answered");
+        main.PopupsEnabled = false;
+        main.CloseDialogs();
+        main.Show(main.Screens.OfType<PoliticsScreen>().First());
+        await Frames(main, 2);
+        // a promise once the election is within reach
+        while (s.Politics!.TurnsToElection > PoliticsLimits.PromiseWindowTurns && !s.Finished) { s.EndQuarter(); main.CloseDialogs(); await Frame(main); }
+        var own = s.Packs.Parties.First(p => p.Id == s.Politics.PlayerParty);
+        var goal = own.Demands.FirstOrDefault(d => d.Kind == "value" && !OpenPolitics.Core.Presentation.Texts.IsMet(d, s.Country))
+            ?? own.Demands.First(d => !OpenPolitics.Core.Presentation.Texts.IsMet(d, s.Country));
+        if (!s.Do(new MakePromise(goal.Id))) throw new Exception("promise refused: " + s.Message);
+        if (s.Politics.Party!.PromiseDetails is not { Count: 1 }) throw new Exception("promise not shown");
+        if (!s.Do(new AnnouncePolicy("base:income_tax", 19))) GD.Print("smoke: note: announcement refused: " + s.Message);
+        var party = main.Screens.OfType<PartyScreen>().First();
+        foreach (var tab in new[] { 0, 1, 2, 4 })
+        {
+            typeof(PartyScreen).GetField("_tab", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(party, tab);
+            main.Open(party);
+            await Frames(main, 4);
+            if (Find<Dialog>(main) is not { } d || d.Body.GetChildCount() == 0) throw new Exception($"party tab {tab} is empty");
+            if (shots != null) Shot(main, shots, $"party0014-tab{tab}");
+        }
+        main.Open(null);
+        GD.Print($"smoke: proposal answered, promise '{goal.Id}' made, turn {s.Turn}");
     }
 
     private static void Check(bool ok, string what) { if (!ok) GD.Print("smoke: note: action refused: " + what); }
