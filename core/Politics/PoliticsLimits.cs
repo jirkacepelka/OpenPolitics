@@ -6,10 +6,14 @@ public static class PoliticsLimits
     /// <summary>Promises can be made this many turns before an election; each is judged at the election after the next term (decision 0015).</summary>
     public const int PromiseWindowTurns = 16;
 
-    /// <summary>Policy ids for the electoral rules (percent of the vote; 0 = D'Hondt, 1 = Sainte-Lague, 2 = Hare quota).</summary>
+    /// <summary>Policy ids for the electoral rules (percent of the vote; 0 = D'Hondt, 1 = Sainte-Lague, 2 = Hare quota).
+    /// The electoral system policy (decision 0017) picks the family: 0 = proportional, 1 = single-member districts (first past the post), 2 = single-member
+    /// districts with a runoff; the method policy then only matters for 0.</summary>
     public const string ThresholdPolicy = "base:electoral_threshold", MethodPolicy = "base:electoral_method";
 
     public static readonly string[] Methods = { "dhondt", "sainte_lague", "hare" };
+    public const string SystemPolicy = "base:electoral_system";
+    public static readonly string[] Systems = { "proportional", "fptp", "two_round" };
 
     /// <summary>At most this many promises in the window before each election (promises carried over from the previous one do not count; decision 0015).</summary>
     public const int MaxPromises = 2;

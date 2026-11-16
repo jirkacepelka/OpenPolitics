@@ -88,9 +88,9 @@ public sealed record CounterOfferAnswered(int Turn, string Formateur, bool Accep
 
 public abstract record PoliticalEvent(int Turn);
 
-/// <summary>An election took place: the votes (shares summing to 1) and the resulting seats.</summary>
+/// <summary>An election took place: the votes (shares summing to 1) and the resulting seats. Kind is the electoral system used ("proportional", "fptp", "two_round").</summary>
 public sealed record ElectionHeld(
-    int Turn, IReadOnlyDictionary<string, double> Votes, IReadOnlyDictionary<string, int> Seats) : PoliticalEvent(Turn);
+    int Turn, IReadOnlyDictionary<string, double> Votes, IReadOnlyDictionary<string, int> Seats, string Kind = "proportional") : PoliticalEvent(Turn);
 
 public sealed record FormationStarted(int Turn, string Formateur) : PoliticalEvent(Turn);
 public sealed record FormationFailed(int Turn, string Formateur) : PoliticalEvent(Turn);

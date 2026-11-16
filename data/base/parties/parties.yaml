@@ -124,6 +124,7 @@
     - {id: conservatives, weight: 0.5, platform: {base:police: 2.5, base:migration: 2}}
 - id: base:peoples_union
   platform:
+    base:electoral_system: {target: 0, weight: 0.3}
     base:pensions: {target: 11, weight: 0.8}
     base:health_spending: {target: 8, weight: 0.5}
     base:vat: {target: 11, weight: 0.4}
@@ -156,6 +157,7 @@
     - {id: lower_crime, kind: value, value: base:crime, op: "<=", target: 2650, weight: 1.5, due_turns: 16}
     - {id: better_health, kind: value, value: base:health, op: ">=", target: 72, weight: 1, due_turns: 16}
   red_lines:
+    - {policy: base:electoral_system, op: ">=", threshold: 1}   # a small party cannot live with winner-takes-all districts (decision 0017)
     - {policy: base:vat, op: ">=", threshold: 18}
     - {policy: base:pensions, op: "<=", threshold: 7}
   factions:
@@ -163,6 +165,7 @@
     - {id: traditionalists, weight: 0.5, platform: {base:migration: 1}}
 - id: base:workers_left
   platform:
+    base:electoral_system: {target: 0, weight: 0.3}
     base:income_tax: {target: 30, weight: 0.6}
     base:corporate_tax: {target: 8, weight: 0.7}
     base:social_benefits: {target: 12, weight: 0.8}
@@ -198,6 +201,7 @@
     - {id: fair_seats, kind: policy, policy: base:electoral_method, op: ">=", target: 1, weight: 1, due_turns: 12}
     - {id: less_inequality, kind: value, value: base:inequality, op: "<=", target: 24, weight: 2.5, due_turns: 16}
   red_lines:
+    - {policy: base:electoral_system, op: ">=", threshold: 1}   # a small party cannot live with winner-takes-all districts (decision 0017)
     - {policy: base:social_benefits, op: "<=", threshold: 6}
     - {policy: base:corporate_tax, op: "<=", threshold: 2}
     - {policy: base:labour_flexibility, op: ">=", threshold: 8}
@@ -206,6 +210,7 @@
     - {id: pragmatists, weight: 0.6, platform: {base:corporate_tax: 6}}
 - id: base:homeland_first
   platform:
+    base:electoral_system: {target: 0, weight: 0.3}
     base:migration: {target: 0.5, weight: 1.0}
     base:police: {target: 2.5, weight: 0.8}
     base:pensions: {target: 11, weight: 0.4}
@@ -237,12 +242,14 @@
     - {id: strict_drugs, kind: policy, policy: base:drug_policy, op: "<=", target: 2, weight: 1, due_turns: 12}
     - {id: lower_crime, kind: value, value: base:crime, op: "<=", target: 2600, weight: 2, due_turns: 16}
   red_lines:
+    - {policy: base:electoral_system, op: ">=", threshold: 1}   # a small party cannot live with winner-takes-all districts (decision 0017)
     - {policy: base:migration, op: ">=", threshold: 5}
   factions:
     - {id: hardliners, weight: 0.5, platform: {base:migration: 0}}
     - {id: moderates, weight: 0.5, platform: {base:migration: 1.5}}
 - id: base:green_wave
   platform:
+    base:electoral_system: {target: 0, weight: 0.3}
     base:environment_regulation: {target: 8, weight: 1.0}
     base:education_spending: {target: 6, weight: 0.5}
     base:research: {target: 2, weight: 0.5}
@@ -279,6 +286,7 @@
     - {id: greener, kind: value, value: base:environment, op: ">=", target: 58, weight: 2.5, due_turns: 16}
     - {id: better_education, kind: value, value: base:education_level, op: ">=", target: 62, weight: 1, due_turns: 16}
   red_lines:
+    - {policy: base:electoral_system, op: ">=", threshold: 1}   # a small party cannot live with winner-takes-all districts (decision 0017)
     - {policy: base:environment_regulation, op: "<=", threshold: 2.5}
     - {policy: base:energy_mix, op: "<=", threshold: 2}
   factions:
@@ -287,6 +295,7 @@
 - id: base:open_net
   swing: true
   platform:
+    base:electoral_system: {target: 0, weight: 0.3}
     base:education_spending: {target: 6, weight: 0.6}
     base:research: {target: 2.5, weight: 0.7}
     base:administration: {target: 3.5, weight: 0.6}
@@ -321,6 +330,7 @@
     - {id: low_threshold, kind: policy, policy: base:electoral_threshold, op: "<=", target: 3, weight: 2, due_turns: 12}
     - {id: better_education, kind: value, value: base:education_level, op: ">=", target: 62, weight: 2, due_turns: 16}
   red_lines:
+    - {policy: base:electoral_system, op: ">=", threshold: 1}   # a small party cannot live with winner-takes-all districts (decision 0017)
     - {policy: base:research, op: "<=", threshold: 0.5}
     - {policy: base:surveillance, op: ">=", threshold: 7}
   factions:

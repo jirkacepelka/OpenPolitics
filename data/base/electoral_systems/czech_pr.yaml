@@ -4,3 +4,16 @@
   seats: 200
   method: dhondt
   threshold: 0.05
+# Majority systems (decision 0017): 200 single-member districts, simulated inside the core (no map). Illustrative parameters.
+- id: base:czech_fptp
+  type: fptp
+  seats: 200
+  spread: 0.40      # how much a party's local vote scatters around its national share (stronghold / desert)
+  strategic: 0.30   # share of voters who desert a candidate who cannot win
+- id: base:czech_two_round
+  type: two_round
+  seats: 200
+  spread: 0.40
+  strategic: 0.08
+  runoff_top: 2     # the two best advance when nobody has more than half
+  abstain: 0.12     # share of an eliminated candidate's voters who stay home in the runoff

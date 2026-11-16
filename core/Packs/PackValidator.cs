@@ -117,8 +117,16 @@ public static class PackValidator
 
         foreach (var s in set.ElectoralSystems)
         {
-            if (s.Type != "proportional") err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' has unknown type '{s.Type}' (known: proportional).");
-            if (s.Method != "dhondt") err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' has unknown method '{s.Method}' (known: dhondt).");
+            if (s.Type is not ("proportional" or "fptp" or "two_round")) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' has unknown type '{s.Type}' (known: proportional, fptp, two_round).");
+            if (s.Type == "proportional" && s.Method != "dhondt") err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' has unknown method '{s.Method}' (known: dhondt).");
+            if (s.Type != "proportional")
+            {
+                if (!(s.Spread >= 0 && s.Spread <= 2)) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' spread {s.Spread} must be in [0, 2].");
+                if (!(s.Strategic >= 0 && s.Strategic <= 1)) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' strategic {s.Strategic} must be in [0, 1].");
+                if (!(s.Abstain >= 0 && s.Abstain <= 1)) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' abstain {s.Abstain} must be in [0, 1].");
+                if (s.RunoffTop < 2 || s.RunoffTop > 4) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' runoff_top {s.RunoffTop} must be 2-4.");
+                if (!(s.RunoffMinShare >= 0 && s.RunoffMinShare < 0.5)) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' runoff_min_share {s.RunoffMinShare} must be in [0, 0.5).");
+            }
             if (s.Seats < 1) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' needs seats >= 1.");
             if (!(s.Threshold >= 0 && s.Threshold < 1)) err("E007", "electoral_system", s.Id, $"Electoral system '{s.Id}' threshold {s.Threshold} must be in [0, 1).");
         }

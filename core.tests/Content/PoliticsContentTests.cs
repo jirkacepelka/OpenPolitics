@@ -30,7 +30,7 @@ public class PoliticsContentTests
             Assert.InRange(p.Platform.Count, 3, 25); // decision 0014 broadened the programmes (ProgramTests: 15 to 25)
             Assert.Equal(Packs.VoterGroups.Count, p.Affinity.Count);
             Assert.InRange(p.Demands.Count, 3, 12);
-            Assert.InRange(p.RedLines.Count, 1, 3);
+            Assert.InRange(p.RedLines.Count, 1, 4); // decision 0017: small parties also refuse winner-takes-all districts
         }
     }
 

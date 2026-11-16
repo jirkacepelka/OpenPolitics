@@ -20,7 +20,7 @@
       - {id: base:ministry_labour, value: 2.5, policies: [base:pensions, base:social_benefits, base:minimum_wage, base:retirement_age, base:labour_flexibility, base:active_labour_policy, base:family_allowances, base:childcare]}
       - {id: base:ministry_health, value: 2, policies: [base:health_spending, base:drug_policy]}
       - {id: base:ministry_education, value: 2, policies: [base:education_spending, base:research, base:university_fees, base:culture_sport]}
-      - {id: base:ministry_interior, value: 2, policies: [base:police, base:migration, base:surveillance, base:electoral_threshold, base:electoral_method]}
+      - {id: base:ministry_interior, value: 2, policies: [base:police, base:migration, base:surveillance, base:electoral_threshold, base:electoral_method, base:electoral_system]}
       - {id: base:ministry_industry, value: 1.5, policies: [base:business_regulation, base:energy_mix, base:digital_infrastructure, base:administration]}
       - {id: base:ministry_environment, value: 1.5, policies: [base:environment_regulation, base:green_subsidies]}
       - {id: base:ministry_regional, value: 1.5, policies: [base:infrastructure, base:public_transport, base:housing_support, base:rent_control, base:rural_development]}

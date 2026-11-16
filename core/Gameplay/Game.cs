@@ -258,6 +258,9 @@ public sealed class Game
 
     public double? ElectoralThreshold => _politics?.CurrentThreshold;
 
+    /// <summary>"proportional", "fptp" or "two_round": the kind of electoral system at the next election (null without politics; decision 0017).</summary>
+    public string? ElectoralKind => _politics?.ElectoralKind;
+
     public TurnReport EndTurn()
     {
         var warnings = new List<string>();

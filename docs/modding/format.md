@@ -9,7 +9,7 @@ my-pack/
   values/*.yaml  policies/*.yaml  edges/*.yaml  voter_groups/*.yaml
   events/*.yaml  countries/*.yaml  scenarios/*.yaml
   localization/cs.yaml  localization/en.yaml
-  electoral_systems/    (reserved for a later milestone, not read yet)
+  electoral_systems/    proportional and majority systems (decision 0017)
 ```
 
 Each folder holds YAML files that are lists of entries. Ids are namespaced: `pack:name` (`base:gdp`, `mymod:wealth_tax`).
@@ -249,3 +249,19 @@ criticises what got worse, promises its goals, courts a partner before elections
 prints the player's poll every four quarters (mean over the games), the elections where the player's party won the most votes and the governments
 it led. Since decision 0015 a promise made before an election is judged at the election after the next term, and announcing and proposing a
 policy are one action (`propose_policy`; `announce_policy` in a save is read as the same action).
+
+
+## Electoral systems (`electoral_systems/`)
+
+Each entry has `id`, `type` and `seats`. `type: proportional` also takes `method` (`dhondt`) and `threshold` (0..1). The majority systems
+(decision 0017) need no map: `seats` is the number of single-member districts and the districts are simulated inside the core.
+
+| `type` | Meaning | Extra fields |
+|---|---|---|
+| `fptp` | each district goes to the candidate with most votes | `spread` (0..2, default 0.35: how much a party's local vote scatters around its national share; high = strongholds), `strategic` (0..1: share of voters who desert a hopeless candidate) |
+| `two_round` | a district is won with more than half of the votes, else the best `runoff_top` (2..4, default 2) meet in a runoff | `spread`, `strategic`, `runoff_min_share` (0..0.5), `abstain` (0..1, default 0.1: share of an eliminated candidate's voters who stay home) |
+
+The country's `electoral_system` names the default system. The policy `base:electoral_system` (0 proportional, 1 `fptp`, 2 `two_round`) switches
+the family at the next election and uses the first system of that type in the pack; `electoral_threshold` and `electoral_method` only matter for
+proportional elections. A scenario can start in a majority system with `start_policies: {base:electoral_system: 1}` (`cz_2015_districts`,
+`cz_2015_runoff`).

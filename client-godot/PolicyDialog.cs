@@ -187,7 +187,7 @@ public static class PolicyDialog
             var sliderCol = Ui.VBox(6);
             var slider = new PolicySlider { Editable = blocked == null, Format = v => Fmt.Policy(p, v, t) };
             if (p.Unit == "index") slider.Format = v => Ui.Num(v) + " /" + Ui.Num(p.Max, "0");
-            double step = p.Unit == "electoral_method" ? 1 : Math.Max((p.Max - p.Min) / 200.0, 0.05);
+            double step = p.Unit is "electoral_method" or "electoral_system" ? 1 : Math.Max((p.Max - p.Min) / 200.0, 0.05);
             if (p.Max - p.Min >= 20) step = Math.Max(step, 0.5);
             slider.Configure(p.Min, p.Max, step, now, queued?.Value, target);
             sliderCol.AddChild(slider);

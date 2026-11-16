@@ -19,7 +19,7 @@ public class ContentBreadthTests
     {
         var fromEdges = Packs.Edges.Select(e => e.From).ToHashSet();
         foreach (var p in Packs.Policies)
-            Assert.True(fromEdges.Contains(p.Id) || p.CostPerUnit != 0 || p.RevenueBaseValueId != null || p.Unit is "electoral_method" || p.Id == "base:electoral_threshold", $"{p.Id} does nothing");
+            Assert.True(fromEdges.Contains(p.Id) || p.CostPerUnit != 0 || p.RevenueBaseValueId != null || p.Unit is "electoral_method" or "electoral_system" || p.Id == "base:electoral_threshold", $"{p.Id} does nothing");
     }
 
     [Fact]

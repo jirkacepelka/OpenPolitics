@@ -20,6 +20,7 @@ internal sealed class PoliticsEngine
     private readonly Dictionary<string, double> _ranges;
     private readonly SupportModel _support;
     private readonly ElectoralSystemDef _electoralDef;
+    private readonly PackSet _packs;
     private readonly Pcg32 _rng;
     private readonly Func<string, string, double> _lookup; // current value of (kind, subject): "policy" or "value"
     private readonly double _dt;
@@ -101,6 +102,7 @@ internal sealed class PoliticsEngine
         _player = playerParty ?? _scenario.PlayerParty;
         _rules = country.Politics!;
         _portfolios = (_rules.Portfolios ?? Array.Empty<PortfolioDef>()).ToList();
+        _packs = packs;
         _lookup = lookup;
         _dt = 1.0 / turnsPerYear;
         _groups = packs.VoterGroups;
@@ -138,10 +140,26 @@ internal sealed class PoliticsEngine
         ResetLoyalty();
     }
 
-    /// <summary>The electoral rules in force: the country's system, with threshold and method taken from the policies when the pack has them.</summary>
+    /// <summary>
+    /// The electoral rules in force: the country's system, with threshold and method taken from the policies when the pack has them. The system
+    /// policy picks the family (decision 0017: proportional, single-member districts, districts with a runoff); a pack without a system of that
+    /// kind keeps the country's own.
+    /// </summary>
     private ElectoralSystemDef CurrentRules()
     {
         var def = _electoralDef;
+        string family = "proportional";
+        if (_policyDefs.ContainsKey(PoliticsLimits.SystemPolicy))
+        {
+            int s = (int)Math.Round(_lookup("policy", PoliticsLimits.SystemPolicy), MidpointRounding.AwayFromZero);
+            family = PoliticsLimits.Systems[Math.Clamp(s, 0, PoliticsLimits.Systems.Length - 1)];
+        }
+        if (family != "proportional")
+        {
+            var majority = _packs.ElectoralSystems.FirstOrDefault(e => e.Type == family);
+            if (majority != null) return majority;
+        }
+        if (def.Type != "proportional") def = _packs.ElectoralSystems.FirstOrDefault(e => e.Type == "proportional") ?? def;
         if (_policyDefs.ContainsKey(PoliticsLimits.ThresholdPolicy))
             def = def with { Threshold = Math.Clamp(_lookup("policy", PoliticsLimits.ThresholdPolicy) / 100.0, 0.0, 0.10) };
         if (_policyDefs.ContainsKey(PoliticsLimits.MethodPolicy))
@@ -152,7 +170,20 @@ internal sealed class PoliticsEngine
         return def;
     }
 
-    private IElectoralSystem CurrentSystem() => ElectoralSystems.Create(CurrentRules());
+    private IElectoralSystem CurrentSystem()
+    {
+        var rules = CurrentRules();
+        if (rules.Type == "proportional") return ElectoralSystems.Create(rules);
+        var at = Compass();
+        return ElectoralSystems.Create(rules, (a, b) =>
+        {
+            if (!at.TryGetValue(a, out var pa) || !at.TryGetValue(b, out var pb)) return 1.0;
+            return Math.Sqrt((pa.X - pb.X) * (pa.X - pb.X) + (pa.Y - pb.Y) * (pa.Y - pb.Y));
+        });
+    }
+
+    /// <summary>"proportional", "fptp" or "two_round": the kind of electoral system in force at the next election.</summary>
+    public string ElectoralKind => CurrentRules().Type;
 
     public double CurrentThreshold => CurrentRules().Threshold;
 
@@ -894,7 +925,7 @@ internal sealed class PoliticsEngine
         else foreach (var id in votes.Keys.ToList()) votes[id] /= total;
         _votes = votes;
         _seats = CurrentSystem().Allocate(votes);
-        events.Add(new ElectionHeld(turn, Sorted(votes), Sorted(_seats)));
+        events.Add(new ElectionHeld(turn, Sorted(votes), Sorted(_seats), CurrentRules().Type));
         _turnsToElection = _rules.ElectionIntervalTurns;
 
         BeginFormation(turn, events, null);

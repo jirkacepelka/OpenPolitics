@@ -462,7 +462,7 @@ public sealed class PlayLoop
             string votes = Fmt.Number(e.Votes[id] * 100) + " %";
             _out.WriteLine("  " + (seats > 0
                 ? _t.T("ui.politics.result_line", _t.Name(id), seats, votes)
-                : _t.T("ui.politics.result_out", _t.Name(id), votes)));
+                : _t.T(e.Kind == "proportional" ? "ui.politics.result_out" : "ui.politics.result_out_districts", _t.Name(id), votes)));
         }
     }
 

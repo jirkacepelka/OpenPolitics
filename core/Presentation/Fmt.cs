@@ -25,6 +25,7 @@ public static class Fmt
         "nominal_spending" when l.NominalGdp > 0 => Amount(v / 100.0 * l.NominalGdp, l),
         "tax_rate" or "nominal_spending" => $"{v.ToString("0.0", Inv)} {l.T("ui.unit.gdp_share")}",
         "percent" => $"{v.ToString("0.0", Inv)} %",
+        "electoral_system" => l.T("ui.system." + Math.Clamp((int)Math.Round(v, MidpointRounding.AwayFromZero), 0, 2)),
         "electoral_method" => l.T("ui.method." + Math.Clamp((int)Math.Round(v, MidpointRounding.AwayFromZero), 0, 2)),
         _ => v.ToString("0.0", Inv),
     };

@@ -13,3 +13,10 @@
   max: 2
   default: 0
   delay_turns: 4
+- id: base:electoral_system
+  capital_cost: 1.5   # a regime change: about 17 points for a step, so some quarters of saving (decision 0017)
+  unit: electoral_system   # 0 = proportional, 1 = single-member districts (first past the post), 2 = single-member districts with a runoff
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 4

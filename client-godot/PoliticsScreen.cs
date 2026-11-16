@@ -88,7 +88,8 @@ public sealed class PoliticsScreen : Screen
         // Polls
         var polls = Ui.VBox(4);
         double max = Math.Max(0.3, pol.Support.Values.DefaultIfEmpty(0).Max());
-        double threshold = s.Game.ElectoralThreshold ?? 0;
+        string kind = s.Game.ElectoralKind ?? "proportional";
+        double threshold = kind == "proportional" ? s.Game.ElectoralThreshold ?? 0 : 0;
         foreach (var (id, share) in pol.Support.OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal))
         {
             var row = Ui.HBox(8);
@@ -108,6 +109,7 @@ public sealed class PoliticsScreen : Screen
             polls.AddChild(PartyButton(main, id, row));
         }
         if (threshold > 0) polls.AddChild(Ui.L(t.T("ui.pp.threshold", Ui.Num(threshold * 100, "0.#")), Tx.Small));
+        else if (kind != "proportional") polls.AddChild(Ui.L(t.T("ui.pp.districts", t.T("ui.system." + (kind == "fptp" ? 1 : 2))), Tx.Small));
         if (Charts.All.FirstOrDefault(c => c.Id == "polls") is { } pspec)
         {
             var b = Ui.Btn(t.T("ui.map.open_chart"), () => main.OpenChart(pspec), "ButtonSecondary", IconKind.Chart);

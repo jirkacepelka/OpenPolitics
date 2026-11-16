@@ -459,7 +459,8 @@ public static class PackReader
     }
 
     private static ElectoralSystemDef? ReadElectoralSystem(Fields f, string file) =>
-        new(f.Str("id"), f.Str("type"), f.Int("seats"), f.Str("method", "dhondt"), f.Num("threshold", 0), file);
+        new(f.Str("id"), f.Str("type"), f.Int("seats"), f.Str("method", "dhondt"), f.Num("threshold", 0), file,
+            f.Num("spread", 0.35), f.Num("strategic", 0.0), f.Int("runoff_top", 2), f.Num("runoff_min_share", 0.0), f.Num("abstain", 0.10));
 
     private static PartyDef? ReadParty(Fields f, string file)
     {

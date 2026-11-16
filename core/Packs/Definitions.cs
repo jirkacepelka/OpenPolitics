@@ -56,7 +56,15 @@ public sealed record PartyDef(
     IReadOnlyList<DemandDef> Demands, IReadOnlyList<RedLineDef> RedLines,
     double Price, IReadOnlyList<FactionDef> Factions, string Source);
 
-public sealed record ElectoralSystemDef(string Id, string Type, int Seats, string Method, double Threshold, string Source);
+/// <summary>
+/// Type "proportional" (Seats, Method, Threshold) or the majority systems "fptp" (single-member districts, plurality) and "two_round" (a runoff
+/// when nobody has more than half). For those Seats is the number of single-member districts; the districts are simulated inside the core
+/// (decision 0017): Spread is how much a party's local vote varies from its national share, Strategic the share of voters who desert a hopeless
+/// candidate, RunoffTop how many candidates reach the second round (RunoffMinShare: each needs this much of the first-round vote), Abstain the share
+/// of an eliminated candidate's voters who stay home in the second round.
+/// </summary>
+public sealed record ElectoralSystemDef(string Id, string Type, int Seats, string Method, double Threshold, string Source,
+    double Spread = 0.35, double Strategic = 0.0, int RunoffTop = 2, double RunoffMinShare = 0.0, double Abstain = 0.10);
 
 public sealed record CountryPoliticsDef(
     string ElectoralSystem, int ElectionIntervalTurns, double MajorityFraction,

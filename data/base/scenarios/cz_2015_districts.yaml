@@ -1,0 +1,26 @@
+# Same start as cz_2015, but elections are held in single-member districts, plurality (decision 0017).
+- id: base:cz_2015_districts
+  country: base:czechia
+  start_year: 2015
+  turns_per_year: 4
+  start_policies:
+    base:electoral_system: 1
+  politics:
+    player_party: base:social_alliance
+    support:
+      base:citizens_movement: 0.30
+      base:social_alliance: 0.17
+      base:civic_right: 0.13
+      base:peoples_union: 0.09
+      base:workers_left: 0.12
+      base:homeland_first: 0.07
+      base:green_wave: 0.06
+      base:open_net: 0.06
+    government: [base:social_alliance, base:peoples_union, base:citizens_movement]
+    leader: base:social_alliance
+    turns_to_election: 12
+    # The starting coalition agreement: what the partners were promised (baselines are the starting policy settings).
+    agreements:
+      - {party: base:citizens_movement, demand: infrastructure}
+      - {party: base:citizens_movement, demand: lean_state}
+      - {party: base:peoples_union, demand: pensions}
