@@ -12,7 +12,7 @@ name.base:spending: Government spending
 name.base:price_level: Price level
 name.base:gdp_nominal: Nominal GDP
 name.base:real_growth: Real GDP growth
-name.base:deficit_pct: Budget deficit (% of GDP)
+name.base:deficit_pct: "Deficit / surplus (% of GDP)"
 name.base:health: Public health
 name.base:education_level: Education level
 name.base:crime: Crime
@@ -476,7 +476,7 @@ ui.client.threshold: "Electoral threshold"
 ui.client.threshold_hint: "Share of the vote a party needs to win seats (0 to 10 %). A low threshold fragments parliament; a high one favours big parties."
 
 # --- Client map and HUD ---
-ui.chart.deficit_short: "Deficit"
+ui.chart.deficit_short: "Deficit / surplus"
 ui.map.taxes: "Taxes"
 ui.map.spending: "Spending"
 ui.map.regulation: "Regulation"
@@ -778,7 +778,7 @@ ui.explain.organisation: "How well your party is organised (0–100 %). It raise
 ui.explain.credibility: "How much voters trust your programme (0–100 %). With cohesion it scales how strongly your positions attract voters (half of that appeal depends on it). It recovers by {0} points a year. It falls when you shift a position (up to {1} points for a shift over the whole range), change a priority, break a promise while governing (−{2}), leave a coalition (−{3}), lose a no-confidence vote, answer or announce against your programme, or gain fiscal blame. A promise kept while governing gives +{4}."
 ui.explain.cohesion: "How united your factions are behind the platform (0–100 %): one minus their average distance from it. Voters see credibility × cohesion, so a split party attracts less. It changes only when you shift positions your factions care about."
 ui.explain.relations: "How other parties see you (0–1, neutral {0}). Good relations lower the price a party asks in coalition talks (by up to half), make you a likelier partner, help your proposals with the leader, decide who backs your no-confidence vote (from 0.4) and, as a partner, bring up to ±{1} capital a quarter. Court: +{2} for {3} capital. Relations drift back toward {0} by {4} a quarter."
-ui.explain.fiscal_blame: "How much voters blame your party for the deficit. While the deficit rises, the government's leader gains {0} point of blame per point of GDP and each partner {1}; while it falls under a government, its parties shed blame at the same rate. Blame halves every {2} quarters. Each point costs your voters' warmth ({3} in the poll, at most {4}) and, when gained, {5} credibility. In opposition you neither gain nor shed it: the party that ran up a deficit keeps paying, the one that cleans it up carries none."
+ui.explain.fiscal_blame: "How much voters blame your party for the deficit. It is measured from the start of this government, and only when the budget goes into deficit above the level the government inherited (a surplus counts as zero): for every point the deficit rises above that level, the leader gains {0} point of blame and each partner {1}, times a severity of 1 + deficit / {7} (at most {8}) - so pushing an already high deficit higher weighs much more. Nothing is gained in surplus, at or below the inherited deficit, or while the deficit falls. While it falls or stays at or below the inherited level, the government's parties shed blame (at least {6} points a quarter for the leader at or below that level). Blame halves every {2} quarters. Each point costs your voters' warmth ({3} in the poll, at most {4}) and, when gained, {5} credibility. In opposition you neither gain nor shed it: the party that ran up a deficit keeps paying, the one that cleans it up carries none."
 ui.explain.campaign: "Campaign: {0} capital per level (1–3). The chosen voter group warms to you by {1} per level, twice as much in the last {2} quarters before an election. Warmth halves every {3} quarters."
 ui.explain.organise: "Organise: {0} capital for +{1} points of organisation (more capital income and turnout; organisation falls by {2} point a quarter)."
 ui.explain.court: "Court a party: {0} capital, relation +{1} (it drifts back toward the neutral value)."
@@ -861,3 +861,9 @@ ui.end.good_opposition: "The government's record is strong: a hard time for the 
 ui.end.ok_opposition: "A mixed record for the government: the next election is open."
 ui.end.bad_opposition: "Voters are fed up with the government: a real chance for the opposition."
 ui.end.good_partner: "A strong record for the government you sit in. Voters would send it back."
+ui.voters.support: "vote for you: {0} % ({1} pts)"
+ui.voters.support_hint: "The bar is each group's mood about the country; 'vote for you' is the share that would vote for {0} now and its change since last quarter."
+ui.fig.surplus: "Surplus"
+ui.bp.surplus_note: "income minus spending and interest: the budget is in surplus"
+ui.party.fiscal_blame_sub: "costs {0} % of your voters' warmth; counted from the start of this government, only above the deficit it inherited"
+ui.party.fiscal_blame_none: "counted from the start of this government, only when the deficit rises above the level it inherited"

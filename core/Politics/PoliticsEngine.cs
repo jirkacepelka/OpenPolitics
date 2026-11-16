@@ -43,6 +43,14 @@ internal sealed class PoliticsEngine
     /// <summary>Decision 0014 (e): how much voters blame each party for the deficit it ran up in government.</summary>
     private readonly SortedDictionary<string, double> _fiscalBlame = new(Ord);
     private double _lastDeficit;
+    /// <summary>Decision 0015 (7): the deficit (surplus = 0) each party inherited when it entered the current government; blame is measured from it.</summary>
+    private readonly SortedDictionary<string, double> _deficitBaseline = new(Ord);
+
+    private void SetBaseline(IEnumerable<string> parties)
+    {
+        double d = _lookup("value", "base:deficit_pct");
+        foreach (var p in parties) _deficitBaseline[p] = double.IsFinite(d) ? Math.Max(0.0, d) : 0.0;
+    }
     private static readonly double GrudgeDecay = DetMath.Pow(0.5, 1.0 / 8.0); // half-life of 8 turns
 
     private double Resent(string a, string b) => _grudge.GetValueOrDefault(a + "|" + b);
@@ -122,6 +130,7 @@ internal sealed class PoliticsEngine
         _votes = _poll;
         _turnsToElection = _scenario.TurnsToElection;
         _lastDeficit = lookup("value", "base:deficit_pct");
+        SetBaseline(_government.Parties);
         ResetLoyalty();
     }
 
@@ -268,7 +277,7 @@ internal sealed class PoliticsEngine
         double deficit = _lookup("value", "base:deficit_pct"), before = _fiscalBlame.GetValueOrDefault(Player);
         if (!double.IsFinite(deficit)) deficit = _lastDeficit;
         bool sitting = _phase == Phase.Governing;
-        FiscalBlame.Step(_fiscalBlame, sitting ? _government.Leader : null, sitting ? _government.Parties : Array.Empty<string>(), deficit - _lastDeficit);
+        FiscalBlame.Step(_fiscalBlame, sitting ? _government.Leader : null, sitting ? _government.Parties : Array.Empty<string>(), _deficitBaseline, _lastDeficit, deficit);
         _lastDeficit = deficit;
         double gained = _fiscalBlame.GetValueOrDefault(Player) - before;
         if (gained > 0) _credibility = Math.Max(0.0, _credibility - FiscalBlame.CredibilityPerPoint * gained);
@@ -296,6 +305,7 @@ internal sealed class PoliticsEngine
     }
 
     private double _income;
+
 
     /// <summary>A happy coalition is worth political capital, an unhappy one costs it (up to <see cref="PoliticsLimits.CoalitionIncome"/> per turn either way).</summary>
     private double CoalitionCapitalBonus()
@@ -935,6 +945,7 @@ internal sealed class PoliticsEngine
         }
         var parties = new[] { proposal.Formateur }.Concat(proposal.Partners).Distinct(Ord).OrderBy(x => x, Ord).ToList();
         _government = new Government(proposal.Formateur, parties, commitments, turn);
+        SetBaseline(parties); // a new government is measured from the deficit it inherits
         _phase = Phase.Governing;
         _offer = null;
         _caretakerLeft = 0;
@@ -1376,6 +1387,7 @@ internal sealed class PoliticsEngine
         }
         var parties = _government.Parties.Concat(added).Distinct(Ord).OrderBy(x => x, Ord).ToList();
         _government = new Government(_government.Leader, parties, commitments, _government.FormedTurn);
+        SetBaseline(added);
         foreach (var p in added.Where(p => p != Player))
         {
             _nextDemand[p] = 6 + _rng.NextInt(5);

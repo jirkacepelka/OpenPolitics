@@ -131,7 +131,10 @@ public sealed class BudgetScreen : Screen
         }
         // decision 0015: the deficit once, as in the top bar (positive = deficit), not a balance with the opposite sign beside it
         if (v.TryGetValue("base:deficit_pct", out var deficit))
-            Tile(t.T("ui.fig.deficit"), Ui.Num(deficit), t.T("ui.unit.gdp_short"), deficit > 3 ? AppTheme.BadText : deficit <= 0 ? AppTheme.GoodText : null, t.T("ui.bp.deficit_note"));
+        {
+            if (deficit < 0) Tile(t.T("ui.fig.surplus"), Ui.Num(-deficit), t.T("ui.unit.gdp_short"), AppTheme.GoodText, t.T("ui.bp.surplus_note"));
+            else Tile(t.T("ui.fig.deficit"), Ui.Num(deficit), t.T("ui.unit.gdp_short"), deficit > 3 ? AppTheme.BadText : null, t.T("ui.bp.deficit_note"));
+        }
         if (f.DebtPercentOfGdp is { } debt) Tile(t.T("ui.fig.debt"), Ui.Num(debt, "0"), t.T("ui.unit.gdp_short"), debt > 60 ? AppTheme.BadText : null);
         d.Body.AddChild(tiles);
 

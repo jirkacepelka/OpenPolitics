@@ -218,3 +218,8 @@ Politics strategies: `ignorer`, `keeper` (delivers the coalition agreement), `ra
 Since decision 0014 every strategy but `ignorer` answers proposals (keeper supports unless clearly against its programme and never blocks with
 pivotal seats; reformer and activist follow the programme; random flips a coin; extreme opposes), and reformer and activist announce their
 platform positions outside the lead. The report also counts proposals and announcements.
+Decision 0015 adds `challenger` (an opposition party that campaigns among its core voter groups, proposes the platform positions they like,
+criticises what got worse, promises its goals, courts a partner before elections and governs like the reformer once it leads), and the report
+prints the player's poll every four quarters (mean over the games), the elections where the player's party won the most votes and the governments
+it led. Since decision 0015 a promise made before an election is judged at the election after the next term, and announcing and proposing a
+policy are one action (`propose_policy`; `announce_policy` in a save is read as the same action).

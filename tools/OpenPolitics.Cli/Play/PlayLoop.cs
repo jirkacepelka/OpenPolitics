@@ -852,8 +852,12 @@ public sealed class PlayLoop
         foreach (var g in _packs.VoterGroups.OrderByDescending(g => g.Size).ThenBy(g => g.Id, StringComparer.Ordinal))
         {
             double s = Current.Satisfaction.GetValueOrDefault(g.Id);
-            _out.WriteLine($"  {_t.Name(g.Id),-32}{Fmt.Number(g.Size * 100, "0"),3} %  {MoodLabel(s),-11} {Fmt.Bar(s)}");
+            // decision 0015: besides the mood about the country, how many in the group would vote for the player's party (and the change)
+            string support = Current.Politics?.Party is { GroupSupport: { } gs } ps && gs.TryGetValue(g.Id, out var now)
+                ? $"  {_t.T("ui.voters.support", Fmt.Number(now * 100, "0.0"), Texts.Points(100 * (now - (ps.GroupSupportPrev?.GetValueOrDefault(g.Id, now) ?? now))))}" : "";
+            _out.WriteLine($"  {_t.Name(g.Id),-32}{Fmt.Number(g.Size * 100, "0"),3} %  {MoodLabel(s),-11} {Fmt.Bar(s)}{support}");
         }
+        if (Current.Politics is { } pol) _out.WriteLine("  " + _t.T("ui.voters.support_hint", _t.Name(pol.PlayerParty)));
     }
 
     private void ShowValues()

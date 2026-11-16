@@ -32,7 +32,9 @@ drawn in code; the only bundled asset is the Inter font.
   Menu) and the violet **Play** button (End quarter) with a narrow **x4** for four quarters. Play turns orange while an offer waits for
   your answer and then opens the briefing instead.
 - **Popularity panel** (left, graphite): overall approval, a sort strip (name / size / happiness), every voter group with a happiness bar
-  and a lighter band for its share of the electorate. Click a group to turn the map into its lens (what it cares about is coloured by how
+  and a lighter band for its share of the electorate. A **Mood / Support for <party>** toggle (decision 0015) switches the rows to the share of
+  each group that would vote for the player's party, with the change since last quarter (default: Support outside the lead, Mood as leader);
+  the overall figure then shows the party's poll. Click a group to turn the map into its lens (what it cares about is coloured by how
   it likes it, everything else fades); the lens chip on the map offers the group's details. Government seats with the majority mark at the
   bottom. In a compact window the panel is a narrow strip of icons and mini bars that opens as an overlay.
 - **Map** (the rest of the window): every policy and indicator as a disc sized by importance, packed into three sectors (taxes,
@@ -49,20 +51,27 @@ drawn in code; the only bundled asset is the Inter font.
     Changing a policy costs the leader political capital (decision 0013): the capital box shows what the dialled change costs, a soft green
     band on the slider marks what the capital pays for now, and **Apply changes · N** is disabled when the change costs more than you have.
   - *Indicator*: value and its change, a chart with a range switch, why it moved last quarter, what it influences (click a row to jump).
-  - *Voter group*, *party*: mood or poll with a chart, what they like, demands, relations.
+  - *Voter group*, *party*: mood or poll with a chart, what they like, demands, relations; the group dialog also shows the group's support for
+    the player's party and its change.
   - *Voters*, *Charts*, *Budget*, *Politics* (parliament half-circle, polls with the threshold mark, compass, coalition and government
     formation; for the leader of a sitting government a **Reshuffle the coalition** card - partners to drop, seated outside parties to bring in
     with the demands they ask for, the seats the new coalition would hold, what the parties would answer, cost and cooldown, and the confirm
     button; the parliament card has a button that scrolls to it; an open **proposal** card sits at the top), *Your party* (tabs: overview with a
     tooltip on every stat tile - capital, organisation, credibility, cohesion, fiscal blame - and a **How it works** section built from the
     engine's numbers; platform with the programme's goals and demands (met / not met, weight) above a compact slider and a priority stepper per
-    policy; promises, each holding until the next election with the quarters left and whether breaking it would cost you; relations; actions with
-    an explanation per card, including **Announce a proposal** for parties that do not lead (policy picker, slider, which voter groups would like
-    or dislike it, Announce · 2); stances), *News*. The policy dialog notes when a high deficit or debt softens the voters' dislike of a cut.
-- **Briefing** after each quarter (and a welcome at the start), styled after Democracy 4's intro modal: big title, decisions first (accept
-  or decline an offer, form a government, a **Proposal** card - who proposes which change in shown units, whether it matches your programme,
-  whether your seats decide, Support / Oppose answered inline -, running ultimatums), six key indicators as pills with traffic bars, the news,
-  two full-width buttons. An unanswered proposal counts on the Politics badge but never blocks the quarter (it expires with the neutral default).
+    policy; promises - what the party will do in the next term, judged at the election that ends it (the quarters left, how many of the two
+    promises before this election are used, whether breaking it would cost you); relations; actions with an explanation per card: the campaign
+    card says how many points of support the campaign wins at once, and one **Propose a policy** card for every party that does not lead
+    (policy picker, slider, who decides - the leader's likely answer for a partner, public for the opposition -, the points of support per group,
+    the credibility cost, Propose · 3 / · 2); stances), *News*. After an action the message says how far the party's support moved
+    ("+2.1 pts among Middle class"). The policy dialog notes when a high deficit or debt softens the voters' dislike of a cut.
+- **Briefing** after each quarter (and a welcome at the start, and after loading a save), styled after Democracy 4's intro modal: big title,
+  then every open decision (decision 0015, `Decisions.Open`), each answered inline: accept or decline an offer; as formateur the suggested
+  coalition with its agreements and seats - **Form this coalition** - or **Adjust** (invite each party, tick its demands, send); a
+  **Proposal** card (Support / Oppose); an ultimatum to the leader's government with what can be done about it (deliver: opens the policy;
+  court the partner; reshuffle; dismiss); the window for promises with a **Promise** button per goal. Then six key indicators as pills, the
+  news, two buttons in the footer. The Politics badge counts exactly these decisions; only an offer blocks the quarter. **x4** stops at the
+  first quarter that brings an urgent decision.
 - **Start screen**: scenario cards, the party cards of the political scenario (colour, name, starting role - leads the government, junior
   partner or opposition -, poll share and seats, a mini compass and its words; the role is explained under the cards), language, seed,
   the display card, load and start. The welcome briefing depends on the role.
@@ -91,7 +100,10 @@ Besides every screen of every scenario it presses a party card on the start scre
 (Civic Right), checks that the policy dialog refuses an unaffordable change and charges an affordable one, and asks a coalition reshuffle
 from the Politics screen (shots `start-party`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`). Decision 0014: as the
 opposition it waits for a proposal, answers it with the Support button of the briefing, makes a promise and announces a proposal, and opens the
-overview, programme, promises and actions tabs (shots `proposal-briefing`, `proposal-answered`, `party0014-tab0..4`).
+overview, programme, promises and actions tabs (shots `proposal-briefing`, `proposal-answered`, `party0014-tab0..4`). Decision 0015: it
+checks the Mood / Support toggle; as Citizens' Movement it forms the government from the briefing (Adjust, then Form this coalition), leads until a
+partner gives an ultimatum and courts it from the briefing, promises from the briefing when the window opens, and checks that x4 stops at a
+decision (shots `briefing-formation`, `briefing-ultimatum`, `briefing-promise`).
 
 ## Look and feel
 

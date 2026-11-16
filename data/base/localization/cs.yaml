@@ -12,7 +12,7 @@ name.base:spending: Výdaje státu
 name.base:price_level: Cenová hladina
 name.base:gdp_nominal: Nominální HDP
 name.base:real_growth: Reálný růst HDP
-name.base:deficit_pct: Schodek rozpočtu (% HDP)
+name.base:deficit_pct: "Schodek / přebytek (% HDP)"
 name.base:health: Zdraví populace
 name.base:education_level: Úroveň vzdělání
 name.base:crime: Kriminalita
@@ -476,7 +476,7 @@ ui.client.threshold: "Volební práh"
 ui.client.threshold_hint: "Podíl hlasů, který strana potřebuje na mandáty (0 až 10 %). Nízký práh drobí parlament, vysoký zvýhodňuje velké strany."
 
 # --- Client map and HUD ---
-ui.chart.deficit_short: "Deficit"
+ui.chart.deficit_short: "Schodek / přebytek"
 ui.map.taxes: "Daně"
 ui.map.spending: "Výdaje"
 ui.map.regulation: "Regulace"
@@ -778,7 +778,7 @@ ui.explain.organisation: "Jak dobře je strana zorganizovaná (0–100 %). Zvyš
 ui.explain.credibility: "Jak moc voliči věří vašemu programu (0–100 %). Spolu se soudržností určuje, jak silně vaše postoje přitahují voliče (závisí na ní polovina té přitažlivosti). Obnovuje se o {0} bodů ročně. Klesá, když posunete postoj (až o {1} bodů při posunu přes celý rozsah), změníte prioritu, porušíte slib ve vládě (−{2}), odejdete z koalice (−{3}), prohrajete hlasování o nedůvěře, odpovíte nebo ohlásíte něco proti programu, nebo získáte vinu za schodek. Splněný slib ve vládě přinese +{4}."
 ui.explain.cohesion: "Jak jednotné jsou vaše frakce za programem (0–100 %): jedna minus jejich průměrná vzdálenost od něj. Voliči vidí důvěryhodnost × soudržnost, takže rozpolcená strana přitahuje méně. Mění se jen posunem postojů, na kterých frakcím záleží."
 ui.explain.relations: "Jak vás vidí ostatní strany (0–1, neutrální {0}). Dobré vztahy snižují cenu, kterou si strana řekne při koaličních jednáních (až o polovinu), dělají z vás žádanějšího partnera, pomáhají vašim návrhům u vedoucí strany, rozhodují, kdo podpoří vaše hlasování o nedůvěře (od 0,4), a jako partnerovi přinášejí až ±{1} kapitálu za čtvrtletí. Získávat stranu: +{2} za {3} kapitálu. Vztahy se vracejí k {0} o {4} za čtvrtletí."
-ui.explain.fiscal_blame: "Jak moc vás voliči viní ze schodku. Když schodek roste, vedoucí strana vlády získá {0} bod viny za každý bod HDP a každý partner {1}; když pod vládou klesá, její strany vinu ztrácejí stejným tempem. Vina se každých {2} čtvrtletí zmenší na polovinu. Každý bod stojí přízeň voličů ({3} v průzkumu, nejvýš {4}) a při získání {5} důvěryhodnosti. V opozici ji nezískáváte ani neztrácíte: kdo schodek způsobil, platí dál, kdo ho uklízí, žádnou vinu nenese."
+ui.explain.fiscal_blame: "Jak moc voliči viní vaši stranu ze schodku. Počítá se od začátku této vlády a jen tehdy, když se rozpočet dostane do schodku nad úroveň, kterou vláda zdědila (přebytek se počítá jako nula): za každý bod, o který schodek nad tu úroveň stoupne, získá vedoucí strana {0} bodu viny a každý partner {1}, násobeno závažností 1 + schodek / {7} (nejvýš {8}) – zvětšit už vysoký schodek váží mnohem víc. V přebytku, na zděděné úrovni či pod ní a při klesajícím schodku se vina nezískává. Když schodek klesá nebo je na zděděné úrovni či pod ní, strany vlády vinu ztrácejí (vedoucí strana na té úrovni či pod ní aspoň {6} bodu za čtvrtletí). Vina se každých {2} čtvrtletí zmenší na polovinu. Každý bod stojí přízeň voličů ({3} v průzkumu, nejvýš {4}) a při získání {5} důvěryhodnosti. V opozici ji nezískáváte ani neztrácíte: strana, která schodek nadělala, platí dál, ta, která ho uklidí, nenese nic."
 ui.explain.campaign: "Kampaň: {0} kapitálu za stupeň (1–3). Zvolená skupina voličů se k vám přikloní o {1} za stupeň, v posledních {2} čtvrtletích před volbami dvojnásobně. Přízeň se každá {3} čtvrtletí zmenší na polovinu."
 ui.explain.organise: "Organizovat: {0} kapitálu za +{1} bodů organizace (vyšší příjem kapitálu a účast; organizace klesá o {2} bod za čtvrtletí)."
 ui.explain.court: "Získávat stranu: {0} kapitálu, vztah +{1} (vrací se k neutrální hodnotě)."
@@ -861,3 +861,9 @@ ui.end.good_opposition: "Vláda má silné výsledky: pro opozici těžké časy
 ui.end.ok_opposition: "Smíšené výsledky vlády: příští volby jsou otevřené."
 ui.end.bad_opposition: "Voliči mají vlády dost: skutečná šance pro opozici."
 ui.end.good_partner: "Silné výsledky vlády, ve které sedíte. Voliči by ji poslali zpět."
+ui.voters.support: "volí vás: {0} % ({1} b.)"
+ui.voters.support_hint: "Pruh je nálada skupiny ze stavu země; 'volí vás' je podíl, který by teď volil stranu {0}, a jeho změna od minulého čtvrtletí."
+ui.fig.surplus: "Přebytek"
+ui.bp.surplus_note: "příjmy minus výdaje a úroky: rozpočet je v přebytku"
+ui.party.fiscal_blame_sub: "stojí {0} % přízně voličů; počítá se od začátku této vlády, jen nad schodek, který zdědila"
+ui.party.fiscal_blame_none: "počítá se od začátku této vlády, jen když schodek stoupne nad zděděnou úroveň"

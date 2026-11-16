@@ -284,7 +284,20 @@ public partial class TopBar : PanelContainer
         (string, string) Money(double v) => Ui.Money(t, v);
         Cell("revenue", "ui.fig.income", History.ValueKey("base:revenue"), Money, true, null, "0.00", 1e-12);
         Cell("spending", "ui.fig.expenditure", History.ValueKey("base:spending"), Money, false, null, "0.00", 1e-12);
-        Cell("deficit", "ui.fig.deficit", History.ValueKey("base:deficit_pct"), v => (Ui.Num(v), t.T("ui.unit.gdp_short")), false, v => v > 3);
+        // decision 0015 (7): a negative deficit is a surplus - labelled so, shown as a positive figure; the arrow follows the shown figure and is
+        // coloured by whether the budget got better (a smaller surplus is worse)
+        {
+            var key = History.ValueKey("base:deficit_pct");
+            double v = Last(key), d = v - Prev(key);
+            if (double.IsFinite(v) && v < 0)
+            {
+                string val = Ui.Num(-v), full = Math.Abs(d) < 0.05 ? "" : (d < 0 ? "▲ " : "▼ ") + Ui.Num(Math.Abs(d), "0.0");
+                var color = Math.Abs(d) < 1e-12 ? AppTheme.Ink3 : d < 0 ? AppTheme.GoodText : AppTheme.BadText;
+                _cells["deficit"].Set(t.T("ui.fig.surplus"), val, t.T("ui.unit.gdp_short"), Layout.Wide || full.Length == 0 ? full : full[..1], color, false,
+                    t.T("ui.fig.surplus") + ": " + val + " " + t.T("ui.unit.gdp_short") + (full.Length > 0 ? "  (" + full + ")" : ""));
+            }
+            else Cell("deficit", "ui.fig.deficit", key, x => (Ui.Num(x), t.T("ui.unit.gdp_short")), false, x => x > 3);
+        }
         Cell("debt", "ui.fig.debt", History.DebtRatio, v => (Ui.Num(v, "0"), t.T("ui.unit.gdp_short")), false, v => v > 60, "0");
         Cell("gdp", "ui.hud.gdp", History.ValueKey("base:gdp"), Money, true, null, "0.00", 1e-12);
         Cell("growth", "ui.hud.growth", History.ValueKey("base:real_growth"), v => (Ui.Num(v), "%"), true, v => v < 0);

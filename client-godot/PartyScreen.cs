@@ -77,7 +77,7 @@ public sealed class PartyScreen : Screen
         Tile(t.T("ui.party.organisation"), Ui.Num(ps.Organization * 100, "0") + " %", "", IconKind.Gear, null, "organisation");
         Tile(t.T("ui.party.credibility"), Ui.Num(ps.Credibility * 100, "0") + " %", "", IconKind.Shield, null, "credibility");
         Tile(t.T("ui.party.cohesion"), Ui.Num(ps.Cohesion * 100, "0") + " %", "", IconKind.Users, null, "cohesion");
-        Tile(t.T("ui.party.fiscal_blame"), Ui.Num(ps.FiscalBlame, "0.0"), ps.FiscalBlame >= 0.05 ? "−" + Ui.Num(FiscalBlame.Penalty(ps.FiscalBlame) * 100, "0.#") + " %" : "", IconKind.Alert,
+        Tile(t.T("ui.party.fiscal_blame"), Ui.Num(ps.FiscalBlame, "0.0"), ps.FiscalBlame >= 0.05 ? t.T("ui.party.fiscal_blame_sub", Ui.Num(FiscalBlame.Penalty(ps.FiscalBlame) * 100, "0.#")) : t.T("ui.party.fiscal_blame_none"), IconKind.Alert,
             ps.FiscalBlame > 1 ? AppTheme.BadText : null, "fiscal_blame");
         left.AddChild(tiles);
         left.AddChild(Ui.Section(s.Texts.GoalsHeading(pol.PlayerRole)));

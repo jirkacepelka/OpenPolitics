@@ -159,7 +159,7 @@ public sealed class Texts
         "cohesion" => _t.T("ui.explain.cohesion"),
         "relations" => _t.T("ui.explain.relations", N(0.3), N(PoliticsLimits.CoalitionIncome), N(PartyRules.CourtGain), N(PartyRules.CourtCost), N(PartyRules.RelationDrift)),
         "fiscal_blame" => _t.T("ui.explain.fiscal_blame", N(FiscalBlame.LeaderShare), N(FiscalBlame.PartnerShare), N(FiscalBlame.HalfLifeTurns), N(FiscalBlame.PenaltyPerPoint, "0.###"),
-            N(FiscalBlame.MaxPenalty), N(FiscalBlame.CredibilityPerPoint * 100) + " %"),
+            N(FiscalBlame.MaxPenalty), N(FiscalBlame.CredibilityPerPoint * 100) + " %", N(FiscalBlame.MinShed), N(FiscalBlame.SeverityPerPoint), N(FiscalBlame.SeverityMax)),
         "campaign" => _t.T("ui.explain.campaign", N(PartyRules.CampaignCostPerLevel), N(PartyRules.CampaignMomentumPerLevel), PartyRules.CampaignElectionTurns, PartyRules.MomentumHalfLifeTurns),
         "organise" => _t.T("ui.explain.organise", N(PartyRules.OrgBuildCost), N(PartyRules.OrgBuildGain * 100), N(PartyRules.OrgDecay * 100)),
         "court" => _t.T("ui.explain.court", N(PartyRules.CourtCost), N(PartyRules.CourtGain)),

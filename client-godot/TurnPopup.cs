@@ -101,6 +101,7 @@ public static class TurnPopup
             if (def == null) continue;
             string label = key.Length > 0 ? t.T(key) : t.Name(id);
             string value = Ui.Fix(Fmt.Value(def, s.Country.Values.GetValueOrDefault(id)));
+            if (id == "base:deficit_pct" && s.Country.Values.GetValueOrDefault(id) < 0) { label = t.T("ui.fig.surplus"); value = Ui.Fix(Fmt.Value(def, -s.Country.Values[id])); }
             if (id == "base:debt" && s.Figures.DebtPercentOfGdp is { } dr) value = Ui.Num(dr, "0") + " " + t.T("ui.unit.gdp_short");
             var change = s.Last?.Changes.FirstOrDefault(c => c.ValueId == id);
             string tip = label + ": " + value + (change != null ? "  (" + Ui.Fix(Fmt.Value(def, change.Before)) + " → " + Ui.Fix(Fmt.Value(def, change.After)) + ")" : "");
