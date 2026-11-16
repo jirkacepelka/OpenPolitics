@@ -230,6 +230,13 @@ public static class Smoke
             await Frames(main, 4);
             Shot(main, shots, $"{prefix}-value");
             main.CloseDialogs();
+            foreach (var model in new[] { "base:debt", "base:interest_rate", "base:capital" })
+            {
+                main.OpenDetail("value", model);
+                await Frames(main, 4);
+                Shot(main, shots, $"{prefix}-value-{model.Replace("base:", "")}");
+                main.CloseDialogs();
+            }
             if (full)
             {
                 main.OpenDetail("group", group);

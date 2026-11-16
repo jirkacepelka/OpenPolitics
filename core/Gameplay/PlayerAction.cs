@@ -71,6 +71,12 @@ public sealed record Criticize(string ValueId) : PoliticsAction;
 /// <summary>As opposition: support or oppose a measure the government took (id from the party panel).</summary>
 public sealed record TakeStance(string MeasureId, Stance Stance) : PoliticsAction;
 
+/// <summary>Support the open proposal (decision 0014; id from the briefing or the politics screen). Free; once per proposal.</summary>
+public sealed record SupportProposal(string ProposalId) : PoliticsAction;
+
+/// <summary>Oppose the open proposal (decision 0014). Free; once per proposal. A pivotal partner's no makes a measure fail.</summary>
+public sealed record OpposeProposal(string ProposalId) : PoliticsAction;
+
 /// <param name="ErrorKey">Localization key such as error.unknown_policy; null when accepted.</param>
 public sealed record ActionResult(bool Accepted, string? ErrorKey, string? Detail)
 {

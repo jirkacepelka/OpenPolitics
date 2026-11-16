@@ -553,7 +553,12 @@ public sealed class PlayLoop
             _out.WriteLine("  " + _t.T("ui.party.promises"));
             var texts = new Texts(_packs, _t);
             for (int i = 0; i < ownDemands.Count; i++)
-                _out.WriteLine($"   {i + 1,2}. {texts.Demand(ownDemands[i])}" + (ps.Promises?.Contains(ownDemands[i].Id) == true ? "  [" + _t.T("ui.party.promised") + "]" : ""));
+            {
+                bool met = Texts.IsMet(ownDemands[i], Current);
+                _out.WriteLine($"   {i + 1,2}. {texts.Demand(ownDemands[i])}  ({_t.T(met ? "ui.goal.met" : "ui.goal.unmet")})" + (ps.Promises?.Contains(ownDemands[i].Id) == true ? "  [" + _t.T("ui.party.promised") + "]" : ""));
+                if (ps.PromiseDetails?.FirstOrDefault(p => p.DemandId == ownDemands[i].Id) is { } made)
+                    foreach (var line in texts.PromiseStatus(made, pol.TurnsToElection)) _out.WriteLine("       " + line);
+            }
         }
         _out.WriteLine("  " + _t.T("ui.party.measures"));
         if (ps.Measures.Count == 0) _out.WriteLine("      " + _t.T("ui.party.no_measures"));

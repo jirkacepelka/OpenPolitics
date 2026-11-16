@@ -392,16 +392,21 @@ public static class ValueDialog
             if (cares) head.AddChild(Ui.Pill(t.T(good >= 0.6 ? "ui.vd.better" : good >= 0.4 ? "ui.vd.same" : "ui.vd.worse"), AppTheme.Traffic(good)));
             left.AddChild(head);
             if (t.Description(id) is { } desc) left.AddChild(Ui.L(desc, Tx.Body, AppTheme.Ink, true));
-            var spec = Charts.All.FirstOrDefault(c => c.Series(s).Any(x => x.Key == History.ValueKey(id)));
+            var specs = Charts.For(s, id);
+            var spec = specs.FirstOrDefault();
             if (spec != null)
             {
                 int tpy = s.Packs.GetScenario(s.ScenarioId).TurnsPerYear;
                 left.AddChild(Ui.Segmented(new[] { t.T("ui.chart.range.1y"), t.T("ui.chart.range.3y"), t.T("ui.chart.range.all") }, range == tpy ? 0 : range == 3 * tpy ? 1 : 2,
                     i => { range = i == 0 ? tpy : i == 1 ? 3 * tpy : 0; Build(); }, 28));
-                var chart = new Chart { CustomMinimumSize = new Vector2(280, 200), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-                var (turns, series) = Charts.Build(s, spec, range);
-                chart.Set(spec.Title(t), turns, series.Where(x => x.Name == t.Name(id) || series.Count == 1).DefaultIfEmpty(series.FirstOrDefault()).Where(x => x != null).Select(x => x!).ToList(), spec.Format, s.ShortDateAt);
-                left.AddChild(chart);
+                foreach (var sp in specs)
+                {
+                    if (specs.Count > 1) left.AddChild(Ui.L(sp.Title(t), Tx.Overline, AppTheme.Ink2));
+                    var chart = new Chart { CustomMinimumSize = new Vector2(280, specs.Count > 1 ? 150 : 200), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+                    var (turns, series) = Charts.Build(s, sp, range);
+                    chart.Set(sp.Title(t), turns, series.Where(x => x.Name == t.Name(id) || series.Count == 1).DefaultIfEmpty(series.FirstOrDefault()).Where(x => x != null).Select(x => x!).ToList(), sp.Format, s.ShortDateAt);
+                    left.AddChild(chart);
+                }
             }
             if (s.Game.ExplainValue(id) is { } model) left.AddChild(ModelCard(t, model));
             var right = Ui.VBox(4);

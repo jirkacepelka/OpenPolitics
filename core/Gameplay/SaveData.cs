@@ -89,6 +89,8 @@ public sealed record SaveData(
                 });
             else if (action is Criticize cr) dto.Actions.Add(new ActionDto { Turn = turn, Type = "criticize", Policy = cr.ValueId });
             else if (action is TakeStance ts) dto.Actions.Add(new ActionDto { Turn = turn, Type = "take_stance", Policy = ts.MeasureId, Stance = ts.Stance.ToString() });
+            else if (action is SupportProposal sup) dto.Actions.Add(new ActionDto { Turn = turn, Type = "support_proposal", Policy = sup.ProposalId });
+            else if (action is OpposeProposal opp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "oppose_proposal", Policy = opp.ProposalId });
             else if (action is BuildOrganization) dto.Actions.Add(new ActionDto { Turn = turn, Type = "build_organization" });
             else if (action is Court court) dto.Actions.Add(new ActionDto { Turn = turn, Type = "court", Party = court.PartyId });
             else if (action is ShiftPlatform sh)
@@ -134,6 +136,8 @@ public sealed record SaveData(
                 "reshuffle_coalition" => new ReshuffleCoalition(a.Drop.ToList(), a.Partners.ToList(), ParseAgreements(a.Agreements)),
                 "criticize" => new Criticize(a.Policy),
                 "take_stance" => new TakeStance(a.Policy, Enum.TryParse<Stance>(a.Stance, out var st) ? st : throw new FormatException($"Bad stance '{a.Stance}' in save.")),
+                "support_proposal" => new SupportProposal(a.Policy),
+                "oppose_proposal" => new OpposeProposal(a.Policy),
                 "build_organization" => new BuildOrganization(),
                 "court" => new Court(a.Party),
                 "shift_platform" => new ShiftPlatform(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),

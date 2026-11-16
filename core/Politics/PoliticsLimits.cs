@@ -34,6 +34,19 @@ public static class PoliticsLimits
     public const int ReshuffleCooldownTurns = 8, ReshuffleRefusedCooldownTurns = 2;
     public const double ReshuffleGrudge = 0.9, ReshuffleRelationHit = 0.2, ReshuffleLoyaltyHit = 5;
 
+    /// <summary>
+    /// Proposals (decision 0014): after one is settled, the next may come ProposalCooldownTurns quarters later at the earliest. Answering moves
+    /// credibility by up to ProposalCredibilityGain (agreeing with the own programme) or ProposalCredibilityLoss (against it), scaled by the fit; the
+    /// relation with the proposer by ProposalRelationSupport / ProposalRelationOppose (a partner who opposes its own government: also
+    /// ProposalPartnerStrain; a measure blocked by the player's seats: ProposalBlockedHit); groups that like or dislike the change by
+    /// ProposalWarmth (scaled by their size). A partner whose request the leading player supports gains ProposalLoyaltyGain loyalty, one turned
+    /// down loses ProposalLoyaltyLoss.
+    /// </summary>
+    public const int ProposalCooldownTurns = 2;
+    public const double ProposalCredibilityGain = 0.05, ProposalCredibilityLoss = 0.08;
+    public const double ProposalRelationSupport = 0.05, ProposalRelationOppose = 0.03, ProposalPartnerStrain = 0.05, ProposalBlockedHit = 0.1;
+    public const double ProposalWarmth = 0.04, ProposalLoyaltyGain = 4, ProposalLoyaltyLoss = 3;
+
     /// <summary>The chance that an AI leader patches a majority lost to a walk-out with outside parties (when such a patch exists) instead of falling.</summary>
     public const double AiPatchChance = 0.5;
 }

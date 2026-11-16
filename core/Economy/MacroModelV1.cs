@@ -30,6 +30,8 @@ public sealed class MacroModelV1 : IEconomyModel
         public const string GdpNominal = "base:gdp_nominal";
         public const string RealGrowth = "base:real_growth";
         public const string DeficitPct = "base:deficit_pct";
+        /// <summary>Debt as a percentage of real GDP (decision 0014: a party can aim for "low debt").</summary>
+        public const string DebtPct = "base:debt_pct";
     }
 
     /// <summary>Parameter defaults; override per country in data (<c>parameters:</c>).</summary>
@@ -83,7 +85,7 @@ public sealed class MacroModelV1 : IEconomyModel
     {
         Ids.Gdp, Ids.Capital, Ids.Productivity, Ids.LabourForce, Ids.Unemployment,
         Ids.Inflation, Ids.Debt, Ids.InterestRate, Ids.Revenue, Ids.Spending,
-        Ids.PriceLevel, Ids.GdpNominal, Ids.RealGrowth, Ids.DeficitPct,
+        Ids.PriceLevel, Ids.GdpNominal, Ids.RealGrowth, Ids.DeficitPct, Ids.DebtPct,
     };
 
     public static double Production(double a, double k, double l, double alpha) =>
@@ -197,6 +199,7 @@ public sealed class MacroModelV1 : IEconomyModel
             [Ids.GdpNominal] = Safe(y2 * price2 / 100, V(Ids.GdpNominal)),
             [Ids.RealGrowth] = Safe(gdpBefore > 0 ? (y2 / gdpBefore - 1) / dt * 100 : 0.0, V(Ids.RealGrowth)),
             [Ids.DeficitPct] = Safe(deficitPct, V(Ids.DeficitPct)),
+            [Ids.DebtPct] = Safe(y2 > 0 ? Safe(debt2, debt) / y2 * 100 : 0.0, V(Ids.DebtPct)),
         };
     }
 

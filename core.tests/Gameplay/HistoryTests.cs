@@ -20,6 +20,16 @@ public class HistoryTests
     }
 
     [Fact]
+    public void InterestPaidIsTheRealInterestOnTheDebtEveryTurn()
+    {
+        var (g, h) = Played(3);
+        var v = g.State.Countries.Single().Value.Values;
+        double expected = v["base:debt"] * (v["base:interest_rate"] - v["base:inflation"]) / 100.0;
+        Assert.Equal(4, h.Series(History.InterestPaid).Count);
+        Assert.Equal(expected, h.Series(History.InterestPaid)[^1], 3);
+    }
+
+    [Fact]
     public void EverySeriesHasOnePointPerRecordedTurn()
     {
         var (_, h) = Played(6);

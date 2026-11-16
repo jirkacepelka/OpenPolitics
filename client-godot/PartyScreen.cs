@@ -142,10 +142,20 @@ public sealed class PartyScreen : Screen
         foreach (var dm in demands)
         {
             var row = Ui.HBox(12);
-            row.AddChild(Ui.L(Ui.Fix(s.Texts.Demand(dm)), Tx.Body, AppTheme.Ink, true));
-            bool made = ps.Promises?.Contains(dm.Id) == true;
-            if (made) row.AddChild(Ui.Pill(t.T("ui.party.promised"), AppTheme.Good));
-            else row.AddChild(Ui.Costed(t.T("ui.client.promise"), 2, () => s.Do(new MakePromise(dm.Id), t.T("ui.party.promise_ok", s.Texts.Demand(dm))), soon ? null : t.T("ui.err.too_early"), !soon));
+            row.AddChild(new PictoDisc(Icons.For(dm.Subject), 26));
+            var text = Ui.VBox(2);
+            text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            text.AddChild(Ui.L(Ui.Fix(s.Texts.Demand(dm)), Tx.Body, AppTheme.Ink, true));
+            var made = ps.PromiseDetails?.FirstOrDefault(p => p.DemandId == dm.Id);
+            if (made != null)
+                foreach (var line in s.Texts.PromiseStatus(made, pol.TurnsToElection))
+                    text.AddChild(Ui.L(Ui.Fix(line), Tx.Small, made.CountsAgainst ? AppTheme.Ink2 : AppTheme.Ink3, true));
+            row.AddChild(text);
+            bool met = Texts.IsMet(dm, s.Country);
+            row.AddChild(Ui.Pill(t.T(met ? "ui.goal.met" : "ui.goal.unmet"), met ? AppTheme.Good : AppTheme.Chrome));
+            if (made != null) row.AddChild(Ui.Pill(t.T("ui.party.promised"), AppTheme.Good));
+            else row.AddChild(Ui.Costed(t.T("ui.client.promise"), 2, () => s.Do(new MakePromise(dm.Id), t.T("ui.party.promise_ok", s.Texts.Demand(dm))),
+                !soon ? t.T("ui.err.too_early") : met ? t.T("ui.err.already_met") : null, !soon || met));
             body.AddChild(row);
             body.AddChild(Ui.Rule());
         }

@@ -291,12 +291,26 @@ public sealed class Game
 
         // Politics runs on the committed state: today's poll, loyalty, the election countdown, formation.
         var politicalEvents = _politics?.Step(_turn, _satisfaction) ?? new List<PoliticalEvent>();
+        // proposals settled this turn (decision 0014) come first, so the governor already sees them in the queued settings
+        foreach (var (policyId, to, answered) in _politics?.TakePassedProposals() ?? Array.Empty<(string, double, bool)>())
+        {
+            double from = LatestPolicy(policyId);
+            if (to == from) continue;
+            politicalEvents.Add(new GovernmentMeasure(_turn, policyId, from, to));
+            _politics!.RecordMeasure(_turn, policyId, from, to, stanceTaken: answered);
+            _pending.Add(new PendingPolicy(policyId, to, _turn + _policyDefs[policyId].DelayTurns));
+        }
         if (_politics?.GovernorMove(_turn, LatestPolicy) is { } move)
         {
             double from = LatestPolicy(move.PolicyId);
-            politicalEvents.Add(new GovernmentMeasure(_turn, move.PolicyId, from, move.Value));
-            _politics.RecordMeasure(_turn, move.PolicyId, from, move.Value);
-            _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
+            // now and then the measure is put to parliament first and the player's party answers during the next quarter
+            if (_politics.OfferMeasure(_turn, move.PolicyId, from, move.Value) is { } put) politicalEvents.Add(new ProposalPut(_turn, put));
+            else
+            {
+                politicalEvents.Add(new GovernmentMeasure(_turn, move.PolicyId, from, move.Value));
+                _politics.RecordMeasure(_turn, move.PolicyId, from, move.Value);
+                _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
+            }
         }
         foreach (var (policyId, to) in _politics?.TakeApprovedProposals() ?? Array.Empty<(string, double)>())
         {

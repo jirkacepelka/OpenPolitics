@@ -13,6 +13,14 @@
     base:defence: {target: 0.5, weight: 0.2}
     base:electoral_threshold: {target: 7, weight: 0.4}
     base:electoral_method: {target: 0, weight: 0.3}
+    base:pensions: {target: 10, weight: 0.4}
+    base:health_spending: {target: 7, weight: 0.3}
+    base:police: {target: 1.7, weight: 0.3}
+    base:retirement_age: {target: 64, weight: 0.2}
+    base:research: {target: 1.2, weight: 0.2}
+    base:social_benefits: {target: 7.5, weight: 0.3}
+    base:wealth_tax: {target: 0, weight: 0.2}
+    base:rural_development: {target: 0.5, weight: 0.2}
   affinity: {base:low_income: 0.10, base:middle_class: 0.20, base:high_income: 0.30, base:pensioners: 0.20, base:young_urban: -0.10, base:rural_conservatives: 0.20}
   price: 4
   demands:
@@ -24,6 +32,7 @@
     - {id: deregulation, kind: policy, policy: base:business_regulation, op: "<=", target: 4, weight: 2, due_turns: 12}
     - {id: digital, kind: policy, policy: base:digital_infrastructure, op: ">=", target: 0.8, weight: 2, due_turns: 12}
     - {id: high_threshold, kind: policy, policy: base:electoral_threshold, op: ">=", target: 6, weight: 2, due_turns: 12}
+    - {id: strong_growth, kind: value, value: base:real_growth, op: ">=", target: 2.5, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:corporate_tax, op: ">=", threshold: 8}
     - {policy: base:income_tax, op: ">=", threshold: 32}
@@ -43,6 +52,16 @@
     base:family_allowances: {target: 1, weight: 0.4}
     base:wealth_tax: {target: 0.5, weight: 0.3}
     base:active_labour_policy: {target: 0.8, weight: 0.3}
+    base:corporate_tax: {target: 5, weight: 0.4}
+    base:childcare: {target: 0.8, weight: 0.3}
+    base:public_transport: {target: 1, weight: 0.2}
+    base:rent_control: {target: 4, weight: 0.3}
+    base:labour_flexibility: {target: 4, weight: 0.3}
+    base:retirement_age: {target: 63, weight: 0.3}
+    base:infrastructure: {target: 4, weight: 0.2}
+    base:culture_sport: {target: 0.4, weight: 0.2}
+    base:environment_regulation: {target: 5, weight: 0.2}
+    base:research: {target: 1.5, weight: 0.2}
   affinity: {base:low_income: 0.30, base:middle_class: 0.05, base:high_income: -0.30, base:pensioners: 0.25, base:young_urban: 0.00, base:rural_conservatives: -0.05}
   price: 5
   demands:
@@ -53,6 +72,8 @@
     - {id: minimum_wage, kind: policy, policy: base:minimum_wage, op: ">=", target: 5, weight: 2, due_turns: 12}
     - {id: housing, kind: policy, policy: base:housing_support, op: ">=", target: 0.8, weight: 2, due_turns: 12}
     - {id: childcare, kind: policy, policy: base:childcare, op: ">=", target: 0.8, weight: 1, due_turns: 12}
+    - {id: less_inequality, kind: value, value: base:inequality, op: "<=", target: 25, weight: 2, due_turns: 16}
+    - {id: better_health, kind: value, value: base:health, op: ">=", target: 72, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:pensions, op: "<=", threshold: 7}
     - {policy: base:social_benefits, op: "<=", threshold: 5}
@@ -74,16 +95,26 @@
     base:wealth_tax: {target: 0, weight: 0.4}
     base:property_tax: {target: 0, weight: 0.3}
     base:electoral_threshold: {target: 6, weight: 0.3}
+    base:pensions: {target: 8, weight: 0.4}
+    base:health_spending: {target: 6.5, weight: 0.2}
+    base:defence: {target: 1.5, weight: 0.4}
+    base:minimum_wage: {target: 3, weight: 0.3}
+    base:rent_control: {target: 1, weight: 0.3}
+    base:university_fees: {target: 4, weight: 0.2}
+    base:transaction_tax: {target: 0, weight: 0.2}
+    base:migration: {target: 3, weight: 0.2}
+    base:infrastructure: {target: 4, weight: 0.2}
   affinity: {base:low_income: -0.25, base:middle_class: 0.15, base:high_income: 0.35, base:pensioners: 0.00, base:young_urban: 0.05, base:rural_conservatives: 0.10}
   price: 4
   demands:
     - {id: income_tax_cut, kind: policy, policy: base:income_tax, op: "<=", target: 21, weight: 3, due_turns: 8}
     - {id: corporate_tax_cut, kind: policy, policy: base:corporate_tax, op: "<=", target: 3, weight: 2, due_turns: 12}
     - {id: lean_benefits, kind: policy, policy: base:social_benefits, op: "<=", target: 7, weight: 2, due_turns: 12}
-    - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 1.5, due_turns: 16}
+    - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 2, due_turns: 16}
     - {id: flexible_labour, kind: policy, policy: base:labour_flexibility, op: ">=", target: 6, weight: 2, due_turns: 12}
     - {id: later_retirement, kind: policy, policy: base:retirement_age, op: ">=", target: 64, weight: 2, due_turns: 12}
-    - {id: high_threshold, kind: policy, policy: base:electoral_threshold, op: ">=", target: 6, weight: 1, due_turns: 12}
+    - {id: low_debt, kind: value, value: base:debt_pct, op: "<=", target: 35, weight: 2, due_turns: 16}
+    - {id: strong_growth, kind: value, value: base:real_growth, op: ">=", target: 2.5, weight: 1.5, due_turns: 16}
   red_lines:
     - {policy: base:income_tax, op: ">=", threshold: 30}
     - {policy: base:corporate_tax, op: ">=", threshold: 7}
@@ -103,6 +134,15 @@
     base:rural_development: {target: 1, weight: 0.5}
     base:retirement_age: {target: 62, weight: 0.4}
     base:surveillance: {target: 4, weight: 0.2}
+    base:income_tax: {target: 23, weight: 0.3}
+    base:social_benefits: {target: 8.5, weight: 0.3}
+    base:excise_taxes: {target: 0.3, weight: 0.2}
+    base:drug_policy: {target: 2, weight: 0.3}
+    base:environment_regulation: {target: 3.5, weight: 0.3}
+    base:minimum_wage: {target: 5, weight: 0.3}
+    base:defence: {target: 0.8, weight: 0.2}
+    base:energy_mix: {target: 3, weight: 0.2}
+    base:childcare: {target: 0.5, weight: 0.2}
   affinity: {base:low_income: 0.05, base:middle_class: 0.00, base:high_income: -0.10, base:pensioners: 0.30, base:young_urban: -0.25, base:rural_conservatives: 0.30}
   price: 3
   demands:
@@ -113,6 +153,8 @@
     - {id: family, kind: policy, policy: base:family_allowances, op: ">=", target: 1.2, weight: 2, due_turns: 12}
     - {id: rural, kind: policy, policy: base:rural_development, op: ">=", target: 0.8, weight: 2, due_turns: 12}
     - {id: early_retirement, kind: policy, policy: base:retirement_age, op: "<=", target: 62, weight: 2, due_turns: 12}
+    - {id: lower_crime, kind: value, value: base:crime, op: "<=", target: 2650, weight: 1.5, due_turns: 16}
+    - {id: better_health, kind: value, value: base:health, op: ">=", target: 72, weight: 1, due_turns: 16}
   red_lines:
     - {policy: base:vat, op: ">=", threshold: 18}
     - {policy: base:pensions, op: "<=", threshold: 7}
@@ -134,17 +176,27 @@
     base:labour_flexibility: {target: 3, weight: 0.4}
     base:electoral_threshold: {target: 3, weight: 0.3}
     base:electoral_method: {target: 1, weight: 0.3}
+    base:education_spending: {target: 6, weight: 0.3}
+    base:public_transport: {target: 1.5, weight: 0.3}
+    base:childcare: {target: 1.2, weight: 0.3}
+    base:active_labour_policy: {target: 1.2, weight: 0.3}
+    base:retirement_age: {target: 61, weight: 0.4}
+    base:transaction_tax: {target: 0.5, weight: 0.4}
+    base:property_tax: {target: 1, weight: 0.3}
+    base:business_regulation: {target: 7, weight: 0.3}
+    base:defence: {target: 0, weight: 0.2}
   affinity: {base:low_income: 0.35, base:middle_class: -0.10, base:high_income: -0.40, base:pensioners: 0.10, base:young_urban: 0.10, base:rural_conservatives: -0.20}
   price: 6
   demands:
     - {id: corporate_tax_up, kind: policy, policy: base:corporate_tax, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: social_benefits, kind: policy, policy: base:social_benefits, op: ">=", target: 10, weight: 3, due_turns: 8}
     - {id: health, kind: policy, policy: base:health_spending, op: ">=", target: 8.5, weight: 2, due_turns: 12}
-    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 5, weight: 1.5, due_turns: 16}
+    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 5, weight: 2, due_turns: 16}
     - {id: wealth_tax, kind: policy, policy: base:wealth_tax, op: ">=", target: 1, weight: 2, due_turns: 12}
     - {id: minimum_wage_up, kind: policy, policy: base:minimum_wage, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: rent_control, kind: policy, policy: base:rent_control, op: ">=", target: 5, weight: 1, due_turns: 12}
     - {id: fair_seats, kind: policy, policy: base:electoral_method, op: ">=", target: 1, weight: 1, due_turns: 12}
+    - {id: less_inequality, kind: value, value: base:inequality, op: "<=", target: 24, weight: 2.5, due_turns: 16}
   red_lines:
     - {policy: base:social_benefits, op: "<=", threshold: 6}
     - {policy: base:corporate_tax, op: "<=", threshold: 2}
@@ -163,6 +215,16 @@
     base:surveillance: {target: 6, weight: 0.5}
     base:drug_policy: {target: 1, weight: 0.4}
     base:family_allowances: {target: 1.5, weight: 0.3}
+    base:income_tax: {target: 22, weight: 0.2}
+    base:social_benefits: {target: 8, weight: 0.2}
+    base:rural_development: {target: 1, weight: 0.3}
+    base:excise_taxes: {target: 0.5, weight: 0.2}
+    base:energy_mix: {target: 2, weight: 0.3}
+    base:carbon_tax: {target: 0, weight: 0.4}
+    base:green_subsidies: {target: 0, weight: 0.3}
+    base:retirement_age: {target: 62, weight: 0.3}
+    base:culture_sport: {target: 0.5, weight: 0.2}
+    base:electoral_threshold: {target: 4, weight: 0.2}
   affinity: {base:low_income: 0.10, base:middle_class: -0.05, base:high_income: -0.25, base:pensioners: 0.10, base:young_urban: -0.45, base:rural_conservatives: 0.45}
   price: 5
   demands:
@@ -173,6 +235,7 @@
     - {id: defence, kind: policy, policy: base:defence, op: ">=", target: 1, weight: 2, due_turns: 12}
     - {id: surveillance, kind: policy, policy: base:surveillance, op: ">=", target: 5, weight: 2, due_turns: 12}
     - {id: strict_drugs, kind: policy, policy: base:drug_policy, op: "<=", target: 2, weight: 1, due_turns: 12}
+    - {id: lower_crime, kind: value, value: base:crime, op: "<=", target: 2600, weight: 2, due_turns: 16}
   red_lines:
     - {policy: base:migration, op: ">=", threshold: 5}
   factions:
@@ -192,19 +255,29 @@
     base:energy_mix: {target: 8, weight: 0.5}
     base:drug_policy: {target: 6, weight: 0.2}
     base:electoral_threshold: {target: 3, weight: 0.4}
+    base:social_benefits: {target: 9, weight: 0.3}
+    base:income_tax: {target: 26, weight: 0.2}
+    base:surveillance: {target: 2, weight: 0.3}
+    base:housing_support: {target: 1, weight: 0.2}
+    base:childcare: {target: 1, weight: 0.2}
+    base:rural_development: {target: 0.5, weight: 0.2}
+    base:defence: {target: 0.3, weight: 0.2}
+    base:business_regulation: {target: 6, weight: 0.3}
+    base:electoral_method: {target: 1, weight: 0.3}
   affinity: {base:low_income: 0.00, base:middle_class: 0.05, base:high_income: -0.15, base:pensioners: -0.30, base:young_urban: 0.55, base:rural_conservatives: -0.45}
   price: 5
   demands:
     - {id: environment, kind: policy, policy: base:environment_regulation, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: research, kind: policy, policy: base:research, op: ">=", target: 2, weight: 2, due_turns: 12}
     - {id: education, kind: policy, policy: base:education_spending, op: ">=", target: 5.5, weight: 2, due_turns: 12}
-    - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 6, weight: 1.5, due_turns: 16}
     - {id: carbon_tax, kind: policy, policy: base:carbon_tax, op: ">=", target: 1, weight: 2, due_turns: 12}
     - {id: green_subsidies, kind: policy, policy: base:green_subsidies, op: ">=", target: 1.5, weight: 2, due_turns: 12}
     - {id: transport, kind: policy, policy: base:public_transport, op: ">=", target: 1.5, weight: 1, due_turns: 12}
     - {id: energy_mix, kind: policy, policy: base:energy_mix, op: ">=", target: 7, weight: 2, due_turns: 12}
     - {id: low_threshold, kind: policy, policy: base:electoral_threshold, op: "<=", target: 3.5, weight: 2, due_turns: 12}
     - {id: fair_seats, kind: policy, policy: base:electoral_method, op: ">=", target: 1, weight: 1, due_turns: 12}
+    - {id: greener, kind: value, value: base:environment, op: ">=", target: 58, weight: 2.5, due_turns: 16}
+    - {id: better_education, kind: value, value: base:education_level, op: ">=", target: 62, weight: 1, due_turns: 16}
   red_lines:
     - {policy: base:environment_regulation, op: "<=", threshold: 2.5}
     - {policy: base:energy_mix, op: "<=", threshold: 2}
@@ -225,6 +298,16 @@
     base:university_fees: {target: 0, weight: 0.3}
     base:electoral_threshold: {target: 2, weight: 0.4}
     base:electoral_method: {target: 1, weight: 0.3}
+    base:corporate_tax: {target: 4, weight: 0.2}
+    base:business_regulation: {target: 4, weight: 0.3}
+    base:public_transport: {target: 1, weight: 0.2}
+    base:green_subsidies: {target: 1, weight: 0.2}
+    base:environment_regulation: {target: 5, weight: 0.2}
+    base:defence: {target: 0.5, weight: 0.2}
+    base:childcare: {target: 0.8, weight: 0.2}
+    base:culture_sport: {target: 0.5, weight: 0.2}
+    base:labour_flexibility: {target: 6, weight: 0.2}
+    base:transaction_tax: {target: 0, weight: 0.2}
   affinity: {base:low_income: -0.10, base:middle_class: 0.15, base:high_income: 0.10, base:pensioners: -0.40, base:young_urban: 0.55, base:rural_conservatives: -0.30}
   price: 3
   demands:
@@ -236,6 +319,7 @@
     - {id: liberties, kind: policy, policy: base:surveillance, op: "<=", target: 2, weight: 2, due_turns: 12}
     - {id: free_university, kind: policy, policy: base:university_fees, op: "<=", target: 1, weight: 1, due_turns: 12}
     - {id: low_threshold, kind: policy, policy: base:electoral_threshold, op: "<=", target: 3, weight: 2, due_turns: 12}
+    - {id: better_education, kind: value, value: base:education_level, op: ">=", target: 62, weight: 2, due_turns: 16}
   red_lines:
     - {policy: base:research, op: "<=", threshold: 0.5}
     - {policy: base:surveillance, op: ">=", threshold: 7}

@@ -95,12 +95,16 @@ public class PromiseDeadlineTests
     [Fact]
     public void AKeptPromiseInOppositionEarnsNoCredit()
     {
-        var packs = Load(Three, "a", government: new[] { "b", "c" }, leader: "b", turnsToElection: 4, mutate: GameFixture.FreePolicies);
-        var g = New(packs);
-        Assert.True(g.Apply(new MakePromise("d1")).Accepted);
-        // nobody moves spending, so make the demand come true by changing what it asks for: promise d1, then the opposition cannot keep it;
-        // the kept case in opposition is covered by the event flag through a value goal that is met without the party's doing
-        var reports = Run(g, 4);
-        Assert.All(Events<PromiseBroken>(reports), e => Assert.False(e.Responsible));
+        // the government owes c "spending >= 41", so it delivers what the opposition party a promised as well
+        var packs = Load(Three, "a", government: new[] { "b", "c" }, leader: "b", turnsToElection: 4,
+            agreements: "      - {party: base:c, demand: d1}\n", mutate: GameFixture.FreePolicies);
+        var none = New(packs);
+        var kept = New(packs);
+        Assert.True(kept.Apply(new MakePromise("d1")).Accepted);
+        var reports = Run(kept, 4);
+        Run(none, 4);
+        var e = Assert.Single(Events<PromiseKept>(reports));
+        Assert.False(e.Responsible);
+        Assert.Equal(Pol(none).Party!.Credibility, Pol(kept).Party!.Credibility, 12);
     }
 }

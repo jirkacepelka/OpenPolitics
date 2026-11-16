@@ -29,6 +29,10 @@ public static class CoalitionRules
         return lower.Target > upper.Target;
     }
 
+    /// <summary>What an agreed demand is worth toward a partner's price: its weight, or nothing for a value goal that is already met.</summary>
+    public static double Worth(DemandDef d, Func<DemandDef, bool>? alreadyMet) =>
+        d.Kind == "value" && alreadyMet != null && alreadyMet(d) ? 0.0 : d.Weight;
+
     /// <summary>Price a partner asks for, reduced by good relations.</summary>
     public static double RequiredWeight(PartyDef partner, double relation, double grudgeToFormateur = 0.0) =>
         partner.Price * (1.0 - 0.5 * relation) * (1.0 + Math.Max(0.0, grudgeToFormateur));
@@ -44,7 +48,7 @@ public static class CoalitionRules
     public static IReadOnlyList<Refusal> Evaluate(
         CoalitionProposal p, IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats,
         double fraction, int programSlots, Func<string, string, double> relation,
-        Func<string, string, double>? grudge = null, SittingCoalition? sitting = null)
+        Func<string, string, double>? grudge = null, SittingCoalition? sitting = null, Func<DemandDef, bool>? alreadyMet = null)
     {
         grudge ??= (_, _) => 0.0;
         var refusals = new List<Refusal>();
@@ -98,7 +102,8 @@ public static class CoalitionRules
 
         foreach (var partner in p.Partners.Where(parties.ContainsKey).Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal))
         {
-            double weight = agreed.Where(x => x.A.PartyId == partner).Sum(x => x.D.Weight);
+            // a value goal that is already met is no concession (decision 0014): it pays nothing toward the price
+            double weight = agreed.Where(x => x.A.PartyId == partner).Sum(x => Worth(x.D, alreadyMet));
             if (weight + 1e-12 < RequiredWeight(parties[partner], relation(p.Formateur, partner), grudge(partner, p.Formateur)))
                 refusals.Add(new Refusal("price", partner, null));
         }

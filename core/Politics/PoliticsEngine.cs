@@ -93,6 +93,7 @@ internal sealed class PoliticsEngine
         _policyDefs = packs.Policies.ToDictionary(p => p.Id, Ord);
         _parties = packs.Parties.OrderBy(p => p.Id, Ord).ToDictionary(p => p.Id, Ord);
         _ranges = PartyMath.PolicyRanges(packs.Policies);
+        _levers = Governor.Levers(packs);
         var govParties = _scenario.Government.Concat(_scenario.Leader != null ? new[] { _scenario.Leader } : Array.Empty<string>())
             .Distinct(Ord).OrderBy(x => x, Ord).ToList();
         var initial = new List<Commitment>();
@@ -196,11 +197,17 @@ internal sealed class PoliticsEngine
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
             _measures.ToList(), _income,
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Weight),
-            _promises.ToList()),
+            _promises.Select(p => p.DemandId).ToList(), PromiseInfos()),
         new SortedDictionary<string, double>(_grudge, Ord),
-        new ReshuffleInfo(Math.Max(0, _nextReshuffleTurn - (_lastTurn + 1)), _reshuffle != null));
+        new ReshuffleInfo(Math.Max(0, _nextReshuffleTurn - (_lastTurn + 1)), _reshuffle != null),
+        _openProposal == null ? Array.Empty<ProposalInfo>() : new[] { Info(_openProposal) });
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
+
+    /// <summary>A value goal that already holds is no concession at formation or in a reshuffle (decision 0014).</summary>
+    private bool AlreadyMet(DemandDef d) => d.Kind == "value" && CommitmentMath.Satisfied(d, _lookup("value", d.Subject));
+
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<Governor.Lever>> _levers;
 
     /// <summary>Error key when the player may not change policies right now, otherwise null.</summary>
     public string? PolicyBlock() =>
@@ -221,6 +228,8 @@ internal sealed class PoliticsEngine
     private void TickParty()
     {
         _history.Add(_valueIds.ToDictionary(id => id, id => _lookup("value", id), Ord));
+        bool governing = _phase == Phase.Governing && _government.Parties.Contains(Player);
+        foreach (var p in _promises) { p.Elapsed++; if (governing) p.InGovernment++; }
         if (_history.Count > 5) _history.RemoveAt(0);
         double share = _poll.GetValueOrDefault(Player);
         _org = Math.Max(0.0, _org - 0.01);
@@ -282,7 +291,7 @@ internal sealed class PoliticsEngine
         Court c => CourtParty(c.PartyId),
         ShiftPlatform s => Shift(s.PolicyId, s.Target),
         SetPriority s => DoSetPriority(s.PolicyId, s.Weight),
-        MakePromise m => DoPromise(m.DemandId),
+        MakePromise m => DoPromise(m.DemandId, reportTurn),
         Campaign c => CampaignGroup(c.GroupId, c.Effort),
         Criticize c => DoCriticize(c.ValueId),
         TakeStance t => DoTakeStance(t.MeasureId, t.Stance),
@@ -290,6 +299,8 @@ internal sealed class PoliticsEngine
         LeaveCoalition => DoLeave(),
         DismissPartner d => DoDismiss(d.PartyId),
         ReshuffleCoalition r => DoReshuffle(r, reportTurn),
+        SupportProposal sp => DoAnswer(sp.ProposalId, Stance.Support),
+        OpposeProposal op => DoAnswer(op.ProposalId, Stance.Oppose),
         NoConfidence => DoNoConfidence(),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
@@ -330,7 +341,17 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    private readonly List<string> _promises = new();
+    /// <summary>A promise to voters (decision 0014): judged once, at the next election; counts against the party only if it governed at least half the time since.</summary>
+    private sealed class PromiseRecord(string demandId, int madeTurn)
+    {
+        public string DemandId { get; } = demandId;
+        public int MadeTurn { get; } = madeTurn;
+        public int Elapsed, InGovernment;
+    }
+    private readonly List<PromiseRecord> _promises = new();
+
+    /// <summary>The party answers for a promise when it sat in the government in at least half of the quarters since it was made.</summary>
+    private static bool Responsible(PromiseRecord p) => p.Elapsed > 0 && 2 * p.InGovernment >= p.Elapsed;
 
     private ActionResult DoSetPriority(string policyId, double weight)
     {
@@ -352,17 +373,17 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    private ActionResult DoPromise(string demandId)
+    private ActionResult DoPromise(string demandId, int reportTurn)
     {
         if (_phase == Phase.Formation) return Fail("error.wrong_phase");
         var demand = _parties[Player].Demands.FirstOrDefault(d => d.Id == demandId);
         if (demand == null) return Fail("error.unknown_demand", demandId);
         if (ElectionIn > PoliticsLimits.PromiseWindowTurns) return Fail("error.too_early");
         if (CommitmentMath.Satisfied(demand, _lookup(demand.Kind, demand.Subject))) return Fail("error.already_met", demandId);
-        if (_promises.Contains(demandId)) return Fail("error.already_promised", demandId);
+        if (_promises.Any(p => p.DemandId == demandId)) return Fail("error.already_promised", demandId);
         if (_promises.Count >= PoliticsLimits.MaxPromises) return Fail("error.too_many_promises");
         if (!TrySpend(2)) return Fail("error.not_enough_capital");
-        _promises.Add(demandId);
+        _promises.Add(new PromiseRecord(demandId, reportTurn));
         var affinity = _parties[Player].Affinity;
         double top = affinity.Count == 0 ? 0.0 : affinity.Values.Max();
         if (top > 0)
@@ -371,15 +392,21 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    /// <summary>At the election the voters check the promises: kept ones earn trust and goodwill, broken ones cost both.</summary>
+    /// <summary>
+    /// At the election the voters check the promises (decision 0014). A party that governed at least half the time since the promise answers for
+    /// it: kept earns trust and goodwill, broken costs both. A party that was (mostly) in opposition could not deliver: no penalty, and no credit
+    /// for what the government did either.
+    /// </summary>
     private void SettlePromises(int turn, List<PoliticalEvent> events)
     {
         var affinity = _parties[Player].Affinity;
-        foreach (var id in _promises.ToList())
+        foreach (var p in _promises.ToList())
         {
-            var d = _parties[Player].Demands.First(x => x.Id == id);
+            var d = _parties[Player].Demands.First(x => x.Id == p.DemandId);
             bool kept = CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject));
-            events.Add(kept ? new PromiseKept(turn, Player, id) : new PromiseBroken(turn, Player, id));
+            bool responsible = Responsible(p);
+            events.Add(kept ? new PromiseKept(turn, Player, p.DemandId, responsible) : new PromiseBroken(turn, Player, p.DemandId, responsible));
+            if (!responsible) continue;
             _credibility = kept ? Math.Min(1.0, _credibility + 0.1) : Math.Max(0.0, _credibility - 0.2);
             foreach (var g in _groups.OrderBy(g => g.Id, Ord))
                 if (affinity.GetValueOrDefault(g.Id) > 0) _momentum[g.Id] += kept ? 0.05 : -0.08;
@@ -387,9 +414,19 @@ internal sealed class PoliticsEngine
         _promises.Clear();
     }
 
+    private IReadOnlyList<PromiseInfo> PromiseInfos() => _promises.Select(p =>
+    {
+        var d = _parties[Player].Demands.First(x => x.Id == p.DemandId);
+        return new PromiseInfo(p.DemandId, p.MadeTurn, p.Elapsed, p.InGovernment, CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject)));
+    }).ToList();
+
     /// <summary>Called by the game whenever the AI governor changes a policy, so the opposition can take a stance on it.</summary>
-    public void RecordMeasure(int turn, string policyId, double from, double to) =>
-        _measures.Add(new MeasureInfo($"{turn}:{policyId}", turn, policyId, from, to, false));
+    public void RecordMeasure(int turn, string policyId, double from, double to, bool stanceTaken = false)
+    {
+        string id = $"{turn}:{policyId}";
+        for (int n = 2; _measures.Any(m => m.Id == id); n++) id = $"{turn}:{policyId}#{n}";
+        _measures.Add(new MeasureInfo(id, turn, policyId, from, to, stanceTaken));
+    }
 
     private ActionResult DoCriticize(string valueId)
     {
@@ -451,7 +488,7 @@ internal sealed class PoliticsEngine
         if (!PlayerIsFormateur) return new ActionResult(false, "error.not_formateur", null);
         var proposal = new CoalitionProposal(Player,
             partners.Where(p => p != Player).Distinct(Ord).OrderBy(p => p, Ord).ToList(), agreements.Distinct().ToList());
-        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent);
+        var refusals = CoalitionRules.Evaluate(proposal, _parties, _seats, _rules.MajorityFraction, _rules.ProgramSlots, Relation, Resent, alreadyMet: AlreadyMet);
         if (refusals.Count > 0)
             return new ActionResult(false, "error.refused." + refusals[0].Reason, $"{refusals[0].PartyId}:{refusals[0].DemandId}");
         _pending.Add(Form(reportTurn, proposal));
@@ -633,7 +670,7 @@ internal sealed class PoliticsEngine
         _phase == Phase.Governing && PlayerRole != Role.Leader
             ? Governor.Move(_government, latestPolicy, id => _lookup("value", id), _policyDefs, turn,
                 _parties.GetValueOrDefault(_government.Leader),
-                _government.Parties.Where(p => p != _government.Leader).SelectMany(p => _parties[p].RedLines).ToList())
+                _government.Parties.Where(p => p != _government.Leader).SelectMany(p => _parties[p].RedLines).ToList(), _levers)
             : null;
 
     /// <summary>One turn of politics. <paramref name="turn"/> is the turn number the report will carry.</summary>
@@ -650,14 +687,20 @@ internal sealed class PoliticsEngine
 
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
-        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); HoldElection(turn, events); return events; }
-        if (_phase == Phase.Formation) StepFormation(turn, events);
+        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); HoldElection(turn, events); return events; }
+        if (_phase == Phase.Formation) { LapseProposal(turn, events); StepFormation(turn, events); }
         else if (_phase == Phase.Governing)
         {
-            if (!ProcessExits(turn, events)) { StepLoyalty(turn, effective, events); DecideProposals(turn, events); }
-            else _proposals.Clear();
+            if (!ProcessExits(turn, events))
+            {
+                SettleProposal(turn, events);
+                StepLoyalty(turn, effective, events);
+                DecideProposals(turn, events);
+                OpenRequest(turn, events);
+            }
+            else { _proposals.Clear(); LapseProposal(turn, events); }
         }
-        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); }
+        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); }
         return events;
     }
 
@@ -742,7 +785,7 @@ internal sealed class PoliticsEngine
 
     private CoalitionProposal? BuildFor(string formateur) =>
         CoalitionBuilder.Build(formateur, _parties, _seats, _ranges, _rules.MajorityFraction, _rules.ProgramSlots,
-            Relation, _excluded, Resent);
+            Relation, _excluded, Resent, AlreadyMet);
 
     private void FailAttempt(int turn, string formateur, List<PoliticalEvent> events)
     {
@@ -894,6 +937,146 @@ internal sealed class PoliticsEngine
         }
     }
 
+    // ---- proposals to support or oppose (decision 0014) --------------------------------------------------------
+
+    private sealed class OpenProposal(string id, int turn, ProposalKind kind, string proposer, string policyId, double from, double to)
+    {
+        public string Id { get; } = id;
+        public int Turn { get; } = turn;
+        public ProposalKind Kind { get; } = kind;
+        public string Proposer { get; } = proposer;
+        public string PolicyId { get; } = policyId;
+        public double From { get; } = from;
+        public double To { get; } = to;
+        public Stance? Answer;
+    }
+
+    private OpenProposal? _openProposal;
+    private int _nextProposalTurn;
+    private readonly List<(string PolicyId, double To, bool Answered)> _passed = new();
+
+    /// <summary>How well moving a policy from one setting to another fits the player's programme: platform weight times direction (-1..1).</summary>
+    private double Fit(string policyId, double from, double to)
+    {
+        if (!_parties[Player].Platform.TryGetValue(policyId, out var pos)) return 0.0;
+        double before = Math.Abs(from - pos.Target), after = Math.Abs(to - pos.Target);
+        return after < before - 1e-12 ? pos.Weight : after > before + 1e-12 ? -pos.Weight : 0.0;
+    }
+
+    /// <summary>The government has no majority without the player's seats.</summary>
+    private bool PlayerPivotal() => _government.Parties.Contains(Player)
+        && !CoalitionRules.HasMajority(_government.Parties.Where(p => p != Player), _seats, _rules.MajorityFraction);
+
+    private ProposalInfo Info(OpenProposal p) => new(p.Id, p.Turn, p.Kind, p.Proposer, p.PolicyId, p.From, p.To,
+        Fit(p.PolicyId, p.From, p.To), p.Kind == ProposalKind.Measure && PlayerPivotal(), p.Answer);
+
+    private bool MayPropose(int turn) => _phase == Phase.Governing && _openProposal == null && turn >= _nextProposalTurn;
+
+    /// <summary>
+    /// The AI governor's measure of this turn (the game calls this before enacting it): when it touches the player's programme and no proposal was
+    /// settled in the last <see cref="PoliticsLimits.ProposalCooldownTurns"/> quarters, it is put to parliament instead and the player's party answers
+    /// during the next quarter. Returns the proposal (the game then does not enact the measure now), or null.
+    /// </summary>
+    public ProposalInfo? OfferMeasure(int turn, string policyId, double from, double to)
+    {
+        if (!MayPropose(turn) || PlayerRole == Role.Leader || to == from || !_parties[Player].Platform.ContainsKey(policyId)) return null;
+        _openProposal = new OpenProposal($"{turn}:{policyId}", turn, ProposalKind.Measure, _government.Leader, policyId, from, to);
+        return Info(_openProposal);
+    }
+
+    /// <summary>In the player's government an AI partner asks for a change it wants (the least loyal partner with something to ask first).</summary>
+    private void OpenRequest(int turn, List<PoliticalEvent> events)
+    {
+        if (!MayPropose(turn) || PlayerRole != Role.Leader) return;
+        foreach (var partner in _government.Parties.Where(p => p != Player)
+                     .OrderBy(p => _loyalty.GetValueOrDefault(p, _loyaltyParams.Start)).ThenBy(p => p, Ord))
+        {
+            var others = _government.Parties.Where(p => p != partner).SelectMany(p => _parties[p].RedLines).ToList();
+            if (Governor.Request(_parties[partner], _government.Commitments.Where(c => c.PartyId == partner && c.Demand.Kind == "policy").ToList(),
+                    _government.Commitments, Latest, _policyDefs, others) is not { } move) continue;
+            _openProposal = new OpenProposal($"{turn}:{move.PolicyId}", turn, ProposalKind.Request, partner, move.PolicyId, Latest(move.PolicyId), move.Value);
+            events.Add(new ProposalPut(turn, Info(_openProposal)));
+            return;
+        }
+    }
+
+    /// <summary>The player answers: credibility, relations and voter warmth move at once; whether the change happens is settled at the end of the quarter.</summary>
+    private ActionResult DoAnswer(string proposalId, Stance stance)
+    {
+        var p = _openProposal;
+        if (p == null || p.Id != proposalId) return Fail("error.unknown_proposal", proposalId);
+        if (p.Answer != null) return Fail("error.already_answered", proposalId);
+        p.Answer = stance;
+        bool support = stance == Stance.Support;
+        double agree = support ? Fit(p.PolicyId, p.From, p.To) : -Fit(p.PolicyId, p.From, p.To); // > 0: the answer follows the programme
+        _credibility = Math.Clamp(_credibility + (agree > 0 ? PoliticsLimits.ProposalCredibilityGain : PoliticsLimits.ProposalCredibilityLoss) * agree, 0.0, 1.0);
+        if (_relations.ContainsKey(p.Proposer))
+        {
+            double delta = support ? PoliticsLimits.ProposalRelationSupport : -PoliticsLimits.ProposalRelationOppose;
+            if (!support && p.Kind == ProposalKind.Measure && PlayerRole == Role.Partner) delta -= PoliticsLimits.ProposalPartnerStrain;
+            _relations[p.Proposer] = Math.Clamp(_relations[p.Proposer] + delta, 0.0, 1.0);
+        }
+        double totalSize = _groups.Sum(g => g.Size);
+        foreach (var g in _groups.OrderBy(g => g.Id, Ord))
+        {
+            if (!g.PolicyPrefs.TryGetValue(p.PolicyId, out var pref) || !(totalSize > 0)) continue;
+            double before = Math.Abs(pref - p.From), after = Math.Abs(pref - p.To);
+            if (after == before) continue;
+            bool approves = after < before;
+            _momentum[g.Id] += (support == approves ? 1.0 : -1.0) * PoliticsLimits.ProposalWarmth * g.Size / totalSize;
+        }
+        return ActionResult.Ok;
+    }
+
+    /// <summary>End of the quarter: a measure passes unless the player's pivotal seats opposed it; a request happens only if the leader supported it.</summary>
+    private void SettleProposal(int turn, List<PoliticalEvent> events)
+    {
+        var p = _openProposal;
+        if (p == null) return;
+        _openProposal = null;
+        _nextProposalTurn = turn + PoliticsLimits.ProposalCooldownTurns;
+        bool valid = p.Kind == ProposalKind.Measure
+            ? _government.Leader == p.Proposer && PlayerRole != Role.Leader
+            : PlayerRole == Role.Leader && _government.Parties.Contains(p.Proposer);
+        if (!valid) { events.Add(new ProposalLapsed(turn, p.Kind, p.Proposer, p.PolicyId)); return; }
+        if (p.Kind == ProposalKind.Measure)
+        {
+            if (p.Answer == Stance.Oppose && PlayerPivotal())
+            {
+                events.Add(new ProposalFailed(turn, p.Kind, p.Proposer, p.PolicyId));
+                if (_relations.ContainsKey(p.Proposer)) _relations[p.Proposer] = Math.Max(0.0, _relations[p.Proposer] - PoliticsLimits.ProposalBlockedHit);
+                return;
+            }
+        }
+        else if (p.Answer != Stance.Support)
+        {
+            if (p.Answer == null) { events.Add(new ProposalLapsed(turn, p.Kind, p.Proposer, p.PolicyId)); return; }
+            events.Add(new ProposalFailed(turn, p.Kind, p.Proposer, p.PolicyId));
+            _loyalty[p.Proposer] = Math.Max(0.0, _loyalty.GetValueOrDefault(p.Proposer, _loyaltyParams.Start) - PoliticsLimits.ProposalLoyaltyLoss);
+            return;
+        }
+        else _loyalty[p.Proposer] = Math.Min(100.0, _loyalty.GetValueOrDefault(p.Proposer, _loyaltyParams.Start) + PoliticsLimits.ProposalLoyaltyGain);
+        events.Add(new ProposalPassed(turn, p.Kind, p.Proposer, p.PolicyId, p.From, p.To, p.Answer));
+        _passed.Add((p.PolicyId, p.To, p.Answer != null));
+    }
+
+    /// <summary>The government changed (election, formation, fall) before the proposal was settled: it comes to nothing.</summary>
+    private void LapseProposal(int turn, List<PoliticalEvent> events)
+    {
+        if (_openProposal is not { } p) return;
+        _openProposal = null;
+        _nextProposalTurn = turn + PoliticsLimits.ProposalCooldownTurns;
+        events.Add(new ProposalLapsed(turn, p.Kind, p.Proposer, p.PolicyId));
+    }
+
+    /// <summary>Proposals that passed this turn (policy, new setting, whether the player answered); the game enacts them as government measures.</summary>
+    public IReadOnlyList<(string PolicyId, double To, bool Answered)> TakePassedProposals()
+    {
+        var list = _passed.ToList();
+        _passed.Clear();
+        return list;
+    }
+
     // ---- coalition reshuffle (decision 0013) -------------------------------------------------------------------
 
     private sealed record QueuedReshuffle(IReadOnlyList<string> Drop, IReadOnlyList<string> Add, IReadOnlyList<AgreedDemand> Agreements, double Cost);
@@ -933,7 +1116,7 @@ internal sealed class PoliticsEngine
         if (dropSet.Count == 0 && addSet.Count == 0) return Error("error.no_change");
         if (held < needed) return Error("error.would_lose_majority");
         var refusals = CoalitionRules.Evaluate(new CoalitionProposal(Player, addSet, deals), _parties, _seats, _rules.MajorityFraction,
-            _rules.ProgramSlots, Relation, Resent, new SittingCoalition(kept, AgreementsOf(kept)));
+            _rules.ProgramSlots, Relation, Resent, new SittingCoalition(kept, AgreementsOf(kept)), AlreadyMet);
         if (refusals.FirstOrDefault(r => r.Reason is "unknown" or "slots" or "majority") is { } hard)
             return Error("error.refused." + hard.Reason, $"{hard.PartyId}:{hard.DemandId}");
         return new ReshuffleCheck(null, null, dropSet, addSet, deals, cost, refusals, held, needed, cooldown);
@@ -945,7 +1128,7 @@ internal sealed class PoliticsEngine
         if (_phase != Phase.Governing || PlayerRole != Role.Leader) return null;
         var kept = _government.Parties.Where(p => p != _government.Leader && !drop.Contains(p)).ToList();
         return CoalitionBuilder.AllocateFor(Player, add.Where(a => !_government.Parties.Contains(a)).ToList(), kept, AgreementsOf(kept), _parties,
-            _rules.ProgramSlots, Relation, Resent);
+            _rules.ProgramSlots, Relation, Resent, AlreadyMet);
     }
 
     private ActionResult DoReshuffle(ReshuffleCoalition r, int reportTurn)
@@ -1049,7 +1232,7 @@ internal sealed class PoliticsEngine
             if (p.RedLines.Any(r => LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy)))) excluded.Add(p.Id);
         var kept = _government.Parties.Where(p => p != leader).ToList();
         var patch = CoalitionBuilder.Complete(leader, kept, AgreementsOf(kept), _parties, _seats, _ranges, _rules.MajorityFraction,
-            _rules.ProgramSlots, Relation, excluded, Resent);
+            _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet);
         if (patch == null) return false;
         // occasionally, not always: whether the leader strikes the deal in time is a coin flip (keeps falls in the range of decision 0011)
         if (_rng.NextDouble() >= PoliticsLimits.AiPatchChance) return false;

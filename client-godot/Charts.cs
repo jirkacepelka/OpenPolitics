@@ -34,6 +34,8 @@ public static class Charts
         Value("unemployment", "base:unemployment", "0.0", InkLine),
         Value("inflation", "base:inflation", "0.0", InkLine),
         Value("deficit", "base:deficit_pct", "0.0", InkLine),
+        Value("interest_rate", "base:interest_rate", "0.0", InkLine),
+        new("interest_paid", t => t.T("ui.chart.interest_paid"), "0", 1e-9, s => One(History.InterestPaid, t(s, "ui.chart.interest_paid"), Palette[3])),
         new("debt", t => t.T("ui.chart.debt_ratio"), "0", 1, s => One(History.DebtRatio, t(s, "ui.chart.debt_ratio"), InkLine)),
         new("mood", t => t.T("ui.line.mood"), "0.00", 1, s => One(History.Mood, s.T.T("ui.line.mood"), InkLine)),
         new("polls", t => t.T("ui.chart.polls"), "0.0", 100, s => Parties(s, History.PollKey, includeAll: true)),
@@ -46,6 +48,14 @@ public static class Charts
         Value("environment", "base:environment", "0.0", InkLine),
         Value("inequality", "base:inequality", "0.0", InkLine),
     };
+
+    /// <summary>The charts shown in an indicator's dialog: the debt gets its ratio to GDP and the interest paid on it; others the chart of their own series.</summary>
+    public static IReadOnlyList<ChartSpec> For(Session s, string valueId)
+    {
+        if (valueId == "base:debt") return All.Where(c => c.Id is "debt" or "interest_paid").ToList();
+        var own = All.FirstOrDefault(c => c.Series(s).Any(x => x.Key == History.ValueKey(valueId)));
+        return own == null ? Array.Empty<ChartSpec>() : new[] { own };
+    }
 
     private static string t(Session s, string key) => s.T.T(key);
 

@@ -65,6 +65,7 @@ public static class PoliticsBatch
         double sumCapital = 0, sumCapitalLeading = 0;
         var counter = new PolicyCounter();
         var policies = packs.Policies.ToDictionary(p => p.Id, StringComparer.Ordinal);
+        var levers = Governor.Levers(packs);
 
         for (int i = 0; i < games; i++)
         {
@@ -81,7 +82,7 @@ public static class PoliticsBatch
 
             for (int t = 0; t < turns; t++)
             {
-                Act(game, strategy, packs, policies, rng, memory, counter);
+                Act(game, strategy, packs, policies, levers, rng, memory, counter);
                 var report = game.EndTurn();
                 foreach (var e in report.PoliticalEvents)
                 {
@@ -153,7 +154,8 @@ public static class PoliticsBatch
 
     private sealed class ActivistMemory { public readonly List<IReadOnlyDictionary<string, double>> Values = new(); }
 
-    private static void Act(Game game, PoliticsStrategy strategy, PackSet packs, Dictionary<string, PolicyDef> policies, Pcg32 rng, ActivistMemory memory, PolicyCounter counter)
+    private static void Act(Game game, PoliticsStrategy strategy, PackSet packs, Dictionary<string, PolicyDef> policies,
+        IReadOnlyDictionary<string, IReadOnlyList<Governor.Lever>> levers, Pcg32 rng, ActivistMemory memory, PolicyCounter counter)
     {
         var state = game.State;
         var pol = state.Countries.Values.Single().Politics!;
@@ -179,7 +181,7 @@ public static class PoliticsBatch
                 var partnerLines = pol.Government!.Parties.Where(p => p != pol.PlayerParty)
                     .SelectMany(p => packs.Parties.First(x => x.Id == p).RedLines).ToList();
                 var values = state.Countries.Values.Single().Values;
-                if (Governor.Move(pol.Government, id => LatestPolicy(game, current, id), id => values.GetValueOrDefault(id), policies, state.Turn, own, partnerLines) is { } r)
+                if (Governor.Move(pol.Government, id => LatestPolicy(game, current, id), id => values.GetValueOrDefault(id), policies, state.Turn, own, partnerLines, levers) is { } r)
                     counter.Set(game, r.PolicyId, r.Value);
                 break;
             case PoliticsStrategy.Random:

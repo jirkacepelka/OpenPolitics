@@ -44,8 +44,8 @@ public sealed class Texts
             _t.T("ui.event.demand_raised", _t.Name(r.PartyId), Demand(rd), r.DueTurns),
         DemandMet m when DemandOf(m.PartyId, m.DemandId) is { } md => _t.T("ui.event.demand_met", _t.Name(m.PartyId), Demand(md)),
         DemandFailed f when DemandOf(f.PartyId, f.DemandId) is { } fd => _t.T("ui.event.demand_failed", _t.Name(f.PartyId), Demand(fd)),
-        PromiseKept k when DemandOf(k.PartyId, k.DemandId) is { } kd => _t.T("ui.event.promise_kept", Demand(kd)),
-        PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T("ui.event.promise_broken", Demand(bd)),
+        PromiseKept k when DemandOf(k.PartyId, k.DemandId) is { } kd => _t.T(k.Responsible ? "ui.event.promise_kept" : "ui.event.promise_kept_opposition", Demand(kd)),
+        PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T(b.Responsible ? "ui.event.promise_broken" : "ui.event.promise_broken_opposition", Demand(bd)),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         CoalitionReshuffled r => _t.T("ui.event.coalition_reshuffled", _t.Name(r.Leader), Names(r.Dropped), Names(r.Added)),
@@ -62,6 +62,17 @@ public sealed class Texts
 
     /// <summary>The heading over the party's goals on the overview: plain "Goals" in government, "Opposition goals" outside it.</summary>
     public string GoalsHeading(Role role) => _t.T(role == Role.Opposition ? "ui.party.goals" : "ui.party.goals_government");
+
+    /// <summary>Whether a demand or goal is met in the country right now (policy demands by the setting in force, value goals by the value).</summary>
+    public static bool IsMet(DemandDef d, CountryState c) =>
+        CommitmentMath.Satisfied(d, d.Kind == "policy" ? c.Policies.GetValueOrDefault(d.Subject) : c.Values.GetValueOrDefault(d.Subject));
+
+    /// <summary>Two lines for a promise made (decision 0014): until when it holds and whether it is met now; whether breaking it would cost the party.</summary>
+    public IReadOnlyList<string> PromiseStatus(PromiseInfo p, int turnsToElection) => new[]
+    {
+        _t.T("ui.party.promise_until", Math.Max(1, turnsToElection), _t.T(p.Met ? "ui.goal.met" : "ui.goal.unmet")),
+        _t.T(p.CountsAgainst ? "ui.party.promise_counts" : "ui.party.promise_free", p.QuartersInGovernment, p.QuartersElapsed),
+    };
 
     private string Names(IReadOnlyList<string> ids) => ids.Count == 0 ? _t.T("ui.reshuffle.nobody") : string.Join(", ", ids.Select(_t.Name));
 

@@ -10,7 +10,7 @@ namespace OpenPolitics.Core.Presentation;
 /// </summary>
 public sealed class History
 {
-    public const string Mood = "mood", DebtRatio = "debt_ratio";
+    public const string Mood = "mood", DebtRatio = "debt_ratio", InterestPaid = "interest_paid";
     public static string ValueKey(string id) => "value:" + id;
     public static string GroupKey(string id) => "group:" + id;
     public static string PollKey(string id) => "poll:" + id;
@@ -57,6 +57,8 @@ public sealed class History
         now[Mood] = Moods.Overall(_packs.VoterGroups, c.Satisfaction);
         if (c.Values.TryGetValue("base:debt", out var debt) && c.Values.TryGetValue("base:gdp", out var gdp) && gdp > 0)
             now[DebtRatio] = debt / gdp * 100.0;
+        if (c.Values.TryGetValue("base:debt", out var d2) && c.Values.TryGetValue("base:interest_rate", out var rate) && c.Values.TryGetValue("base:inflation", out var infl))
+            now[InterestPaid] = d2 * (rate - infl) / 100.0; // real interest paid on the debt per year, the figure the budget shows
         if (c.Politics is { } pol)
         {
             foreach (var (id, share) in pol.Support) now[PollKey(id)] = share;

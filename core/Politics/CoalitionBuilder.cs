@@ -11,7 +11,7 @@ public static class CoalitionBuilder
         string formateur, IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats,
         IReadOnlyDictionary<string, double> policyRange, double fraction, int programSlots,
         Func<string, string, double> relation, ISet<string> excluded,
-        Func<string, string, double>? grudge = null)
+        Func<string, string, double>? grudge = null, Func<DemandDef, bool>? alreadyMet = null)
     {
         grudge ??= (_, _) => 0.0;
         if (!parties.TryGetValue(formateur, out var lead)) return null;
@@ -36,10 +36,10 @@ public static class CoalitionBuilder
 
         foreach (var c in candidates.OrderBy(c => c.Score).ThenBy(c => c.Size).ThenBy(c => c.Key, StringComparer.Ordinal))
         {
-            var agreements = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge);
+            var agreements = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge, alreadyMet: alreadyMet);
             if (agreements == null) continue;
             var proposal = new CoalitionProposal(formateur, c.Partners, agreements);
-            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge).Count == 0) return proposal;
+            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, alreadyMet: alreadyMet).Count == 0) return proposal;
         }
         return null;
     }
@@ -67,12 +67,13 @@ public static class CoalitionBuilder
     /// </summary>
     public static IReadOnlyList<AgreedDemand>? AllocateFor(
         string leader, IReadOnlyList<string> added, IReadOnlyList<string> kept, IReadOnlyList<AgreedDemand> existing,
-        IReadOnlyDictionary<string, PartyDef> parties, int programSlots, Func<string, string, double> relation, Func<string, string, double>? grudge = null)
+        IReadOnlyDictionary<string, PartyDef> parties, int programSlots, Func<string, string, double> relation, Func<string, string, double>? grudge = null,
+        Func<DemandDef, bool>? alreadyMet = null)
     {
         grudge ??= (_, _) => 0.0;
         if (added.Any(a => !parties.ContainsKey(a)) || kept.Any(k => !parties.ContainsKey(k)) || !parties.ContainsKey(leader)) return null;
         var demands = existing.Select(a => parties.GetValueOrDefault(a.PartyId)?.Demands.FirstOrDefault(d => d.Id == a.DemandId)).Where(d => d != null).Select(d => d!).ToList();
-        return Allocate(leader, added.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList(), parties, programSlots, relation, grudge, kept, demands);
+        return Allocate(leader, added.Distinct(StringComparer.Ordinal).OrderBy(x => x, StringComparer.Ordinal).ToList(), parties, programSlots, relation, grudge, kept, demands, alreadyMet);
     }
 
     /// <summary>
@@ -83,7 +84,8 @@ public static class CoalitionBuilder
     public static CoalitionProposal? Complete(
         string leader, IReadOnlyList<string> kept, IReadOnlyList<AgreedDemand> existing,
         IReadOnlyDictionary<string, PartyDef> parties, IReadOnlyDictionary<string, int> seats, IReadOnlyDictionary<string, double> policyRange,
-        double fraction, int programSlots, Func<string, string, double> relation, ISet<string> excluded, Func<string, string, double>? grudge = null)
+        double fraction, int programSlots, Func<string, string, double> relation, ISet<string> excluded, Func<string, string, double>? grudge = null,
+        Func<DemandDef, bool>? alreadyMet = null)
     {
         grudge ??= (_, _) => 0.0;
         if (!parties.TryGetValue(leader, out var lead)) return null;
@@ -107,10 +109,10 @@ public static class CoalitionBuilder
         }
         foreach (var c in candidates.OrderBy(c => c.Size).ThenBy(c => c.Score).ThenBy(c => c.Key, StringComparer.Ordinal))
         {
-            var agreements = AllocateFor(leader, c.Added, kept, existing, parties, programSlots, relation, grudge);
+            var agreements = AllocateFor(leader, c.Added, kept, existing, parties, programSlots, relation, grudge, alreadyMet);
             if (agreements == null || existing.Count + agreements.Count > programSlots) continue;
             var proposal = new CoalitionProposal(leader, c.Added, agreements);
-            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, sitting).Count == 0) return proposal;
+            if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, sitting, alreadyMet).Count == 0) return proposal;
         }
         return null;
     }
@@ -122,7 +124,7 @@ public static class CoalitionBuilder
     private static List<AgreedDemand>? Allocate(
         string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, int slots,
         Func<string, string, double> relation, Func<string, string, double> grudge,
-        IReadOnlyList<string>? kept = null, IReadOnlyList<DemandDef>? existing = null)
+        IReadOnlyList<string>? kept = null, IReadOnlyList<DemandDef>? existing = null, Func<DemandDef, bool>? alreadyMet = null)
     {
         var members = new List<string> { formateur }; members.AddRange(partners);
         if (kept != null) members.AddRange(kept);
@@ -138,6 +140,7 @@ public static class CoalitionBuilder
                 if (chosen.Count >= slots) return null;
                 if (redLines.Any(r => CoalitionRules.DemandConflictsWithRedLine(d, r))) continue;
                 if (chosen.Any(c => CoalitionRules.DemandsContradict(c.Demand, d)) || already.Any(e => CoalitionRules.DemandsContradict(e, d))) continue;
+                if (CoalitionRules.Worth(d, alreadyMet) <= 0) continue; // a goal that is already met is no concession
                 chosen.Add((partner, d));
                 got += d.Weight;
             }
