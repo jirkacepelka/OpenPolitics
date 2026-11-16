@@ -81,6 +81,8 @@ public partial class WorldMap : Control
         }
         foreach (var v in s.Packs.Values.OrderBy(v => v.Id, StringComparer.Ordinal))
         {
+            // decision 0015: one bubble per quantity - the debt bubble already shows the debt as a share of GDP, so its ratio twin is not drawn
+            if (v.Id == "base:debt_pct" && s.Packs.Values.Any(x => x.Id == "base:debt")) continue;
             // An indicator sits in the sector whose policies act on it most.
             var counts = new int[3];
             foreach (var e in s.Packs.Edges.Where(e => e.To == v.Id && groupOfPolicy.ContainsKey(e.From))) counts[groupOfPolicy[e.From]]++;
@@ -452,6 +454,7 @@ public partial class WorldMap : Control
         string name = t.Name(n.Id);
         string sub = "";
         if (n.Policy && s.Packs.Policies.FirstOrDefault(x => x.Id == n.Id) is { } pd) sub = Ui.Fix(Fmt.Policy(pd, s.Country.Policies.GetValueOrDefault(n.Id, pd.Default), t));
+        else if (n.Id == "base:debt" && s.Figures.DebtPercentOfGdp is { } ratio) sub = Ui.Num(ratio, "0") + " " + t.T("ui.unit.gdp_short"); // as in the top bar
         else if (s.Packs.Values.FirstOrDefault(x => x.Id == n.Id) is { } vd) sub = Ui.Fix(Fmt.Value(vd, s.Country.Values.GetValueOrDefault(n.Id)));
         var f1 = AppTheme.Semi; var f2 = AppTheme.FigSemi;
         float w = Math.Max(f1.GetStringSize(name, HorizontalAlignment.Left, -1, 13).X, f2.GetStringSize(sub, HorizontalAlignment.Left, -1, 12).X) + 24;
