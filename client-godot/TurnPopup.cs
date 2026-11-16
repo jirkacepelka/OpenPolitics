@@ -61,7 +61,7 @@ public static class TurnPopup
         string role = pol?.PlayerRole switch { Role.Partner => "_partner", Role.Opposition => "_opposition", _ => "" };
         string title = welcome ? t.T("ui.brief.welcome_title" + role) : pol?.Formation?.Offer is { } o ? t.T("ui.event.offer_made", t.Name(o.Formateur))
             : pol?.Formation is { PlayerIsFormateur: true } ? t.T("ui.brief.title_formateur")
-            : s.Digest.Count > 0 ? Shorten(s.Digest[0]) : t.T("ui.brief.quiet_title");
+            : s.Digest.FirstOrDefault(x => !s.Minor.Contains(x)) is { } headline ? Shorten(headline) : t.T("ui.brief.quiet_title");
         var d = main.NewDialog("", null, 900);
         Label hint = null!;
         IconTextButton? cont = null;

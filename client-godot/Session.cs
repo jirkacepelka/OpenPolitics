@@ -28,6 +28,9 @@ public sealed class Session
     /// <summary>News and decisions collected since the last start-of-turn popup was closed.</summary>
     public List<string> Digest { get; } = new();
 
+    /// <summary>Routine news lines (support movement) that should not become the briefing's title.</summary>
+    public HashSet<string> Minor { get; } = new(StringComparer.Ordinal);
+
     /// <summary>Raised after every change of the game (end of quarter, action, load).</summary>
     public event Action? Changed;
 
@@ -91,7 +94,11 @@ public sealed class Session
         foreach (var e in Last.PoliticalEvents)
         {
             if (e is ElectionHeld held) AddNews(ElectionText(held));
-            else if (Texts.Event(e, Politics?.PlayerRole ?? Role.Opposition) is { } text) AddNews(text);
+            else if (Texts.Event(e, Politics?.PlayerRole ?? Role.Opposition) is { } text)
+            {
+                AddNews(text);
+                if (e is SupportMoved) Minor.Add(text); // a routine line: never the briefing's title
+            }
         }
         // decision 0015: say so when the party's role changed (it changes what the party can do and how the game talks to it)
         if (roleBefore is { } rb && Politics?.PlayerRole is { } ra && ra != rb && Politics.Phase == Phase.Governing)

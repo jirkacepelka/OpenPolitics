@@ -194,7 +194,7 @@ public partial class Sidebar : PanelContainer
         {
             Ui.Clear(toggle);
             toggle.Visible = ps?.GroupSupport is { Count: > 0 };
-            foreach (var (mode, key) in new[] { (false, "ui.rail.view_mood"), (true, "ui.rail.view_support") })
+            foreach (var (mode, key) in new[] { (false, "ui.rail.view_mood"), (true, "ui.rail.view_support_short") })
             {
                 var b = new Button { Text = t.T(key, party), ToggleMode = true, ButtonPressed = support == mode, FocusMode = FocusModeEnum.None, ClipText = true,
                     TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 28),
