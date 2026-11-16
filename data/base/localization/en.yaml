@@ -868,3 +868,8 @@ ui.bp.surplus_note: "income minus spending and interest: the budget is in surplu
 ui.party.fiscal_blame_sub: "costs {0} % of your voters' warmth; counted from the start of this government, only above the deficit it inherited"
 ui.party.fiscal_blame_none: "counted from the start of this government, only when the deficit rises above the level it inherited"
 ui.rail.view_support_short: "Support"
+ui.event.fiscal_credit: "{0} capital, {1} pts for cutting the deficit ({2} → {3} % of GDP)."
+ui.explain.fiscal_credit: "The counterpart of fiscal blame, deliberately smaller. When the government cuts a real deficit (the fall of the deficit above balance, at least {7} points in a quarter), its parties earn fiscal credit: {0} × the cut × the same severity as blame (1 + deficit / 3), so cutting a high deficit counts more; the leader in full, each partner {1}. Your party gets {2} political capital per point of credit (at most {3} a quarter), a little credibility, and warmth in the poll ({4} per point, at most {5}); credit halves every {6} quarters. A surplus that only stays a surplus earns nothing, and the opposition earns nothing."
+ui.party.fiscal_credit: "Fiscal credit"
+ui.party.fiscal_credit_sub: "+{0} % voters' warmth; +{1} capital last quarter"
+ui.party.fiscal_credit_none: "earned by cutting a high deficit in government"

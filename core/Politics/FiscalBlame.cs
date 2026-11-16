@@ -66,4 +66,57 @@ public static class FiscalBlame
 
     /// <summary>How much of its voters' warmth the blame costs a party (a utility penalty in the poll).</summary>
     public static double Penalty(double blame) => Math.Min(MaxPenalty, PenaltyPerPoint * Math.Max(0.0, blame));
+
+    // ---- fiscal credit (decision 0016, item 3) ------------------------------------------------------------------
+
+    /// <summary>
+    /// Fiscal credit, the gentle counterpart of blame: a quarter's cut of a deficit earns <see cref="CreditRatio"/> times the blame an equal rise
+    /// would have cost at that level. The leader takes it in full, partners <see cref="PartnerShare"/>; a cut smaller than <see cref="CreditMinCut"/>
+    /// points earns nothing. Each credit point is worth <see cref="CreditCapitalPerPoint"/> political capital to the player's party (at most
+    /// <see cref="CreditCapitalMax"/> a quarter), the same poll warmth per point as blame costs (at most <see cref="CreditMaxBonus"/>) and the same
+    /// credibility per point. Credit fades like blame.
+    /// </summary>
+    public const double CreditRatio = 0.35, CreditMinCut = 0.05, CreditCapitalPerPoint = 0.4, CreditCapitalMax = 1.0, CreditMaxBonus = 0.05;
+
+    /// <summary>
+    /// Credit for one quarter's change of the deficit (leader share): only a real cut of a deficit counts - the part of the fall above balance
+    /// (<c>prev - max(now, 0)</c>), weighed by the <see cref="Severity"/> of the deficit it started from. A surplus earns nothing, a rise nothing.
+    /// </summary>
+    public static double Credit(double deficitPrev, double deficitNow)
+    {
+        if (!double.IsFinite(deficitPrev) || !double.IsFinite(deficitNow) || deficitPrev <= 0) return 0.0;
+        double cut = deficitPrev - Math.Max(0.0, deficitNow);
+        return cut < CreditMinCut ? 0.0 : CreditRatio * cut * Severity(deficitPrev);
+    }
+
+    /// <summary>
+    /// One quarter of fiscal credit: every party's credit fades (half-life <see cref="HalfLifeTurns"/>), then the government's parties gain credit
+    /// for a cut (<see cref="Credit"/>; leader full, partners half). Leader null: no government, nothing gained. Returns what each party gained.
+    /// </summary>
+    public static IReadOnlyDictionary<string, double> CreditStep(SortedDictionary<string, double> credit, string? leader, IEnumerable<string> partners,
+        double deficitPrev, double deficitNow)
+    {
+        foreach (var k in credit.Keys.ToList())
+        {
+            double c = credit[k] * Keep;
+            if (c < 1e-4) credit.Remove(k); else credit[k] = c;
+        }
+        var gained = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        double points = leader == null ? 0.0 : Credit(deficitPrev, deficitNow);
+        if (points <= 0) return gained;
+        void Add(string party, double share)
+        {
+            gained[party] = share * points;
+            credit[party] = credit.GetValueOrDefault(party) + share * points;
+        }
+        Add(leader!, LeaderShare);
+        foreach (var p in partners.Where(p => p != leader).Distinct(StringComparer.Ordinal).OrderBy(p => p, StringComparer.Ordinal)) Add(p, PartnerShare);
+        return gained;
+    }
+
+    /// <summary>Political capital the player's party earns for credit gained this quarter (a few tenths, at most <see cref="CreditCapitalMax"/>).</summary>
+    public static double CreditCapital(double gained) => Math.Min(CreditCapitalMax, CreditCapitalPerPoint * Math.Max(0.0, gained));
+
+    /// <summary>How much warmth the credit gives a party in the poll (a utility bonus, at most <see cref="CreditMaxBonus"/>).</summary>
+    public static double Bonus(double credit) => Math.Min(CreditMaxBonus, PenaltyPerPoint * Math.Max(0.0, credit));
 }

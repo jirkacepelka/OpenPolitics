@@ -42,6 +42,9 @@ internal sealed class PoliticsEngine
     private readonly SortedDictionary<string, double> _grudge = new(Ord);
     /// <summary>Decision 0014 (e): how much voters blame each party for the deficit it ran up in government.</summary>
     private readonly SortedDictionary<string, double> _fiscalBlame = new(Ord);
+    /// <summary>Decision 0016 (3): credit voters give each party for cutting a high deficit in government (fades like blame).</summary>
+    private readonly SortedDictionary<string, double> _fiscalCredit = new(Ord);
+    private double _creditCapital;
     private double _lastDeficit;
     /// <summary>Decision 0015 (7): the deficit (surplus = 0) each party inherited when it entered the current government; blame is measured from it.</summary>
     private readonly SortedDictionary<string, double> _deficitBaseline = new(Ord);
@@ -180,7 +183,15 @@ internal sealed class PoliticsEngine
         _momentum.ToDictionary(kv => kv.Key, kv => kv.Value + (extraMomentum?.GetValueOrDefault(kv.Key) ?? 0.0), Ord), Player,
         new Dictionary<string, double> { [Player] = 1.0 + PartyRules.OrgTurnout * _org },
         new Dictionary<string, double>(_attribution),
-        _fiscalBlame.ToDictionary(kv => kv.Key, kv => FiscalBlame.Penalty(kv.Value), Ord));
+        FiscalPenalty());
+
+    /// <summary>The poll penalty of fiscal blame minus the bonus of fiscal credit (decision 0016), per party.</summary>
+    private Dictionary<string, double> FiscalPenalty()
+    {
+        var penalty = _fiscalBlame.ToDictionary(kv => kv.Key, kv => FiscalBlame.Penalty(kv.Value), Ord);
+        foreach (var (party, credit) in _fiscalCredit) penalty[party] = penalty.GetValueOrDefault(party) - FiscalBlame.Bonus(credit);
+        return penalty;
+    }
 
     // ---- the player's support in each voter group (decision 0015) ---------------------------------------------
     private SortedDictionary<string, double> _satisfaction = new(Ord);
@@ -239,11 +250,13 @@ internal sealed class PoliticsEngine
             _measures.ToList(), _income,
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Weight),
             _promises.Select(p => p.DemandId).ToList(), PromiseInfos(), _fiscalBlame.GetValueOrDefault(Player),
-            GroupSupport(), _groupSupportPrev),
+            GroupSupport(), _groupSupportPrev, _fiscalCredit.GetValueOrDefault(Player), _creditCapital),
         new SortedDictionary<string, double>(_grudge, Ord),
         new ReshuffleInfo(Math.Max(0, _nextReshuffleTurn - (_lastTurn + 1)), _reshuffle != null),
         _openProposal == null ? Array.Empty<ProposalInfo>() : new[] { Info(_openProposal) },
-        new SortedDictionary<string, double>(_fiscalBlame, Ord));
+        new SortedDictionary<string, double>(_fiscalBlame, Ord),
+        new SortedDictionary<string, double>(_fiscalCredit, Ord),
+        UltimatumSnapshot(), Math.Max(0, _nextUltimatumTurn - (_lastTurn + 1)));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
@@ -268,7 +281,7 @@ internal sealed class PoliticsEngine
     private static readonly double HalfLifeFactor = DetMath.Pow(0.5, 1.0 / PartyRules.MomentumHalfLifeTurns); // half-life of 4 turns
 
     /// <summary>Per-turn upkeep of the player's party: decay, recovery and political capital income.</summary>
-    private void TickParty()
+    private void TickParty(int turn, List<PoliticalEvent> events)
     {
         _history.Add(_valueIds.ToDictionary(id => id, id => _lookup("value", id), Ord));
         bool governing = _phase == Phase.Governing && _government.Parties.Contains(Player);
@@ -277,10 +290,12 @@ internal sealed class PoliticsEngine
         double deficit = _lookup("value", "base:deficit_pct"), before = _fiscalBlame.GetValueOrDefault(Player);
         if (!double.IsFinite(deficit)) deficit = _lastDeficit;
         bool sitting = _phase == Phase.Governing;
+        double prevDeficit = _lastDeficit;
         FiscalBlame.Step(_fiscalBlame, sitting ? _government.Leader : null, sitting ? _government.Parties : Array.Empty<string>(), _deficitBaseline, _lastDeficit, deficit);
         _lastDeficit = deficit;
         double gained = _fiscalBlame.GetValueOrDefault(Player) - before;
         if (gained > 0) _credibility = Math.Max(0.0, _credibility - FiscalBlame.CredibilityPerPoint * gained);
+        CreditDeficitCut(turn, events, sitting, prevDeficit, deficit);
         if (_history.Count > 5) _history.RemoveAt(0);
         double share = _poll.GetValueOrDefault(Player);
         _org = Math.Max(0.0, _org - PartyRules.OrgDecay);
@@ -301,7 +316,26 @@ internal sealed class PoliticsEngine
         }
         _income = PoliticsLimits.BaseIncome + PartyRules.OrgIncome * _org * share
             + (_phase == Phase.Governing && _government.Leader == Player ? PoliticsLimits.LeaderIncome : 0.0) + CoalitionCapitalBonus();
-        _pc = Math.Clamp(_pc + _income, 0.0, MaxCapital);
+        _pc = Math.Clamp(_pc + _income + _creditCapital, 0.0, MaxCapital);
+    }
+
+    /// <summary>
+    /// Decision 0016 (3): the government's parties earn fiscal credit for a real cut of the deficit this quarter. The player's party also gets a little
+    /// political capital and credibility, and the news says what it earned in capital and in points of the poll.
+    /// </summary>
+    private void CreditDeficitCut(int turn, List<PoliticalEvent> events, bool sitting, double prev, double now)
+    {
+        var gainedBy = FiscalBlame.CreditStep(_fiscalCredit, sitting ? _government.Leader : null, sitting ? _government.Parties : Array.Empty<string>(), prev, now);
+        _creditCapital = 0.0;
+        if (!gainedBy.TryGetValue(Player, out var mine) || mine <= 0) return;
+        _creditCapital = FiscalBlame.CreditCapital(mine);
+        _credibility = Math.Min(1.0, _credibility + FiscalBlame.CredibilityPerPoint * mine);
+        // the poll points the new credit is worth now (no noise): the support with it against the support without it
+        double withIt = _support.Compute(Input(_satisfaction), null).GetValueOrDefault(Player);
+        _fiscalCredit[Player] -= mine;
+        double without = _support.Compute(Input(_satisfaction), null).GetValueOrDefault(Player);
+        _fiscalCredit[Player] += mine;
+        events.Add(new FiscalCreditEarned(turn, Player, _creditCapital, 100.0 * (withIt - without), prev, now));
     }
 
     private double _income;
@@ -795,7 +829,7 @@ internal sealed class PoliticsEngine
         _lastTurn = turn;
         var events = new List<PoliticalEvent>(_pending);
         _pending.Clear();
-        TickParty();
+        TickParty(turn, events);
         // Voters judge the promises before they vote, so settle them ahead of this turn's poll when it is election day.
         if (_turnsToElection <= 1 || (_phase == Phase.Caretaker && _caretakerLeft <= 1)) SettlePromises(turn, events);
         var effective = Effective(satisfaction);
@@ -1255,6 +1289,11 @@ internal sealed class PoliticsEngine
         events.Add(new AnnouncementAdopted(turn, leader, a.PolicyId, a.Target));
         _approved.Add((a.PolicyId, next));
     }
+
+    // ---- the player's ultimatum to the leader (decision 0016, item 1) ----------------------------------------------
+
+    private int _nextUltimatumTurn = 0;
+    private PlayerUltimatumInfo? UltimatumSnapshot() => null;
 
     // ---- coalition reshuffle (decision 0013) -------------------------------------------------------------------
 

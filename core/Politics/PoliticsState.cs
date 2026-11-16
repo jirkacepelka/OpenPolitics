@@ -17,7 +17,24 @@ public sealed record CountryPolitics(
     IReadOnlyList<UltimatumInfo>? Ultimatums = null, PartyStatus? Party = null,
     IReadOnlyDictionary<string, double>? Grudge = null, ReshuffleInfo? Reshuffle = null,
     IReadOnlyList<ProposalInfo>? Proposals = null,
-    IReadOnlyDictionary<string, double>? FiscalBlame = null);
+    IReadOnlyDictionary<string, double>? FiscalBlame = null,
+    IReadOnlyDictionary<string, double>? FiscalCredit = null,
+    PlayerUltimatumInfo? PlayerUltimatum = null, int UltimatumCooldown = 0);
+
+/// <summary>
+/// Decision 0016 (3): a government party earned fiscal credit for cutting the deficit from From to To (% of GDP) this quarter: Capital political
+/// capital and Points points of the poll (only reported for the player's party).
+/// </summary>
+public sealed record FiscalCreditEarned(int Turn, string PartyId, double Capital, double Points, double From, double To) : PoliticalEvent(Turn);
+
+/// <summary>
+/// Decision 0016 (1): the player's party, a junior partner, gave the leader an ultimatum: move PolicyId to Target (from From, the setting when it was
+/// issued) within TurnsLeft quarters or the party walks out. Kind is "demand" (SubjectId: one of the party's demands; a value goal is asked as a move
+/// of its strongest lever) or "policy" (SubjectId: a policy of its programme). Answer is the leader's answer: null until the end of the quarter it was
+/// issued in, then "deliver", "stall" (it may still give in) or "refuse". Delivered once the leader enacted the change.
+/// </summary>
+public sealed record PlayerUltimatumInfo(string Kind, string SubjectId, string PolicyId, double From, double Target, int TurnsLeft, int Deadline,
+    string? Answer, bool Delivered);
 
 /// <summary>Measure: the AI-led government puts a policy change to parliament. Request: an AI partner asks the leading player for one.</summary>
 public enum ProposalKind { Measure, Request }

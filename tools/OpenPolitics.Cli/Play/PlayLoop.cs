@@ -544,6 +544,8 @@ public sealed class PlayLoop
         Line(_t.T("ui.party.organisation"), Fmt.Number(ps.Organization * 100, "0") + " %");
         Line(_t.T("ui.party.credibility"), Fmt.Number(ps.Credibility * 100, "0") + " %");
         Line(_t.T("ui.party.cohesion"), Fmt.Number(ps.Cohesion * 100, "0") + " %");
+        Line(_t.T("ui.party.fiscal_blame"), Fmt.Number(ps.FiscalBlame, "0.0"));
+        Line(_t.T("ui.party.fiscal_credit"), Fmt.Number(ps.FiscalCredit, "0.0") + (ps.FiscalCreditCapital > 0 ? $"  (+{Fmt.Number(ps.FiscalCreditCapital, "0.0")})" : ""));
         _out.WriteLine("  " + _t.T("ui.party.relations"));
         var others = OtherParties();
         for (int i = 0; i < others.Count; i++)

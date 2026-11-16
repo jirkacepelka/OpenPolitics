@@ -18,7 +18,8 @@ public sealed record PartyStatus(
     IReadOnlyList<PromiseInfo>? PromiseDetails = null,
     double FiscalBlame = 0.0,
     IReadOnlyDictionary<string, double>? GroupSupport = null,
-    IReadOnlyDictionary<string, double>? GroupSupportPrev = null);
+    IReadOnlyDictionary<string, double>? GroupSupportPrev = null,
+    double FiscalCredit = 0.0, double FiscalCreditCapital = 0.0);
 
 /// <summary>
 /// A promise to voters (decisions 0014, 0015): "what we will do if you elect us", made in quarter MadeTurn in the window before an election. That

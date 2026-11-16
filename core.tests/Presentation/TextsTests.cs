@@ -38,7 +38,7 @@ public class TextsTests
     }
 
     public static readonly string[] Topics = { "capital", "organisation", "credibility", "cohesion", "relations", "fiscal_blame", "campaign", "organise", "court",
-        "criticize", "stance", "promise", "priority", "shift", "propose", "announce", "proposals", "reshuffle", "exits" };
+        "criticize", "stance", "promise", "priority", "shift", "propose", "announce", "proposals", "reshuffle", "exits", "fiscal_credit" };
 
     [Fact]
     public void EveryStatAndActionIsExplainedInBothLanguagesWithTheEngineNumbers()
@@ -55,6 +55,15 @@ public class TextsTests
         Assert.Contains("exceed 30", en.Explain("capital"));
         Assert.Contains("+4 points for 4 capital", en.Explain("organisation"));
         Assert.Contains("halves every 12 quarters", en.Explain("fiscal_blame"));
+        Assert.Contains("0.35", en.Explain("fiscal_credit"));
+    }
+
+    [Fact]
+    public void FiscalCreditIsNewsWithCapitalAndPoints()
+    {
+        var e = new FiscalCreditEarned(6, "base:social_alliance", 0.6, 0.4, 4.8, 3.9);
+        Assert.Equal("+0.6 capital, +0.4 pts for cutting the deficit (4.8 → 3.9 % of GDP).", For("en").Event(e, Role.Leader));
+        Assert.DoesNotContain("{", For("cs").Event(e, Role.Partner));
     }
 
     [Fact]

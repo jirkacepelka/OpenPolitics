@@ -79,6 +79,10 @@ public sealed class PartyScreen : Screen
         Tile(t.T("ui.party.cohesion"), Ui.Num(ps.Cohesion * 100, "0") + " %", "", IconKind.Users, null, "cohesion");
         Tile(t.T("ui.party.fiscal_blame"), Ui.Num(ps.FiscalBlame, "0.0"), ps.FiscalBlame >= 0.05 ? t.T("ui.party.fiscal_blame_sub", Ui.Num(FiscalBlame.Penalty(ps.FiscalBlame) * 100, "0.#")) : t.T("ui.party.fiscal_blame_none"), IconKind.Alert,
             ps.FiscalBlame > 1 ? AppTheme.BadText : null, "fiscal_blame");
+        // decision 0016 (3): the gentle counterpart - credit for cutting a high deficit in government
+        Tile(t.T("ui.party.fiscal_credit"), Ui.Num(ps.FiscalCredit, "0.0"), ps.FiscalCredit >= 0.05
+                ? t.T("ui.party.fiscal_credit_sub", Ui.Num(FiscalBlame.Bonus(ps.FiscalCredit) * 100, "0.#"), Ui.Num(ps.FiscalCreditCapital, "0.0")) : t.T("ui.party.fiscal_credit_none"),
+            IconKind.Coin, ps.FiscalCredit >= 0.05 ? AppTheme.GoodText : null, "fiscal_credit");
         left.AddChild(tiles);
         left.AddChild(Ui.Section(s.Texts.GoalsHeading(pol.PlayerRole)));
         double share = pol.Support.GetValueOrDefault(pol.PlayerParty);
@@ -97,7 +101,8 @@ public sealed class PartyScreen : Screen
         body.AddChild(Ui.Section(t.T("ui.pt.how")));
         var how = new FlowGrid { MinColumn = 320, MaxColumns = 2, Gap = 12 };
         foreach (var (topic, key) in new[] { ("capital", "ui.party.capital"), ("organisation", "ui.party.organisation"), ("credibility", "ui.party.credibility"),
-                     ("cohesion", "ui.party.cohesion"), ("relations", "ui.party.relations"), ("fiscal_blame", "ui.party.fiscal_blame") })
+                     ("cohesion", "ui.party.cohesion"), ("relations", "ui.party.relations"), ("fiscal_blame", "ui.party.fiscal_blame"),
+                     ("fiscal_credit", "ui.party.fiscal_credit") })
         {
             var box = Ui.VBox(4);
             box.AddChild(Ui.L(t.T(key).TrimEnd(':'), Tx.BodyStrong));
