@@ -4,7 +4,7 @@ namespace OpenPolitics.Core.Politics;
 public static class PoliticsLimits
 {
     /// <summary>Promises can be made this many turns before an election; each is judged at the election after the next term (decision 0015).</summary>
-    public const int PromiseWindowTurns = 8;
+    public const int PromiseWindowTurns = 16;
 
     /// <summary>Policy ids for the electoral rules (percent of the vote; 0 = D'Hondt, 1 = Sainte-Lague, 2 = Hare quota).</summary>
     public const string ThresholdPolicy = "base:electoral_threshold", MethodPolicy = "base:electoral_method";

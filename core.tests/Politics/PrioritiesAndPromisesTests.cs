@@ -47,9 +47,9 @@ public class PrioritiesAndPromisesTests
     }
 
     [Fact]
-    public void APromiseNeedsAnElectionWithinTwoYears()
+    public void APromiseNeedsAnElectionWithinTheWindow()
     {
-        var early = Governing(turnsToElection: 12);
+        var early = Governing(turnsToElection: OpenPolitics.Core.Politics.PoliticsLimits.PromiseWindowTurns + 1);
         Assert.Equal("error.too_early", early.Apply(new MakePromise("d1")).ErrorKey);
         var soon = Governing(turnsToElection: 6);
         double before = Pol(soon).Party!.PoliticalCapital;

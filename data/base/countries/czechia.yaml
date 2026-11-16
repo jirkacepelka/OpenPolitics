@@ -9,7 +9,7 @@
     revenue_ratio_ref: 0.40
   politics:
     electoral_system: base:czech_pr
-    election_interval_turns: 16
+    election_interval_turns: 32
     majority_fraction: 0.5
     max_formation_turns: 4
     caretaker_turns: 2

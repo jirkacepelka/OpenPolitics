@@ -104,7 +104,7 @@ public class PlayCoalitionActionsTests
         Assert.Contains("stresses", o);
         Assert.Contains("Compass", o);
         var late = Play("test:leads", "promise 1\nquit\n");
-        Assert.Contains("two years", late); // 20 turns to the election: too early
+        Assert.Contains("four years", late); // 20 turns to the election: too early
         Assert.Contains("priority", Play("test:leads", "help\nquit\n"));
     }
 }

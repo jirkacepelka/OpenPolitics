@@ -60,14 +60,14 @@ public class DecisionsTests
     [Fact]
     public void TheWindowForPromisesIsADecisionWhileThereIsSomethingToPromise()
     {
-        var g = Make("a", new[] { "b", "c" }, "b", turnsToElection: 8);
+        var g = Make("a", new[] { "b", "c" }, "b", turnsToElection: OpenPolitics.Core.Politics.PoliticsLimits.PromiseWindowTurns);
         var promises = Assert.Single(Decisions.Open(Country(g), _packs), d => d.Kind == DecisionKind.Promises);
         Assert.True(promises.Urgent); // the window just opened
         Assert.Equal(3, Decisions.Promisable(Country(g), _packs).Count);
         Assert.True(g.Apply(new MakePromise("d1")).Accepted);
         Assert.True(g.Apply(new MakePromise("d2")).Accepted);
         Assert.DoesNotContain(Decisions.Open(Country(g), _packs), d => d.Kind == DecisionKind.Promises); // both slots used
-        var early = Make("a", new[] { "b", "c" }, "b", turnsToElection: 9);
+        var early = Make("a", new[] { "b", "c" }, "b", turnsToElection: OpenPolitics.Core.Politics.PoliticsLimits.PromiseWindowTurns + 1);
         Assert.Empty(Decisions.Open(Country(early), _packs));
     }
 
