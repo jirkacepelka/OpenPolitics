@@ -389,6 +389,8 @@ internal sealed class PoliticsEngine
         OpposeProposal op => DoAnswer(op.ProposalId, Stance.Oppose),
         AnnouncePolicy an => DoProposeAny(an.PolicyId, an.Target, reportTurn), // decision 0015: one way to propose; the old verb is an alias
         NoConfidence => DoNoConfidence(),
+        IssueUltimatum u => DoIssueUltimatum(u.Kind, u.SubjectId, u.Deadline, reportTurn),
+        WithdrawUltimatum => DoWithdrawUltimatum(reportTurn),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
 
@@ -754,6 +756,7 @@ internal sealed class PoliticsEngine
         {
             string leader = _government.Leader;
             events.Add(new PlayerLeftCoalition(turn));
+            if (_myUltimatum != null) { _myUltimatum = null; _nextUltimatumTurn = turn + PoliticsLimits.UltimatumCooldownTurns; }
             Depart(Player, turn, events, announce: false);
             _credibility = Math.Max(0.0, _credibility - PartyRules.LeaveCredibility);
             _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - 0.3);
@@ -839,8 +842,8 @@ internal sealed class PoliticsEngine
 
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
-        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); HoldElection(turn, events); return events; }
-        if (_phase == Phase.Formation) { LapseProposal(turn, events); StepFormation(turn, events); }
+        if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); LapseUltimatum(turn, events); HoldElection(turn, events); return events; }
+        if (_phase == Phase.Formation) { LapseProposal(turn, events); LapseUltimatum(turn, events); StepFormation(turn, events); }
         else if (_phase == Phase.Governing)
         {
             if (!ProcessExits(turn, events))
@@ -850,10 +853,11 @@ internal sealed class PoliticsEngine
                 StepLoyalty(turn, effective, events);
                 DecideProposals(turn, events);
                 OpenRequest(turn, events);
+                StepUltimatum(turn, events);
             }
-            else { _proposals.Clear(); LapseProposal(turn, events); }
+            else { _proposals.Clear(); LapseProposal(turn, events); LapseUltimatum(turn, events); }
         }
-        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); }
+        else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); LapseUltimatum(turn, events); }
         return events;
     }
 
@@ -1292,8 +1296,238 @@ internal sealed class PoliticsEngine
 
     // ---- the player's ultimatum to the leader (decision 0016, item 1) ----------------------------------------------
 
-    private int _nextUltimatumTurn = 0;
-    private PlayerUltimatumInfo? UltimatumSnapshot() => null;
+    private sealed class OpenUltimatum(string kind, string subjectId, string policyId, double from, double target, int deadline, int issued)
+    {
+        public string Kind { get; } = kind;
+        public string SubjectId { get; } = subjectId;
+        public string PolicyId { get; } = policyId;
+        public double From { get; } = from;
+        public double Target { get; } = target;
+        public int Deadline { get; } = deadline;
+        public int Issued { get; } = issued;
+        public int Left = deadline;
+        public string? Answer;
+    }
+
+    private OpenUltimatum? _myUltimatum;
+    private int _nextUltimatumTurn;
+
+    private PlayerUltimatumInfo? UltimatumSnapshot() => _myUltimatum is not { } u ? null
+        : new PlayerUltimatumInfo(u.Kind, u.SubjectId, u.PolicyId, u.From, u.Target, u.Left, u.Deadline, u.Answer);
+
+    /// <summary>
+    /// The policy and setting an ultimatum asks for: a policy demand's target; a value goal as a move of its strongest lever by
+    /// <see cref="PoliticsLimits.UltimatumGoalStepOfRange"/> of the range; a programme position as a move toward it of at most
+    /// <see cref="PoliticsLimits.UltimatumMaxMoveOfRange"/>. An error key when there is nothing to ask.
+    /// </summary>
+    private (string? Error, string? Detail, string PolicyId, double From, double Target) UltimatumTarget(string kind, string subjectId)
+    {
+        var party = _parties[Player];
+        if (kind == "policy")
+        {
+            if (!_policyDefs.TryGetValue(subjectId, out var def)) return ("error.unknown_policy", subjectId, "", 0, 0);
+            if (!party.Platform.TryGetValue(subjectId, out var pos)) return ("error.not_in_platform", subjectId, "", 0, 0);
+            double cur = Latest(subjectId), range = def.Max - def.Min, step = PoliticsLimits.UltimatumMaxMoveOfRange * range;
+            double target = Math.Clamp(cur + Math.Clamp(pos.Target - cur, -step, step), def.Min, def.Max);
+            if (Math.Abs(target - cur) <= 1e-9 * Math.Max(1.0, range)) return ("error.ultimatum_met", subjectId, subjectId, cur, cur);
+            return (null, null, subjectId, cur, target);
+        }
+        if (kind != "demand") return ("error.unknown_action", kind, "", 0, 0);
+        var d = party.Demands.FirstOrDefault(x => x.Id == subjectId);
+        if (d == null) return ("error.unknown_demand", subjectId, "", 0, 0);
+        if (d.Kind == "policy")
+        {
+            if (!_policyDefs.ContainsKey(d.Subject)) return ("error.unknown_policy", d.Subject, "", 0, 0);
+            double cur = Latest(d.Subject);
+            if (CommitmentMath.Satisfied(d, cur)) return ("error.ultimatum_met", subjectId, d.Subject, cur, cur);
+            return (null, null, d.Subject, cur, d.Target);
+        }
+        if (CommitmentMath.Satisfied(d, _lookup("value", d.Subject))) return ("error.ultimatum_met", subjectId, "", 0, 0);
+        double want = d.Op == "<=" ? -1.0 : 1.0;
+        if (_levers.TryGetValue(d.Subject, out var levers))
+            foreach (var l in levers.OrderByDescending(l => Math.Abs(l.Sign)).ThenBy(l => l.PolicyId, Ord))
+            {
+                if (!_policyDefs.TryGetValue(l.PolicyId, out var def) || !(def.Max > def.Min)) continue;
+                double cur = Latest(l.PolicyId);
+                double target = Math.Clamp(cur + want * Math.Sign(l.Sign) * PoliticsLimits.UltimatumGoalStepOfRange * (def.Max - def.Min), def.Min, def.Max);
+                if (Math.Abs(target - cur) > 1e-9) return (null, null, l.PolicyId, cur, target);
+            }
+        return ("error.not_deliverable", subjectId, "", 0, 0);
+    }
+
+    /// <summary>The leader could replace the player's party with outside parties (an AI patch would exist without it).</summary>
+    private (int Turn, string Key, bool Value)? _replaceCache;
+
+    private bool CanReplacePlayer()
+    {
+        // only the end of a quarter changes what the answer depends on (seats, grudges, red lines in force, the government), so it is cached per quarter
+        string key = string.Join(",", _government.Parties) + "|" + _government.Commitments.Count;
+        if (_replaceCache is { } c && c.Turn == _lastTurn && c.Key == key) return c.Value;
+        bool value = ComputeCanReplacePlayer();
+        _replaceCache = (_lastTurn, key, value);
+        return value;
+    }
+
+    private bool ComputeCanReplacePlayer()
+    {
+        string leader = _government.Leader;
+        var kept = _government.Parties.Where(p => p != leader && p != Player).ToList();
+        if (CoalitionRules.HasMajority(_government.Parties.Where(p => p != Player), _seats, _rules.MajorityFraction)) return true;
+        var excluded = new HashSet<string>(Ord) { Player };
+        foreach (var p in _parties.Values)
+            if (p.RedLines.Any(r => LoyaltyModel.RedLineViolated(r, _lookup("policy", r.Policy)))) excluded.Add(p.Id);
+        return CoalitionBuilder.Complete(leader, kept, AgreementsOf(kept), _parties, _seats, _ranges, _rules.MajorityFraction,
+            _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet) != null;
+    }
+
+    /// <summary>
+    /// The AI leader's answer to the player's ultimatum (decision 0016), deterministic: a member's red line newly crossed refuses; otherwise a score
+    /// from the relation, the fit with the leader's platform, how much it needs the party (pivotal without a replacement 0.3, pivotal with one 0.15,
+    /// not pivotal 0.05), the party's share of the government's seats, the size of the move, the leader's grudge, a portfolio the party holds for the
+    /// policy, and <see cref="PoliticsLimits.UltimatumStallGain"/> per quarter already waited.
+    /// </summary>
+    private (string Answer, string? Reason, double Score, bool Pivotal, bool Patchable) UltimatumAnswer(string policyId, double from, double target, int waited)
+    {
+        string leader = _government.Leader;
+        var def = _policyDefs[policyId];
+        double range = Math.Max(1e-12, def.Max - def.Min);
+        bool pivotal = PlayerPivotal();
+        bool patchable = CanReplacePlayer();
+        bool redLine = _government.Parties.Where(p => p != Player).Any(p => _parties[p].RedLines.Any(r =>
+            r.Policy == policyId && LoyaltyModel.RedLineViolated(r, target) && !LoyaltyModel.RedLineViolated(r, from)));
+        double fit = _parties[leader].Platform.TryGetValue(policyId, out var pos) ? 1.0 - Math.Min(1.0, Math.Abs(target - pos.Target) / range) : 0.5;
+        double govSeats = _government.Parties.Sum(p => _seats.GetValueOrDefault(p));
+        double share = govSeats > 0 ? _seats.GetValueOrDefault(Player) / govSeats : 0.0;
+        double move = Math.Min(1.0, Math.Abs(target - from) / range);
+        double need = pivotal ? (patchable ? 0.15 : 0.3) : 0.05;
+        double held = HoldsPortfolioFor(Player, policyId) ? PoliticsLimits.PortfolioProposalBonus : 0.0;
+        double score = 0.3 * Relation(leader, Player) + 0.3 * fit + need + 0.15 * share - 0.6 * move - 0.2 * Resent(leader, Player) + held
+            + PoliticsLimits.UltimatumStallGain * waited;
+        string answer = redLine ? "refuse" : score >= PoliticsLimits.UltimatumDeliverAt ? "deliver" : score < PoliticsLimits.UltimatumRefuseBelow ? "refuse" : "stall";
+        return (answer, answer == "refuse" ? (redLine ? "red_line" : "score") : null, score, pivotal, patchable);
+    }
+
+    private ActionResult? UltimatumBlock(int reportTurn)
+    {
+        if (_phase != Phase.Governing) return PlayerRole == Role.Partner ? Fail("error.wrong_phase") : Fail("error.not_partner");
+        if (PlayerRole != Role.Partner) return Fail("error.not_partner");
+        if (_myUltimatum != null) return Fail("error.ultimatum_open");
+        if (reportTurn < _nextUltimatumTurn)
+            return Fail("error.ultimatum_cooldown", (_nextUltimatumTurn - reportTurn).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return null;
+    }
+
+    /// <summary>What an ultimatum would bring now; changes nothing.</summary>
+    public UltimatumPreview PreviewUltimatum(string kind, string subjectId, int deadline, int reportTurn)
+    {
+        int cooldown = Math.Max(0, _nextUltimatumTurn - reportTurn);
+        UltimatumPreview Error(string key, string? detail) => new(key, detail, null, 0, 0, PoliticsLimits.UltimatumCost, null, null, null, false, false, cooldown, 0);
+        if (UltimatumBlock(reportTurn) is { } block) return Error(block.ErrorKey!, block.Detail);
+        if (deadline < PoliticsLimits.UltimatumMinDeadline || deadline > PoliticsLimits.UltimatumMaxDeadline) return Error("error.bad_deadline", null);
+        var (error, detail, policyId, from, target) = UltimatumTarget(kind, subjectId);
+        if (error != null) return Error(error, detail);
+        var first = UltimatumAnswer(policyId, from, target, 0);
+        int? after = null;
+        if (first.Answer == "deliver") after = 0;
+        else if (first.Answer == "stall")
+            for (int k = 1; k < deadline && after == null; k++)
+                if (UltimatumAnswer(policyId, from, target, k).Answer == "deliver") after = k;
+        return new UltimatumPreview(null, null, policyId, from, target, PoliticsLimits.UltimatumCost, first.Answer, first.Reason, after,
+            first.Pivotal, first.Patchable, cooldown, first.Score);
+    }
+
+    private ActionResult DoIssueUltimatum(string kind, string subjectId, int deadline, int reportTurn)
+    {
+        if (UltimatumBlock(reportTurn) is { } block) return block;
+        if (deadline < PoliticsLimits.UltimatumMinDeadline || deadline > PoliticsLimits.UltimatumMaxDeadline) return Fail("error.bad_deadline");
+        var (error, detail, policyId, from, target) = UltimatumTarget(kind, subjectId);
+        if (error != null) return Fail(error, detail);
+        if (!TrySpend(PoliticsLimits.UltimatumCost)) return Fail("error.not_enough_capital");
+        _myUltimatum = new OpenUltimatum(kind, subjectId, policyId, from, target, deadline, reportTurn);
+        return ActionResult.Ok;
+    }
+
+    private ActionResult DoWithdrawUltimatum(int reportTurn)
+    {
+        if (_myUltimatum == null) return Fail("error.no_ultimatum");
+        _myUltimatum = null;
+        _credibility = Math.Max(0.0, _credibility - PoliticsLimits.UltimatumWithdrawCredibility);
+        _nextUltimatumTurn = reportTurn + PoliticsLimits.UltimatumCooldownTurns;
+        return ActionResult.Ok;
+    }
+
+    /// <summary>Whether the player's ultimatum is met by the settings the government has put in (or queued).</summary>
+    private bool UltimatumMet(OpenUltimatum u) =>
+        u.Kind == "demand" && _parties[Player].Demands.FirstOrDefault(d => d.Id == u.SubjectId) is { Kind: "policy" } d
+            ? CommitmentMath.Satisfied(d, Latest(d.Subject))
+            : Math.Sign(u.Target - u.From) * (Latest(u.PolicyId) - u.Target) >= -1e-9;
+
+    /// <summary>
+    /// End of the quarter (decision 0016): the leader answers the player's ultimatum, delivers when its score allows it (the change follows as a
+    /// government measure), and when the deadline passes undelivered the player's party leaves as it threatened.
+    /// </summary>
+    private void StepUltimatum(int turn, List<PoliticalEvent> events)
+    {
+        if (_myUltimatum is not { } u) return;
+        if (_phase != Phase.Governing || PlayerRole != Role.Partner) { LapseUltimatum(turn, events); return; }
+        string leader = _government.Leader;
+        bool first = u.Answer == null;
+        if (UltimatumMet(u)) { Deliver(u, turn, events, enact: false); return; }
+        if (u.Answer != "refuse")
+        {
+            var (answer, reason, _, _, _) = UltimatumAnswer(u.PolicyId, u.From, u.Target, turn - u.Issued);
+            if (first || answer == "deliver")
+            {
+                u.Answer = answer;
+                if (first) events.Add(new UltimatumAnswered(turn, leader, answer, reason, u.PolicyId, u.Target, u.Left - 1));
+                if (answer == "refuse") _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - PoliticsLimits.UltimatumRelationRefused);
+                if (answer == "deliver") { Deliver(u, turn, events, enact: true); return; }
+            }
+        }
+        if (--u.Left > 0) return;
+        // the deadline passed undelivered: the party walks out, as it said it would
+        _myUltimatum = null;
+        _nextUltimatumTurn = turn + PoliticsLimits.UltimatumCooldownTurns;
+        events.Add(new UltimatumCarriedOut(turn, leader, u.PolicyId));
+        Depart(Player, turn, events, announce: false);
+        _credibility = Math.Max(0.0, _credibility - PoliticsLimits.UltimatumCarriedOutCredibility);
+        _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - 0.3);
+        WarmOwnVoters(PoliticsLimits.UltimatumVoterMomentum * 0.5);
+        if (!PatchMajority(turn, events)) FallIfNoMajority(turn, events);
+    }
+
+    private void Deliver(OpenUltimatum u, int turn, List<PoliticalEvent> events, bool enact)
+    {
+        string leader = _government.Leader;
+        _myUltimatum = null;
+        _nextUltimatumTurn = turn + PoliticsLimits.UltimatumCooldownTurns;
+        if (enact) _approved.Add((u.PolicyId, u.Target));
+        events.Add(new UltimatumDelivered(turn, leader, u.PolicyId, u.Target));
+        _credibility = Math.Min(1.0, _credibility + PoliticsLimits.UltimatumDeliveredCredibility);
+        _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - PoliticsLimits.UltimatumRelationDelivered);
+        WarmOwnVoters(PoliticsLimits.UltimatumVoterMomentum);
+    }
+
+    /// <summary>The groups that like the player's party warm to it (scaled by affinity, the strongest group by <paramref name="amount"/>).</summary>
+    private void WarmOwnVoters(double amount)
+    {
+        var affinity = _parties[Player].Affinity;
+        double top = affinity.Count == 0 ? 0.0 : affinity.Values.Max();
+        if (!(top > 0)) return;
+        foreach (var g in _groups.OrderBy(g => g.Id, Ord))
+            if (affinity.GetValueOrDefault(g.Id) is var a && a > 0) _momentum[g.Id] += amount * a / top;
+    }
+
+    /// <summary>Whether a party holds the cabinet portfolio a policy belongs to (decision 0016, item 2).</summary>
+    private bool HoldsPortfolioFor(string party, string policyId) => false;
+
+    private void LapseUltimatum(int turn, List<PoliticalEvent> events)
+    {
+        if (_myUltimatum == null) return;
+        _myUltimatum = null;
+        _nextUltimatumTurn = turn + PoliticsLimits.UltimatumCooldownTurns;
+        events.Add(new UltimatumLapsed(turn));
+    }
 
     // ---- coalition reshuffle (decision 0013) -------------------------------------------------------------------
 

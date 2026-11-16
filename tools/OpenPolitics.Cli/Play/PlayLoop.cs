@@ -112,6 +112,8 @@ public sealed class PlayLoop
                 case "support": DoAnswer(support: true); break;
                 case "oppose": DoAnswer(support: false); break;
                 case "announce": DoProposePolicy(cmd.Args); break; // decision 0015: an alias of propose
+                case "ultimatum": DoUltimatum(cmd.Args); break;
+                case "withdraw": Report(_game.Apply(new WithdrawUltimatum()), "ui.myult.withdrawn", quiet: true); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
         }
@@ -158,6 +160,8 @@ public sealed class PlayLoop
         ["leave"] = "leave", ["odejit"] = "leave",
         ["dismiss"] = "dismiss", ["vyloucit"] = "dismiss",
         ["reshuffle"] = "reshuffle", ["prestavba"] = "reshuffle", ["prestavet"] = "reshuffle",
+        ["ultimatum"] = "ultimatum",
+        ["withdraw"] = "withdraw", ["stahnout"] = "withdraw", ["stahni"] = "withdraw",
         ["confidence"] = "confidence", ["nedoveru"] = "confidence", ["nedovera"] = "confidence",
     };
 
@@ -207,6 +211,7 @@ public sealed class PlayLoop
         }
         ShowPoliticalEvents(_last.PoliticalEvents);
         ShowProposal();
+        ShowOwnUltimatum();
         ShowOverview();
         if (_tips && _nextTip <= 5) _out.WriteLine("\n" + RoleText($"ui.tip.{_nextTip++}"));
         if (_game.State.Turn >= _maxTurns) { ShowEnd(); return true; }
@@ -648,6 +653,48 @@ public sealed class PlayLoop
         _out.WriteLine($"\n{_t.T("ui.proposal.heading")}: {who} {what}");
         foreach (var line in texts.ProposalHints(p)) _out.WriteLine("  " + line);
         _out.WriteLine("  " + _t.T("ui.help.proposal"));
+    }
+
+    /// <summary>The party's open ultimatum to the leader (decision 0016): status and what to do.</summary>
+    private void ShowOwnUltimatum()
+    {
+        if (Current.Politics is not { PlayerUltimatum: { } u, Leader: { } leader }) return;
+        _out.WriteLine($"\n{_t.T("ui.myult.title")}: {new Texts(_packs, _t).UltimatumStatus(u, leader)}");
+        _out.WriteLine("  " + _t.T("ui.help.ultimatum_open"));
+    }
+
+    /// <summary>ultimatum [check] demand ID|N [QUARTERS] / ultimatum [check] policy POLICY [QUARTERS] (decision 0016).</summary>
+    private void DoUltimatum(string[] args)
+    {
+        var pol = Current.Politics;
+        if (pol == null) { _out.WriteLine(_t.T("ui.err.no_politics")); return; }
+        var texts = new Texts(_packs, _t);
+        if (pol.PlayerUltimatum != null && args.Length == 0) { ShowOwnUltimatum(); return; }
+        var list = args.ToList();
+        bool check = list.Count > 0 && Localizer.Fold(list[0]) is "check" or "zkus" or "nahled";
+        if (check) list.RemoveAt(0);
+        if (list.Count < 2) { _out.WriteLine(_t.T("ui.err.usage_ultimatum")); return; }
+        string kindWord = Localizer.Fold(list[0]);
+        string? kind = kindWord is "demand" or "pozadavek" or "d" ? "demand" : kindWord is "policy" or "program" or "p" ? "policy" : null;
+        if (kind == null) { _out.WriteLine(_t.T("ui.err.usage_ultimatum")); return; }
+        int deadline = 4;
+        if (list.Count > 2 && int.TryParse(list[^1], NumberStyles.None, CultureInfo.InvariantCulture, out var q)) { deadline = q; list.RemoveAt(list.Count - 1); }
+        string token = string.Join(" ", list.Skip(1));
+        string? subject;
+        if (kind == "demand")
+        {
+            var own = _packs.Parties.First(p => p.Id == pol.PlayerParty).Demands;
+            subject = Resolve(token, own, d => d.Id, numbers: true)?.Id;
+        }
+        else subject = Resolve(token, _policies, p => p.Id, numbers: true)?.Id;
+        if (subject == null) { _out.WriteLine(_t.T("ui.err.unknown_item", token)); return; }
+        var preview = _game.PreviewUltimatum(kind, subject, deadline);
+        if (preview == null) return;
+        if (preview.ErrorKey == "error.not_partner") { _out.WriteLine(_t.T("ui.myult.only_partner")); return; }
+        _out.WriteLine($"\n{_t.T("ui.myult.title")}");
+        foreach (var line in texts.UltimatumPreviewLines(preview, pol.Leader ?? "")) _out.WriteLine("  " + line);
+        if (preview.ErrorKey != null || check) return;
+        Report(_game.Apply(new IssueUltimatum(kind, subject, deadline)), "ui.myult.ok", quiet: true, _t.Name(pol.Leader ?? ""));
     }
 
     private void DoAnswer(bool support)

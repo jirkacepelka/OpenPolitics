@@ -84,6 +84,18 @@ public sealed record OpposeProposal(string ProposalId) : PoliticsAction;
 /// </summary>
 public sealed record AnnouncePolicy(string PolicyId, double Target) : PoliticsAction;
 
+/// <summary>
+/// Decision 0016 (1): as a junior partner, give the leader an ultimatum - deliver within <paramref name="Deadline"/> quarters
+/// (<see cref="Politics.PoliticsLimits.UltimatumMinDeadline"/>..<see cref="Politics.PoliticsLimits.UltimatumMaxDeadline"/>) or the party leaves the
+/// government. Kind "demand": SubjectId is one of the party's own demands (agreed or not; a value goal is asked as a move of the policy that drives
+/// it most); kind "policy": SubjectId is a policy of the party's programme (asked to move toward it by at most a quarter of its range). Costs
+/// <see cref="Politics.PoliticsLimits.UltimatumCost"/>; one at a time; the leader answers at the end of the quarter.
+/// </summary>
+public sealed record IssueUltimatum(string Kind, string SubjectId, int Deadline) : PoliticsAction;
+
+/// <summary>Withdraw the party's open ultimatum (decision 0016): costs <see cref="Politics.PoliticsLimits.UltimatumWithdrawCredibility"/> credibility.</summary>
+public sealed record WithdrawUltimatum : PoliticsAction;
+
 /// <param name="ErrorKey">Localization key such as error.unknown_policy; null when accepted.</param>
 public sealed record ActionResult(bool Accepted, string? ErrorKey, string? Detail)
 {

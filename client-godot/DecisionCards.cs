@@ -27,6 +27,7 @@ public static class DecisionCards
         DecisionKind.Proposal when s.Politics?.Proposals?.FirstOrDefault(p => p.Id == d.Id) is { } p => TurnPopup.ProposalCard(s, p, refresh),
         DecisionKind.Ultimatum when s.Politics?.Ultimatums?.FirstOrDefault(u => u.PartyId == d.PartyId) is { } u => Ultimatum(main, s, u, refresh),
         DecisionKind.Promises => Promises(s, refresh),
+        DecisionKind.OwnUltimatum => OwnUltimatum(main, s, refresh),
         _ => null,
     };
 
@@ -179,6 +180,25 @@ public static class DecisionCards
         foreach (var c in row.GetChildren().OfType<Control>().ToList()) { row.RemoveChild(c); flow.AddChild(c); }
         flow.AddThemeConstantOverride("h_separation", 6); flow.AddThemeConstantOverride("v_separation", 6);
         box.AddChild(flow);
+        return Ui.Panel(box, "Warn");
+    }
+
+    /// <summary>Decision 0016: the party's own ultimatum to the leader - the countdown and the leader's answer, Withdraw, and a link to the Actions tab.</summary>
+    public static Control? OwnUltimatum(Main main, Session s, Action refresh)
+    {
+        var t = s.T;
+        if (s.Politics is not { PlayerUltimatum: { } u, Leader: { } leader }) return null;
+        var box = Ui.VBox(8);
+        var head = Ui.HBox(10);
+        head.AddChild(new IconView(IconKind.Alert, 18, u.Answer == "refuse" ? AppTheme.BadText : AppTheme.WarnText));
+        head.AddChild(Ui.L(Ui.Fix(s.Texts.UltimatumStatus(u, leader)), Tx.BodyStrong, u.Answer == "refuse" ? AppTheme.BadText : AppTheme.WarnText, true));
+        box.AddChild(head);
+        var row = Ui.HBox(6);
+        var withdraw = Ui.Btn(t.T("ui.myult.withdraw"), () => { s.Do(new WithdrawUltimatum(), t.T("ui.myult.withdrawn")); refresh(); }, "ButtonSecondary", IconKind.Back, s.Texts.Explain("ultimatum"), false, 36);
+        withdraw.Name = "BriefUltimatumWithdraw";
+        row.AddChild(withdraw);
+        row.AddChild(Ui.Btn(t.T("ui.client.tab.party"), () => { main.CloseDialogs(); main.OpenScreen<PartyScreen>(); }, "ButtonGhost", IconKind.Party, null, false, 36));
+        box.AddChild(row);
         return Ui.Panel(box, "Warn");
     }
 

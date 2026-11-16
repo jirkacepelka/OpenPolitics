@@ -67,6 +67,11 @@ public sealed class Texts
         SupportMoved m => _t.T("ui.event.support_moved", _t.Name(m.PartyId),
             string.Join(", ", m.Moves.Select(x => _t.T("ui.support.group_move", _t.Name(x.GroupId), Fmt.Number(100 * x.After, "0.0"), Points(100 * (x.After - x.Before)))))),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
+        UltimatumAnswered a when Pol(a.PolicyId) is { } ap => _t.T("ui.event.myult_" + a.Answer + (a.Answer == "refuse" ? "_" + (a.Reason ?? "score") : ""),
+            _t.Name(a.Leader), _t.Name(a.PolicyId), Fmt.Policy(ap, a.Target, _t), a.TurnsLeft),
+        UltimatumDelivered d when Pol(d.PolicyId) is { } dp => _t.T("ui.event.myult_delivered", _t.Name(d.Leader), _t.Name(d.PolicyId), Fmt.Policy(dp, d.Target, _t)),
+        UltimatumCarriedOut c => _t.T("ui.event.myult_carried_out", _t.Name(c.Leader), _t.Name(c.PolicyId)),
+        UltimatumLapsed => _t.T("ui.event.myult_lapsed"),
         FiscalCreditEarned c => _t.T("ui.event.fiscal_credit", "+" + N(c.Capital, "0.0"), Points(c.Points), N(c.From, "0.0"), N(c.To, "0.0")),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         CoalitionReshuffled r => _t.T("ui.event.coalition_reshuffled", _t.Name(r.Leader), Names(r.Dropped), Names(r.Added)),
@@ -147,6 +152,34 @@ public sealed class Texts
     }
 
     /// <summary>
+    /// What an ultimatum would bring (decision 0016), one line each: what is asked, the leader's likely answer, the party's leverage, the stakes.
+    /// A hard error gives its text alone.
+    /// </summary>
+    public IReadOnlyList<string> UltimatumPreviewLines(UltimatumPreview p, string leader)
+    {
+        if (p.ErrorKey != null) return new[] { Error(new ActionResult(false, p.ErrorKey, p.Detail)) };
+        var lines = new List<string>();
+        if (p.PolicyId != null && Pol(p.PolicyId) is { } def)
+            lines.Add(_t.T("ui.myult.asks", _t.Name(p.PolicyId), Fmt.Policy(def, p.From, _t), Fmt.Policy(def, p.Target, _t)));
+        lines.Add(p.Answer switch
+        {
+            "deliver" => _t.T("ui.myult.likely_deliver", _t.Name(leader)),
+            "stall" when p.DeliversAfter is { } k => _t.T("ui.myult.likely_stall_deliver", _t.Name(leader), k),
+            "stall" => _t.T("ui.myult.likely_stall_walk", _t.Name(leader)),
+            _ => _t.T(p.Reason == "red_line" ? "ui.myult.likely_refuse_red_line" : "ui.myult.likely_refuse", _t.Name(leader)),
+        });
+        lines.Add(_t.T(!p.Pivotal ? "ui.myult.not_pivotal" : p.Patchable ? "ui.myult.pivotal_patchable" : "ui.myult.pivotal"));
+        lines.Add(_t.T("ui.myult.stakes", N(PoliticsLimits.UltimatumCarriedOutCredibility * 100) + " %", N(PoliticsLimits.UltimatumDeliveredCredibility * 100) + " %",
+            N(PoliticsLimits.UltimatumWithdrawCredibility * 100) + " %"));
+        return lines;
+    }
+
+    /// <summary>The status line of the party's open ultimatum: what it asks, the leader's answer so far and the quarters left.</summary>
+    public string UltimatumStatus(PlayerUltimatumInfo u, string leader) =>
+        _t.T("ui.myult.status_" + (u.Answer ?? "waiting"), _t.Name(leader), _t.Name(u.PolicyId),
+            Pol(u.PolicyId) is { } def ? Fmt.Policy(def, u.Target, _t) : N(u.Target), u.TurnsLeft);
+
+    /// <summary>
     /// The in-game explanation of a party stat or action (decision 0014 f), with the numbers the engine uses: capital, organisation, credibility,
     /// cohesion, relations, fiscal_blame; campaign, organise, court, criticize, stance, promise, priority, shift, propose, announce, proposals,
     /// reshuffle, exits. Unknown topics return the key.
@@ -178,6 +211,9 @@ public sealed class Texts
             N(PoliticsLimits.ProposalRelationSupport), N(PoliticsLimits.ProposalRelationOppose), N(PoliticsLimits.ProposalPartnerStrain), N(PoliticsLimits.ProposalWarmth),
             N(PoliticsLimits.ProposalBlockedHit), PoliticsLimits.ProposalCooldownTurns + 1),
         "reshuffle" => _t.T("ui.explain.reshuffle", N(PoliticsLimits.ReshuffleBaseCost), N(PoliticsLimits.ReshufflePerParty), PoliticsLimits.ReshuffleCooldownTurns, PoliticsLimits.ReshuffleRefusedCooldownTurns),
+        "ultimatum" => _t.T("ui.explain.ultimatum", N(PoliticsLimits.UltimatumCost), PoliticsLimits.UltimatumMinDeadline, PoliticsLimits.UltimatumMaxDeadline,
+            PoliticsLimits.UltimatumCooldownTurns, N(PoliticsLimits.UltimatumMaxMoveOfRange * 100) + " %", N(PoliticsLimits.UltimatumDeliveredCredibility * 100) + " %",
+            N(PoliticsLimits.UltimatumCarriedOutCredibility * 100) + " %", N(PoliticsLimits.UltimatumWithdrawCredibility * 100) + " %", N(PartyRules.LeaveCredibility * 100) + " %"),
         "exits" => _t.T("ui.explain.exits", N(PartyRules.NoConfidenceCost), N(PartyRules.DismissCost), N(PartyRules.LeaveCredibility * 100) + " %"),
         _ => topic,
     };
@@ -220,7 +256,7 @@ public sealed class Texts
     {
         string key = "ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
         // a policy change the party cannot pay for: "cost|capital" in the detail (decision 0013)
-        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" or "error.ultimatum_cooldown" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
         string text = _t.T(key);
         if (r.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && r.Detail is { Length: > 1 } detail)
         {

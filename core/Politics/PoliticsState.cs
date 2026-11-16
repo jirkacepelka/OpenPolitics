@@ -31,10 +31,28 @@ public sealed record FiscalCreditEarned(int Turn, string PartyId, double Capital
 /// Decision 0016 (1): the player's party, a junior partner, gave the leader an ultimatum: move PolicyId to Target (from From, the setting when it was
 /// issued) within TurnsLeft quarters or the party walks out. Kind is "demand" (SubjectId: one of the party's demands; a value goal is asked as a move
 /// of its strongest lever) or "policy" (SubjectId: a policy of its programme). Answer is the leader's answer: null until the end of the quarter it was
-/// issued in, then "deliver", "stall" (it may still give in) or "refuse". Delivered once the leader enacted the change.
+/// issued in, then "stall" (it may still give in) or "refuse". Once delivered or carried out the ultimatum is closed (the news says so).
 /// </summary>
 public sealed record PlayerUltimatumInfo(string Kind, string SubjectId, string PolicyId, double From, double Target, int TurnsLeft, int Deadline,
-    string? Answer, bool Delivered);
+    string? Answer);
+
+/// <summary>
+/// What an ultimatum would bring now (decision 0016): a hard error (ErrorKey, refused for free), else the policy and the setting asked, the cost, the
+/// leader's likely first answer ("deliver", "stall", "refuse"; Reason "red_line" or "score") and - when it stalls - after how many quarters it would
+/// give in if nothing else changed (DeliversAfter; null: it lets the party walk). Pivotal: the government loses its majority without the party;
+/// Patchable: the leader could replace it with outside parties.
+/// </summary>
+public sealed record UltimatumPreview(string? ErrorKey, string? Detail, string? PolicyId, double From, double Target, double Cost, string? Answer,
+    string? Reason, int? DeliversAfter, bool Pivotal, bool Patchable, int CooldownLeft, double Score);
+
+/// <summary>The leader answered the player's ultimatum (decision 0016): "deliver", "stall" or "refuse" (Reason "red_line" / "score").</summary>
+public sealed record UltimatumAnswered(int Turn, string Leader, string Answer, string? Reason, string PolicyId, double Target, int TurnsLeft) : PoliticalEvent(Turn);
+/// <summary>The leader gave in: the change follows as a government measure.</summary>
+public sealed record UltimatumDelivered(int Turn, string Leader, string PolicyId, double Target) : PoliticalEvent(Turn);
+/// <summary>The deadline passed undelivered: the player's party left the government, as it had threatened.</summary>
+public sealed record UltimatumCarriedOut(int Turn, string Leader, string PolicyId) : PoliticalEvent(Turn);
+/// <summary>The government changed (election, fall) before the ultimatum was settled: it lapses.</summary>
+public sealed record UltimatumLapsed(int Turn) : PoliticalEvent(Turn);
 
 /// <summary>Measure: the AI-led government puts a policy change to parliament. Request: an AI partner asks the leading player for one.</summary>
 public enum ProposalKind { Measure, Request }

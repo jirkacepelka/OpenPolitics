@@ -17,6 +17,11 @@ public enum DecisionKind
     Ultimatum,
     /// <summary>The window before an election is open and the party may still promise (MakePromise).</summary>
     Promises,
+    /// <summary>
+    /// Decision 0016: the player's own ultimatum to the leader is running - its countdown and the leader's answer, with Withdraw. Urgent in its last
+    /// quarter while undelivered (the party walks out at the end of it).
+    /// </summary>
+    OwnUltimatum,
 }
 
 /// <summary>One open decision. PartyId: the partner of an ultimatum or the formateur of an offer; Id: the proposal id. Urgent decisions stop fast-forward.</summary>
@@ -39,6 +44,8 @@ public static class Decisions
         // ultimatums are given to the leader of the government; for anyone else they are news about the government, not a decision
         if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader)
             foreach (var u in pol.Ultimatums ?? Array.Empty<UltimatumInfo>()) list.Add(new Decision(DecisionKind.Ultimatum, u.PartyId));
+        if (pol.PlayerUltimatum is { } mine && pol.Phase == Phase.Governing && pol.PlayerRole == Role.Partner)
+            list.Add(new Decision(DecisionKind.OwnUltimatum, pol.Leader, Urgent: mine.TurnsLeft <= 1));
         if (Promisable(country, packs).Count > 0)
             list.Add(new Decision(DecisionKind.Promises, pol.PlayerParty, Urgent: pol.TurnsToElection == PoliticsLimits.PromiseWindowTurns));
         return list;

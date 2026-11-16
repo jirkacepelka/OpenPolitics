@@ -27,6 +27,7 @@ public class PoliticsBatchTests(ITestOutputHelper output)
     [InlineData(PoliticsStrategy.Activist)]
     [InlineData(PoliticsStrategy.Reformer)]
     [InlineData(PoliticsStrategy.Challenger)]
+    [InlineData(PoliticsStrategy.Threatener)]
     public void StrategiesOnlyUsePublicApiAndNeverThrow(PoliticsStrategy s)
     {
         var r = Run(s, 200);

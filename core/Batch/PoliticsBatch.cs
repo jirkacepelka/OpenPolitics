@@ -16,7 +16,11 @@ namespace OpenPolitics.Core.Batch;
 /// its platform positions that its core groups like, criticises what got worse, promises its goals before elections, builds its organisation, and
 /// governs like the reformer once it leads.
 /// </remarks>
-public enum PoliticsStrategy { Ignorer, Keeper, Random, Extreme, Activist, Reformer, Challenger }
+/// <remarks>
+/// Threatener (decision 0016): plays the challenger outside the lead and the reformer as leader; as a junior partner it gives the leader ultimatums
+/// on its unmet demands and programme positions whenever one is not refused outright (deadline 4), and lets a stalled or refused one run out.
+/// </remarks>
+public enum PoliticsStrategy { Ignorer, Keeper, Random, Extreme, Activist, Reformer, Challenger, Threatener }
 
 public sealed record PoliticsBatchReport(
     int Games, int Turns, string Strategy,
@@ -28,7 +32,8 @@ public sealed record PoliticsBatchReport(
     double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0, double MeanCapitalLeading = 0,
     int PlayerReshuffles = 0, int Reshuffles = 0,
     int ProposalsPut = 0, int ProposalsAnswered = 0, int ProposalsFailed = 0, int Announcements = 0, int AnnouncementsAdopted = 0,
-    IReadOnlyList<double>? PollByQuarter = null, int Elections = 0, int ElectionsWon = 0, int GovernmentsLed = 0)
+    IReadOnlyList<double>? PollByQuarter = null, int Elections = 0, int ElectionsWon = 0, int GovernmentsLed = 0,
+    int PlayerUltimatums = 0, int UltimatumsDelivered = 0, int UltimatumsCarriedOut = 0, int FiscalCredits = 0, double FiscalCreditCapital = 0)
 {
     public string ToText()
     {
@@ -54,6 +59,8 @@ public sealed record PoliticsBatchReport(
         sb.AppendLine($"  Proposals put to the player: {ProposalsPut} ({ProposalsAnswered} answered, {ProposalsFailed} failed or turned down)");
         sb.AppendLine($"  Announced proposals:         {Announcements} ({AnnouncementsAdopted} adopted by the government)");
         sb.AppendLine($"  Policy changes per year led: {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
+        sb.AppendLine($"  Partner ultimatums:          {PlayerUltimatums} ({UltimatumsDelivered} delivered, {UltimatumsCarriedOut} carried out)");
+        sb.AppendLine($"  Fiscal credit earned:        {FiscalCredits} quarter(s), {FiscalCreditCapital.ToString("0.0", inv)} capital in all");
         sb.AppendLine($"  Elections won (most votes):  {ElectionsWon} of {Elections} ({(Elections > 0 ? 100.0 * ElectionsWon / Elections : 0).ToString("0.0", inv)} %); governments led by the player: {GovernmentsLed}");
         if (PollByQuarter is { Count: > 0 } traj)
             sb.AppendLine("  Player poll by quarter (mean %): " + string.Join(" | ", Enumerable.Range(0, traj.Count).Where(q => q % 4 == 0)
@@ -117,6 +124,9 @@ public static class PoliticsBatch
                         case ProposalPut: counter.ProposalsPut++; break;
                         case ProposalFailed: counter.ProposalsFailed++; break;
                         case AnnouncementAdopted: counter.Adopted++; break;
+                        case UltimatumDelivered: counter.UltimatumsDelivered++; break;
+                        case UltimatumCarriedOut: counter.UltimatumsCarriedOut++; break;
+                        case FiscalCreditEarned fc: counter.FiscalCredits++; counter.FiscalCreditCapital += fc.Capital; break;
                     }
                 }
                 var now = game.State.Countries.Values.Single().Politics!;
@@ -157,7 +167,8 @@ public static class PoliticsBatch
             PerYear(counter.Accepted, packs, scenarioId, leadTurns), PerYear(counter.Refused, packs, scenarioId, leadTurns), lostLead,
             leadTurns > 0 ? sumCapitalLeading / leadTurns : 0, counter.Reshuffles, reshuffles,
             counter.ProposalsPut, counter.ProposalsAnswered, counter.ProposalsFailed, counter.Announcements, counter.Adopted,
-            pollByQuarter.Select(x => games > 0 ? x / games : 0).ToList(), elections, electionsWon, governmentsLed);
+            pollByQuarter.Select(x => games > 0 ? x / games : 0).ToList(), elections, electionsWon, governmentsLed,
+            counter.Ultimatums, counter.UltimatumsDelivered, counter.UltimatumsCarriedOut, counter.FiscalCredits, counter.FiscalCreditCapital);
     }
 
     private static double Share(int count, int games, int turns) => games * turns > 0 ? (double)count / (games * turns) : 0;
@@ -170,6 +181,8 @@ public static class PoliticsBatch
     private sealed class PolicyCounter
     {
         public int Accepted, Refused, Reshuffles, ProposalsPut, ProposalsAnswered, ProposalsFailed, Announcements, Adopted;
+        public int Ultimatums, UltimatumsDelivered, UltimatumsCarriedOut, FiscalCredits;
+        public double FiscalCreditCapital;
 
         public void Set(Game game, string policyId, double value)
         {
@@ -195,8 +208,9 @@ public static class PoliticsBatch
         AnswerProposals(game, pol, strategy, rng, counter);
         if (strategy is PoliticsStrategy.Activist or PoliticsStrategy.Reformer) Announce(game, pol, packs, policies, counter);
         if (strategy == PoliticsStrategy.Activist) { Activism(game, state, pol, packs, memory); return; }
-        if (strategy == PoliticsStrategy.Challenger && !(pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader))
-        { Challenge(game, state, pol, packs, policies, memory, counter); return; }
+        if (strategy == PoliticsStrategy.Threatener && pol.Phase == Phase.Governing && pol.PlayerRole == Role.Partner) Threaten(game, pol, packs, policies, counter);
+        if (strategy is PoliticsStrategy.Challenger or PoliticsStrategy.Threatener && !(pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader))
+        { Challenge(game, game.State, game.State.Countries.Values.Single().Politics!, packs, policies, memory, counter); return; }
         if (pol.Phase != Phase.Governing || pol.PlayerRole != Role.Leader) return;
         var current = state.Countries.Values.Single().Policies;
         switch (strategy)
@@ -208,6 +222,7 @@ public static class PoliticsBatch
                 break;
             case PoliticsStrategy.Reformer:
             case PoliticsStrategy.Challenger:
+            case PoliticsStrategy.Threatener:
                 TryReshuffle(game, pol, counter);
                 var own = packs.Parties.FirstOrDefault(p => p.Id == pol.PlayerParty);
                 var partnerLines = pol.Government!.Parties.Where(p => p != pol.PlayerParty)
@@ -244,7 +259,7 @@ public static class PoliticsBatch
         bool? support = strategy switch
         {
             PoliticsStrategy.Keeper => p.Fit >= -0.1 || (p.Kind == ProposalKind.Measure && p.Pivotal),
-            PoliticsStrategy.Reformer or PoliticsStrategy.Activist or PoliticsStrategy.Challenger => p.Fit > 1e-9 ? true : p.Fit < -1e-9 ? false : p.Kind == ProposalKind.Request ? true : null,
+            PoliticsStrategy.Reformer or PoliticsStrategy.Activist or PoliticsStrategy.Challenger or PoliticsStrategy.Threatener => p.Fit > 1e-9 ? true : p.Fit < -1e-9 ? false : p.Kind == ProposalKind.Request ? true : null,
             PoliticsStrategy.Random => rng.NextDouble() < 0.5,
             PoliticsStrategy.Extreme => false,
             _ => null,
@@ -267,6 +282,26 @@ public static class PoliticsBatch
             var preview = game.PreviewAnnouncement(c.Id, c.Target);
             if (preview == null || preview.Approval <= 0) continue;
             if (game.Apply(new AnnouncePolicy(c.Id, c.Target)).Accepted) { counter.Announcements++; return; }
+        }
+    }
+
+    /// <summary>
+    /// The threatener as a junior partner (decision 0016): when no ultimatum runs and the pause is over, it gives the leader one with a 4-quarter
+    /// deadline on what matters most to it - its heaviest unmet demand, else its weightiest programme position away from the setting - unless the
+    /// leader would refuse it at once (then the next one). A stalled or refused ultimatum is left to run out: the threatener walks.
+    /// </summary>
+    private static void Threaten(Game game, CountryPolitics pol, PackSet packs, Dictionary<string, PolicyDef> policies, PolicyCounter counter)
+    {
+        if (pol.PlayerUltimatum != null || pol.UltimatumCooldown > 0 || pol.Party is not { } party || party.PoliticalCapital < PoliticsLimits.UltimatumCost + 2) return;
+        var own = packs.Parties.First(p => p.Id == pol.PlayerParty);
+        var candidates = own.Demands.OrderByDescending(d => d.Weight).ThenBy(d => d.Id, StringComparer.Ordinal).Select(d => ("demand", d.Id))
+            .Concat(party.Platform.Keys.Where(policies.ContainsKey)
+                .OrderByDescending(k => party.Priorities?.GetValueOrDefault(k, 0.0) ?? 0.0).ThenBy(k => k, StringComparer.Ordinal).Select(k => ("policy", k)));
+        foreach (var (kind, id) in candidates)
+        {
+            if (game.PreviewUltimatum(kind, id, 4) is not { ErrorKey: null, Answer: not "refuse" }) continue;
+            if (game.Apply(new IssueUltimatum(kind, id, 4)).Accepted) counter.Ultimatums++;
+            return;
         }
     }
 

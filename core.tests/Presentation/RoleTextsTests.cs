@@ -47,6 +47,8 @@ public class RoleTextsTests
         yield return new object[] { new GovernmentMeasure(4, "base:pensions", 9, 9.5) };
         yield return new object[] { new CoalitionReshuffled(4, "base:social_alliance", new[] { "base:peoples_union" }, Array.Empty<string>()) };
         yield return new object[] { new PartnerDismissed(4, "base:peoples_union") };
+        yield return new object[] { new UltimatumCarriedOut(4, "base:social_alliance", "base:pensions") }; // decision 0016: read in opposition afterwards
+        yield return new object[] { new UltimatumLapsed(4) };
     }
 
     [Theory]

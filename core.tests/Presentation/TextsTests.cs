@@ -38,7 +38,7 @@ public class TextsTests
     }
 
     public static readonly string[] Topics = { "capital", "organisation", "credibility", "cohesion", "relations", "fiscal_blame", "campaign", "organise", "court",
-        "criticize", "stance", "promise", "priority", "shift", "propose", "announce", "proposals", "reshuffle", "exits", "fiscal_credit" };
+        "criticize", "stance", "promise", "priority", "shift", "propose", "announce", "proposals", "reshuffle", "exits", "fiscal_credit", "ultimatum" };
 
     [Fact]
     public void EveryStatAndActionIsExplainedInBothLanguagesWithTheEngineNumbers()
@@ -56,6 +56,40 @@ public class TextsTests
         Assert.Contains("+4 points for 4 capital", en.Explain("organisation"));
         Assert.Contains("halves every 12 quarters", en.Explain("fiscal_blame"));
         Assert.Contains("0.35", en.Explain("fiscal_credit"));
+    }
+
+    [Fact]
+    public void AnUltimatumPreviewSaysWhatTheLeaderWouldDoAndWhatIsAtStake()
+    {
+        var t = For("en");
+        var p = new UltimatumPreview(null, null, "base:pensions", 9, 10, 4, "stall", null, 2, true, true, 0, 0.45);
+        var lines = t.UltimatumPreviewLines(p, "base:social_alliance");
+        Assert.StartsWith("Asks: Pensions", lines[0]);
+        Assert.Contains("give in after about 2 quarter", lines[1]);
+        Assert.Contains("could bring in another party", lines[2]);
+        Assert.Contains("leaves the government", lines[3]);
+        Assert.Contains("refuse", t.UltimatumPreviewLines(p with { Answer = "refuse", Reason = "red_line", DeliversAfter = null }, "base:social_alliance")[1]);
+        Assert.Single(t.UltimatumPreviewLines(p with { ErrorKey = "error.ultimatum_cooldown", Detail = "3" }, "base:social_alliance"));
+        foreach (var lang in new[] { "cs", "en" })
+        {
+            var x = For(lang);
+            var all = string.Join(" ", x.UltimatumPreviewLines(p, "base:social_alliance"))
+                + x.UltimatumStatus(new PlayerUltimatumInfo("demand", "pensions", "base:pensions", 9, 10, 2, 3, null), "base:social_alliance")
+                + x.UltimatumStatus(new PlayerUltimatumInfo("demand", "pensions", "base:pensions", 9, 10, 2, 3, "refuse"), "base:social_alliance")
+                + x.UltimatumStatus(new PlayerUltimatumInfo("demand", "pensions", "base:pensions", 9, 10, 2, 3, "stall"), "base:social_alliance");
+            foreach (var e in new PoliticalEvent[] { new UltimatumAnswered(3, "base:social_alliance", "deliver", null, "base:pensions", 10, 2),
+                         new UltimatumAnswered(3, "base:social_alliance", "stall", null, "base:pensions", 10, 2),
+                         new UltimatumAnswered(3, "base:social_alliance", "refuse", "red_line", "base:pensions", 10, 2),
+                         new UltimatumAnswered(3, "base:social_alliance", "refuse", "score", "base:pensions", 10, 2),
+                         new UltimatumDelivered(3, "base:social_alliance", "base:pensions", 10), new UltimatumCarriedOut(3, "base:social_alliance", "base:pensions"),
+                         new UltimatumLapsed(3) })
+            {
+                var text = x.Event(e, Role.Partner);
+                Assert.False(string.IsNullOrEmpty(text) || text.StartsWith("ui."), $"{lang}: {e}");
+                all += text;
+            }
+            Assert.DoesNotContain("{", all);
+        }
     }
 
     [Fact]

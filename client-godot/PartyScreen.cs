@@ -16,7 +16,7 @@ public sealed class PartyScreen : Screen
     public override string TabId => "party";
     public override float Width => 1100;
 
-    private int _tab, _groupIndex, _effort = 1, _valueIndex, _proposeIndex;
+    private int _tab, _groupIndex, _effort = 1, _valueIndex, _proposeIndex, _ultKind, _ultIndex, _ultDeadline = 4;
     private double _proposeTarget = double.NaN;
     private readonly Dictionary<string, double> _platformTargets = new(StringComparer.Ordinal);
 
@@ -301,6 +301,7 @@ public sealed class PartyScreen : Screen
 
         var allPolicies = s.Packs.Policies.OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();
         if (allPolicies.Count > 0) grid.AddChild(Propose(s, pol, allPolicies));
+        if (partner && pol.Phase == Phase.Governing) grid.AddChild(UltimatumCard(s, pol));
         var exits = Ui.VBox(8);
         exits.AddChild(Ui.Btn(t.T("ui.client.leave"), () => s.Do(new LeaveCoalition(), t.T("ui.exit.leave_ok")), "ButtonDanger", IconKind.Back, partner ? null : t.T("ui.err.not_partner"), !partner));
         exits.AddChild(Ui.Costed(t.T("ui.client.confidence"), 10, () => s.Do(new NoConfidence(), t.T("ui.exit.confidence_ok")), opposition ? null : t.T("ui.err.not_opposition"), !opposition, "ButtonDanger"));
@@ -360,6 +361,73 @@ public sealed class PartyScreen : Screen
         }, leader ? t.T("ui.err.not_for_leader") : null, leader));
         string hint = t.T(leader ? "ui.client.propose_hint_leader" : partner ? "ui.client.propose_hint" : "ui.client.propose_hint_opposition") + " " + s.Texts.Explain("propose");
         return ActionCard(IconKind.Policies, t.T("ui.client.propose"), box, hint);
+    }
+
+    /// <summary>
+    /// Decision 0016 (1): the junior partner's ultimatum to the leader - what to demand (one of the party's demands, or a programme position), the
+    /// deadline, the leader's likely answer, the party's leverage and the stakes, Give the ultimatum · 4; while one runs, its status and Withdraw.
+    /// </summary>
+    private Control UltimatumCard(Session s, CountryPolitics pol)
+    {
+        var t = s.T;
+        var box = Ui.VBox(8);
+        string leader = pol.Leader ?? "";
+        if (pol.PlayerUltimatum is { } open)
+        {
+            box.AddChild(Ui.L(Ui.Fix(s.Texts.UltimatumStatus(open, leader)), Tx.BodyStrong, open.Answer == "refuse" ? AppTheme.BadText : AppTheme.WarnText, true));
+            var withdraw = Ui.Btn(t.T("ui.myult.withdraw"), () => s.Do(new WithdrawUltimatum(), t.T("ui.myult.withdrawn")), "ButtonSecondary", IconKind.Back, s.Texts.Explain("ultimatum"), false, 36);
+            withdraw.Name = "UltimatumWithdraw";
+            withdraw.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            box.AddChild(withdraw);
+            return ActionCard(IconKind.Alert, t.T("ui.myult.title"), box, s.Texts.Explain("ultimatum"));
+        }
+        var party = s.Packs.Parties.First(p => p.Id == pol.PlayerParty);
+        // what can be demanded: the party's unmet demands, or programme positions the setting is away from
+        var options = new List<(string Kind, string Id, string Label)>();
+        if (_ultKind == 0)
+            foreach (var dm in party.Demands.Where(d => !Texts.IsMet(d, s.Country)).OrderByDescending(d => d.Weight).ThenBy(d => d.Id, StringComparer.Ordinal))
+                options.Add(("demand", dm.Id, Ui.Fix(s.Texts.Demand(dm))));
+        else
+            foreach (var (id, target) in (pol.Party?.Platform ?? new Dictionary<string, double>()).OrderBy(kv => Localizer.Fold(t.Name(kv.Key)), StringComparer.Ordinal))
+                if (s.Packs.Policies.FirstOrDefault(p => p.Id == id) is { } def && Math.Abs(target - s.Country.Policies.GetValueOrDefault(id)) > 0.02 * (def.Max - def.Min))
+                    options.Add(("policy", id, $"{t.Name(id)} → {Ui.Fix(Fmt.Policy(def, target, t))}"));
+        box.AddChild(Ui.Segmented(new[] { t.T("ui.myult.kind_demand"), t.T("ui.myult.kind_policy") }, _ultKind, i => { _ultKind = i; _ultIndex = 0; s.Touch(); }));
+        if (options.Count == 0)
+        {
+            box.AddChild(Ui.L(t.T("ui.myult.none"), Tx.Small, AppTheme.Ink3, true));
+            return ActionCard(IconKind.Alert, t.T("ui.myult.title"), box, s.Texts.Explain("ultimatum"));
+        }
+        _ultIndex = Math.Clamp(_ultIndex, 0, options.Count - 1);
+        var picker = new OptionButton { FocusMode = Control.FocusModeEnum.None, ClipText = true, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = SizeFlags.ExpandFill, Name = "UltimatumSubject" };
+        foreach (var o in options) picker.AddItem(o.Label);
+        picker.Selected = _ultIndex;
+        picker.ItemSelected += i => { _ultIndex = (int)i; s.Touch(); };
+        box.AddChild(Ui.L(t.T("ui.myult.subject"), Tx.Label));
+        box.AddChild(picker);
+        var drow = Ui.HBox(8);
+        drow.AddChild(Ui.L(t.T("ui.myult.deadline"), Tx.Label));
+        int min = PoliticsLimits.UltimatumMinDeadline, max = PoliticsLimits.UltimatumMaxDeadline;
+        drow.AddChild(Ui.Segmented(Enumerable.Range(min, max - min + 1).Select(q => q.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray(),
+            Math.Clamp(_ultDeadline, min, max) - min, i => { _ultDeadline = min + i; s.Touch(); }));
+        box.AddChild(drow);
+        var choice = options[_ultIndex];
+        var preview = s.Game.PreviewUltimatum(choice.Kind, choice.Id, _ultDeadline);
+        if (preview != null)
+        {
+            var lines = s.Texts.UltimatumPreviewLines(preview, leader);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var color = preview.ErrorKey != null ? AppTheme.WarnText
+                    : i == 1 ? (preview.Answer == "deliver" || preview.DeliversAfter != null ? AppTheme.GoodText : AppTheme.BadText)
+                    : i == 2 ? (preview.Pivotal && !preview.Patchable ? AppTheme.GoodText : preview.Pivotal ? AppTheme.Ink2 : AppTheme.WarnText) : AppTheme.Ink2;
+                box.AddChild(Ui.L(Ui.Fix(lines[i]), i == 1 ? Tx.BodyStrong : Tx.Small, color, true));
+            }
+        }
+        var go = Ui.Costed(t.T("ui.myult.go"), (int)PoliticsLimits.UltimatumCost, () => s.Do(new IssueUltimatum(choice.Kind, choice.Id, _ultDeadline), t.T("ui.myult.ok", t.Name(leader))),
+            preview?.ErrorKey != null ? s.Texts.Error(new ActionResult(false, preview.ErrorKey, preview.Detail)) : null, preview?.ErrorKey != null, "ButtonDanger");
+        go.Name = "UltimatumGo";
+        box.AddChild(go);
+        return ActionCard(IconKind.Alert, t.T("ui.myult.title"), box, s.Texts.Explain("ultimatum"));
     }
 
     private static void Measures(Session s, CountryPolitics pol, PartyStatus ps, VBoxContainer body)

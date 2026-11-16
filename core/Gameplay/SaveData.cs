@@ -100,6 +100,9 @@ public sealed record SaveData(
             else if (action is Campaign camp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "campaign", Group = camp.GroupId, Effort = camp.Effort });
             else if (action is AcceptOffer) dto.Actions.Add(new ActionDto { Turn = turn, Type = "accept_offer" });
             else if (action is RejectOffer) dto.Actions.Add(new ActionDto { Turn = turn, Type = "reject_offer" });
+            else if (action is IssueUltimatum iu)
+                dto.Actions.Add(new ActionDto { Turn = turn, Type = "issue_ultimatum", Mode = iu.Kind, Policy = iu.SubjectId, Effort = iu.Deadline });
+            else if (action is WithdrawUltimatum) dto.Actions.Add(new ActionDto { Turn = turn, Type = "withdraw_ultimatum" });
             else if (action is CallEarlyElection) dto.Actions.Add(new ActionDto { Turn = turn, Type = "call_early_election" });
             else throw new InvalidOperationException($"Cannot serialize action {action.GetType().Name}.");
         }
@@ -148,6 +151,8 @@ public sealed record SaveData(
                 "accept_offer" => new AcceptOffer(),
                 "reject_offer" => new RejectOffer(),
                 "call_early_election" => new CallEarlyElection(),
+                "issue_ultimatum" => new IssueUltimatum(a.Mode, a.Policy, a.Effort),
+                "withdraw_ultimatum" => new WithdrawUltimatum(),
                 _ => throw new FormatException($"Unknown action type '{a.Type}' in save."),
             };
             actions.Add((a.Turn, action));

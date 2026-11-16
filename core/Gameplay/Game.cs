@@ -194,6 +194,9 @@ public sealed class Game
     public double PreviewCampaign(string groupId, int effort) =>
         _politics == null ? 0.0 : _politics.SupportPoints(new Dictionary<string, double> { [groupId] = _politics.CampaignMomentum(effort) }).GetValueOrDefault(groupId);
 
+    /// <summary>What giving the leader an ultimatum would bring now (decision 0016); null without politics. Changes nothing.</summary>
+    public UltimatumPreview? PreviewUltimatum(string kind, string subjectId, int deadline) => _politics?.PreviewUltimatum(kind, subjectId, deadline, _turn + 1);
+
     /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
     public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 

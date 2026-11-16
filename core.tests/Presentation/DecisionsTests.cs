@@ -26,6 +26,17 @@ public class DecisionsTests
         Country(g) with { Politics = Pol(g) with { Ultimatums = new[] { new UltimatumInfo("base:c", "d1", 2) } } };
 
     [Fact]
+    public void ThePartnersOwnUltimatumIsShownUntilItIsSettledAndUrgentInItsLastQuarter()
+    {
+        var partner = Make("a", new[] { "a", "b" }, "b");
+        var open = Country(partner) with { Politics = Pol(partner) with { PlayerUltimatum = new PlayerUltimatumInfo("demand", "d1", "base:spend", 40, 41, 3, 3, null) } };
+        var d = Assert.Single(Decisions.Open(open, _packs));
+        Assert.Equal((DecisionKind.OwnUltimatum, "base:b", false), (d.Kind, d.PartyId, d.Urgent));
+        var last = Country(partner) with { Politics = Pol(partner) with { PlayerUltimatum = new PlayerUltimatumInfo("demand", "d1", "base:spend", 40, 41, 1, 3, "refuse") } };
+        Assert.True(Assert.Single(Decisions.Open(last, _packs)).Urgent);
+    }
+
+    [Fact]
     public void AQuietQuarterHasNoDecision()
     {
         var g = Make("a", new[] { "a", "b" }, "a");

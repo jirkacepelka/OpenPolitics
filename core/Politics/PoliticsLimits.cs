@@ -64,6 +64,25 @@ public static class PoliticsLimits
     /// <summary>Decision 0015: the quarter's news reports the groups where the player's support moved by at least this many points.</summary>
     public const double SupportNewsPoints = 0.5;
 
+    /// <summary>
+    /// The partner's ultimatum to the leader (decision 0016): costs UltimatumCost, a deadline of UltimatumMinDeadline..UltimatumMaxDeadline quarters,
+    /// one at a time, the next UltimatumCooldownTurns quarters after one is settled. A policy ultimatum asks at most UltimatumMaxMoveOfRange of the
+    /// range toward the programme; a value goal is asked as a move of UltimatumGoalStepOfRange on its strongest lever. The leader's score (relation,
+    /// fit with its platform, how much it needs the party, the party's weight, the size of the move, its grudge) delivers at UltimatumDeliverAt,
+    /// refuses below UltimatumRefuseBelow, otherwise stalls and gains UltimatumStallGain a quarter as the deadline nears. Delivered: credibility
+    /// +UltimatumDeliveredCredibility, the party's voters +UltimatumVoterMomentum, the relation with the leader -UltimatumRelationDelivered. Refused:
+    /// relation -UltimatumRelationRefused. Carried out: the party leaves (as a walk-out) and loses UltimatumCarriedOutCredibility (less than an
+    /// unannounced exit). Withdrawn: -UltimatumWithdrawCredibility.
+    /// </summary>
+    public const double UltimatumCost = 4, UltimatumMaxMoveOfRange = 0.25, UltimatumGoalStepOfRange = 0.2;
+    public const int UltimatumMinDeadline = 2, UltimatumMaxDeadline = 6, UltimatumCooldownTurns = 8;
+    public const double UltimatumDeliverAt = 0.55, UltimatumRefuseBelow = 0.3, UltimatumStallGain = 0.08;
+    public const double UltimatumDeliveredCredibility = 0.05, UltimatumVoterMomentum = 0.03, UltimatumRelationDelivered = 0.05, UltimatumRelationRefused = 0.05;
+    public const double UltimatumCarriedOutCredibility = 0.05, UltimatumWithdrawCredibility = 0.03;
+
+    /// <summary>A partner that holds the portfolio of a policy is heard more on it: the leader's score for its proposals and ultimatums rises by this.</summary>
+    public const double PortfolioProposalBonus = 0.15;
+
     /// <summary>The chance that an AI leader patches a majority lost to a walk-out with outside parties (when such a patch exists) instead of falling.</summary>
     public const double AiPatchChance = 0.5;
 }

@@ -8,7 +8,7 @@ public static class BatchCommand
 {
     public const string Usage =
         "Usage: batch --packs <dir>... [--scenario <id>] [--games <n>] [--strategy passive|random|extreme] [--turns <n>] [--json <file>]\n" +
-        "       batch --politics --packs <dir>... [--scenario <id>] [--games <n>] [--strategy ignorer|keeper|random|extreme|activist|reformer|challenger] [--turns <n>] [--party <id>|all]";
+        "       batch --politics --packs <dir>... [--scenario <id>] [--games <n>] [--strategy ignorer|keeper|random|extreme|activist|reformer|challenger|threatener] [--turns <n>] [--party <id>|all]";
 
     /// <summary>Returns 0 if the batch is stable, 1 if not, 2 on usage or pack problems.</summary>
     public static int Execute(string[] args, TextWriter output)
@@ -56,7 +56,7 @@ public static class BatchCommand
     private static int ExecutePolitics(ArgParser p, int games, int turns, string strategyName, TextWriter output)
     {
         if (!Enum.TryParse<PoliticsStrategy>(strategyName, ignoreCase: true, out var strategy))
-            p.Errors.Add($"Unknown politics strategy '{strategyName}' (use ignorer, keeper, random, extreme, activist, reformer or challenger).");
+            p.Errors.Add($"Unknown politics strategy '{strategyName}' (use ignorer, keeper, random, extreme, activist, reformer, challenger or threatener).");
         if (games == 0) p.Errors.Add("--games must be at least 1.");
         if (p.Errors.Count > 0)
         {
