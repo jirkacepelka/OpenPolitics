@@ -236,7 +236,8 @@ internal sealed class PoliticsEngine
     {
         _history.Add(_valueIds.ToDictionary(id => id, id => _lookup("value", id), Ord));
         bool governing = _phase == Phase.Governing && _government.Parties.Contains(Player);
-        foreach (var p in _promises) { p.Elapsed++; if (governing) p.InGovernment++; }
+        // decision 0015: a promise counts the quarters of the term it is about - the one after the election that follows it
+        foreach (var p in _promises.Where(p => p.Carried)) { p.Elapsed++; if (governing) p.InGovernment++; }
         double deficit = _lookup("value", "base:deficit_pct"), before = _fiscalBlame.GetValueOrDefault(Player);
         if (!double.IsFinite(deficit)) deficit = _lastDeficit;
         bool sitting = _phase == Phase.Governing;
@@ -356,11 +357,16 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    /// <summary>A promise to voters (decision 0014): judged once, at the next election; counts against the party only if it governed at least half the time since.</summary>
+    /// <summary>
+    /// A promise to voters (decisions 0014, 0015): "what we will do if you elect us". Made in the window before an election E1, it is carried over E1
+    /// (<see cref="Carried"/>) and judged once, at the election E2 that ends the next term; it counts only if the party governed at least half of
+    /// that term (Elapsed and InGovernment count the quarters since E1).
+    /// </summary>
     private sealed class PromiseRecord(string demandId, int madeTurn)
     {
         public string DemandId { get; } = demandId;
         public int MadeTurn { get; } = madeTurn;
+        public bool Carried;
         public int Elapsed, InGovernment;
     }
     private readonly List<PromiseRecord> _promises = new();
@@ -396,7 +402,8 @@ internal sealed class PoliticsEngine
         if (ElectionIn > PoliticsLimits.PromiseWindowTurns) return Fail("error.too_early");
         if (CommitmentMath.Satisfied(demand, _lookup(demand.Kind, demand.Subject))) return Fail("error.already_met", demandId);
         if (_promises.Any(p => p.DemandId == demandId)) return Fail("error.already_promised", demandId);
-        if (_promises.Count >= PoliticsLimits.MaxPromises) return Fail("error.too_many_promises");
+        // the limit is per election window: promises carried over from the previous cycle (judged at the coming election) do not count
+        if (_promises.Count(p => !p.Carried) >= PoliticsLimits.MaxPromises) return Fail("error.too_many_promises");
         if (!TrySpend(PartyRules.PromiseCost)) return Fail("error.not_enough_capital");
         _promises.Add(new PromiseRecord(demandId, reportTurn));
         var affinity = _parties[Player].Affinity;
@@ -408,15 +415,22 @@ internal sealed class PoliticsEngine
     }
 
     /// <summary>
-    /// At the election the voters check the promises (decision 0014). A party that governed at least half the time since the promise answers for
-    /// it: kept earns trust and goodwill, broken costs both. A party that was (mostly) in opposition could not deliver: no penalty, and no credit
-    /// for what the government did either.
+    /// At an election the voters check the promises made before the previous one (decision 0015): a party that governed at least half of the term
+    /// since answers for them - kept earns trust and goodwill, broken costs both; a party that was (mostly) in opposition could not deliver: no
+    /// penalty, and no credit for what the government did either. Promises made before this election are carried over to the next one.
     /// </summary>
     private void SettlePromises(int turn, List<PoliticalEvent> events)
     {
         var affinity = _parties[Player].Affinity;
         foreach (var p in _promises.ToList())
         {
+            if (!p.Carried)
+            {
+                p.Carried = true; p.Elapsed = 0; p.InGovernment = 0;
+                events.Add(new PromiseCarried(turn, Player, p.DemandId, _rules.ElectionIntervalTurns));
+                continue;
+            }
+            _promises.Remove(p);
             var d = _parties[Player].Demands.First(x => x.Id == p.DemandId);
             bool kept = CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject));
             bool responsible = Responsible(p);
@@ -426,13 +440,13 @@ internal sealed class PoliticsEngine
             foreach (var g in _groups.OrderBy(g => g.Id, Ord))
                 if (affinity.GetValueOrDefault(g.Id) > 0) _momentum[g.Id] += kept ? 0.05 : -0.08;
         }
-        _promises.Clear();
     }
 
     private IReadOnlyList<PromiseInfo> PromiseInfos() => _promises.Select(p =>
     {
         var d = _parties[Player].Demands.First(x => x.Id == p.DemandId);
-        return new PromiseInfo(p.DemandId, p.MadeTurn, p.Elapsed, p.InGovernment, CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject)));
+        return new PromiseInfo(p.DemandId, p.MadeTurn, p.Elapsed, p.InGovernment, CommitmentMath.Satisfied(d, _lookup(d.Kind, d.Subject)),
+            p.Carried, p.Carried ? ElectionIn : ElectionIn + _rules.ElectionIntervalTurns);
     }).ToList();
 
     /// <summary>Called by the game whenever the AI governor changes a policy, so the opposition can take a stance on it.</summary>

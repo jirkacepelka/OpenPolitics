@@ -564,7 +564,7 @@ public sealed class PlayLoop
                 bool met = Texts.IsMet(ownDemands[i], Current);
                 _out.WriteLine($"   {i + 1,2}. {texts.Demand(ownDemands[i])}  ({_t.T(met ? "ui.goal.met" : "ui.goal.unmet")})" + (ps.Promises?.Contains(ownDemands[i].Id) == true ? "  [" + _t.T("ui.party.promised") + "]" : ""));
                 if (ps.PromiseDetails?.FirstOrDefault(p => p.DemandId == ownDemands[i].Id) is { } made)
-                    foreach (var line in texts.PromiseStatus(made, pol.TurnsToElection)) _out.WriteLine("       " + line);
+                    foreach (var line in texts.PromiseStatus(made)) _out.WriteLine("       " + line);
             }
         }
         _out.WriteLine("  " + _t.T("ui.party.measures"));

@@ -16,11 +16,13 @@ public sealed record PartyStatus(
     double FiscalBlame = 0.0);
 
 /// <summary>
-/// A promise to voters (decision 0014): made in quarter MadeTurn, judged at the next election. QuartersElapsed quarters have passed since, the party sat
-/// in the government in QuartersInGovernment of them (it answers for the promise when that is at least half); Met is the state right now.
+/// A promise to voters (decisions 0014, 0015): "what we will do if you elect us", made in quarter MadeTurn in the window before an election. That
+/// election carries it over (Carried) and it is judged at the next one, in JudgedIn quarters. Once carried, QuartersElapsed counts the quarters of
+/// the new term and QuartersInGovernment those the party sat in the government (it answers for the promise when that is at least half); Met is
+/// the state right now.
 /// </summary>
-public sealed record PromiseInfo(string DemandId, int MadeTurn, int QuartersElapsed, int QuartersInGovernment, bool Met)
+public sealed record PromiseInfo(string DemandId, int MadeTurn, int QuartersElapsed, int QuartersInGovernment, bool Met, bool Carried = false, int JudgedIn = 0)
 {
-    /// <summary>Whether a broken promise would cost the party if the election were now.</summary>
-    public bool CountsAgainst => QuartersElapsed > 0 ? 2 * QuartersInGovernment >= QuartersElapsed : true;
+    /// <summary>Whether a broken promise would cost the party if it were judged now (before the carry-over: only if it governs half the next term).</summary>
+    public bool CountsAgainst => Carried && QuartersElapsed > 0 ? 2 * QuartersInGovernment >= QuartersElapsed : Carried;
 }

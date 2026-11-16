@@ -67,6 +67,8 @@ public sealed record DemandFailed(int Turn, string PartyId, string DemandId) : P
 /// <param name="Responsible">False when the party was in opposition for more than half of the time since the promise: no credit, no penalty (decision 0014).</param>
 public sealed record PromiseKept(int Turn, string PartyId, string DemandId, bool Responsible = true) : PoliticalEvent(Turn);
 public sealed record PromiseBroken(int Turn, string PartyId, string DemandId, bool Responsible = true) : PoliticalEvent(Turn);
+/// <summary>The election carried a promise of the player's party over into the new term (decision 0015); it is judged at the election ending it, in JudgedIn quarters.</summary>
+public sealed record PromiseCarried(int Turn, string PartyId, string DemandId, int JudgedIn) : PoliticalEvent(Turn);
 /// <summary>The player's party left the government.</summary>
 public sealed record PlayerLeftCoalition(int Turn) : PoliticalEvent(Turn);
 /// <summary>The player, as leader, dismissed a partner.</summary>

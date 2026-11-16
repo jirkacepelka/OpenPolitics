@@ -21,15 +21,20 @@ public class TextsTests
         Assert.Equal(expected, For(lang).GoalsHeading(role));
 
     [Fact]
-    public void APromiseSaysItHoldsUntilTheElectionAndWhetherItCountsAgainstTheParty()
+    public void APromiseSaysItIsJudgedAtTheElectionAfterTheComingTermAndWhetherItCounts()
     {
         var t = For("en");
-        var lines = t.PromiseStatus(new PromiseInfo("balanced_budget", 3, 2, 2, false), 5);
-        Assert.Equal("Holds until the next election (in 5 quarters). Now: not met.", lines[0]);
+        var fresh = t.PromiseStatus(new PromiseInfo("balanced_budget", 3, 0, 0, false, Carried: false, JudgedIn: 21));
+        Assert.Equal("Judged at the election after the coming term (in 21 quarters). Now: not met.", fresh[0]);
+        Assert.Contains("at least half of the next term", fresh[1]);
+        var lines = t.PromiseStatus(new PromiseInfo("balanced_budget", 3, 2, 2, false, Carried: true, JudgedIn: 5));
+        Assert.Equal("Judged at the next election (in 5 quarters). Now: not met.", lines[0]);
         Assert.Contains("costs you trust", lines[1]);
-        var free = t.PromiseStatus(new PromiseInfo("balanced_budget", 3, 4, 1, true), 1);
+        var free = t.PromiseStatus(new PromiseInfo("balanced_budget", 3, 4, 1, true, Carried: true, JudgedIn: 1));
         Assert.Contains("Now: met", free[0]);
         Assert.Contains("would not cost you", free[1]);
+        foreach (var lang in new[] { "cs", "en" })
+            Assert.DoesNotContain("{", string.Join(" ", For(lang).PromiseStatus(new PromiseInfo("balanced_budget", 3, 0, 0, false, false, 9))));
     }
 
     public static readonly string[] Topics = { "capital", "organisation", "credibility", "cohesion", "relations", "fiscal_blame", "campaign", "organise", "court",

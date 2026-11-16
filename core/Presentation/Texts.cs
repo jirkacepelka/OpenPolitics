@@ -46,6 +46,7 @@ public sealed class Texts
         DemandFailed f when DemandOf(f.PartyId, f.DemandId) is { } fd => _t.T("ui.event.demand_failed", _t.Name(f.PartyId), Demand(fd)),
         PromiseKept k when DemandOf(k.PartyId, k.DemandId) is { } kd => _t.T(k.Responsible ? "ui.event.promise_kept" : "ui.event.promise_kept_opposition", Demand(kd)),
         PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T(b.Responsible ? "ui.event.promise_broken" : "ui.event.promise_broken_opposition", Demand(bd)),
+        PromiseCarried c when DemandOf(c.PartyId, c.DemandId) is { } cd => _t.T("ui.event.promise_carried", Demand(cd), c.JudgedIn),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         CoalitionReshuffled r => _t.T("ui.event.coalition_reshuffled", _t.Name(r.Leader), Names(r.Dropped), Names(r.Added)),
@@ -129,11 +130,14 @@ public sealed class Texts
     public static bool IsMet(DemandDef d, CountryState c) =>
         CommitmentMath.Satisfied(d, d.Kind == "policy" ? c.Policies.GetValueOrDefault(d.Subject) : c.Values.GetValueOrDefault(d.Subject));
 
-    /// <summary>Two lines for a promise made (decision 0014): until when it holds and whether it is met now; whether breaking it would cost the party.</summary>
-    public IReadOnlyList<string> PromiseStatus(PromiseInfo p, int turnsToElection) => new[]
+    /// <summary>
+    /// Two lines for a promise made (decision 0015): at which election it is judged (the one after the coming term, or once carried over the next
+    /// one), in how many quarters and whether it is met now; whether breaking it would cost the party.
+    /// </summary>
+    public IReadOnlyList<string> PromiseStatus(PromiseInfo p) => new[]
     {
-        _t.T("ui.party.promise_until", Math.Max(1, turnsToElection), _t.T(p.Met ? "ui.goal.met" : "ui.goal.unmet")),
-        _t.T(p.CountsAgainst ? "ui.party.promise_counts" : "ui.party.promise_free", p.QuartersInGovernment, p.QuartersElapsed),
+        _t.T(p.Carried ? "ui.party.promise_judged_next" : "ui.party.promise_judged_after", Math.Max(1, p.JudgedIn), _t.T(p.Met ? "ui.goal.met" : "ui.goal.unmet")),
+        p.Carried ? _t.T(p.CountsAgainst ? "ui.party.promise_counts" : "ui.party.promise_free", p.QuartersInGovernment, p.QuartersElapsed) : _t.T("ui.party.promise_pending_rule"),
     };
 
     private string Names(IReadOnlyList<string> ids) => ids.Count == 0 ? _t.T("ui.reshuffle.nobody") : string.Join(", ", ids.Select(_t.Name));

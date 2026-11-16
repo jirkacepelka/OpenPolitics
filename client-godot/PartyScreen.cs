@@ -185,6 +185,10 @@ public sealed class PartyScreen : Screen
         var t = s.T;
         bool soon = pol.TurnsToElection <= PoliticsLimits.PromiseWindowTurns && pol.Phase != Phase.Formation;
         body.AddChild(Ui.Panel(Ui.L(t.T(soon ? "ui.client.promises_hint_open" : "ui.client.promises_hint_closed"), Tx.BodyStrong, soon ? AppTheme.WarnText : AppTheme.Ink2, true), soon ? "Warn" : "Inset"));
+        // decision 0015: a promise made now is about the next term and is judged at the election that ends it
+        int interval = s.Packs.Countries.FirstOrDefault(c => c.Politics != null)?.Politics?.ElectionIntervalTurns ?? 16;
+        int fresh = ps.PromiseDetails?.Count(p => !p.Carried) ?? 0;
+        body.AddChild(Ui.L(t.T("ui.client.promise_when", pol.TurnsToElection + interval, fresh, PoliticsLimits.MaxPromises), Tx.Body, AppTheme.Ink2, true));
         body.AddChild(Ui.L(s.Texts.Explain("promise"), Tx.Small, AppTheme.Ink3, true));
         var demands = s.Packs.Parties.FirstOrDefault(p => p.Id == pol.PlayerParty)?.Demands;
         if (demands == null || demands.Count == 0) return;
@@ -197,14 +201,18 @@ public sealed class PartyScreen : Screen
             text.AddChild(Ui.L(Ui.Fix(s.Texts.Demand(dm)), Tx.Body, AppTheme.Ink, true));
             var made = ps.PromiseDetails?.FirstOrDefault(p => p.DemandId == dm.Id);
             if (made != null)
-                foreach (var line in s.Texts.PromiseStatus(made, pol.TurnsToElection))
+                foreach (var line in s.Texts.PromiseStatus(made))
                     text.AddChild(Ui.L(Ui.Fix(line), Tx.Small, made.CountsAgainst ? AppTheme.Ink2 : AppTheme.Ink3, true));
             row.AddChild(text);
             bool met = Texts.IsMet(dm, s.Country);
             row.AddChild(Ui.Pill(t.T(met ? "ui.goal.met" : "ui.goal.unmet"), met ? AppTheme.Good : AppTheme.Chrome));
             if (made != null) row.AddChild(Ui.Pill(t.T("ui.party.promised"), AppTheme.Good));
-            else row.AddChild(Ui.Costed(t.T("ui.client.promise"), 2, () => s.Do(new MakePromise(dm.Id), t.T("ui.party.promise_ok", s.Texts.Demand(dm))),
-                !soon ? t.T("ui.err.too_early") : met ? t.T("ui.err.already_met") : null, !soon || met));
+            else
+            {
+                bool full = fresh >= PoliticsLimits.MaxPromises;
+                row.AddChild(Ui.Costed(t.T("ui.client.promise"), (int)PartyRules.PromiseCost, () => s.Do(new MakePromise(dm.Id), t.T("ui.party.promise_ok", s.Texts.Demand(dm))),
+                    !soon ? t.T("ui.err.too_early") : met ? t.T("ui.err.already_met") : full ? t.T("ui.err.too_many_promises") : null, !soon || met || full));
+            }
             body.AddChild(row);
             body.AddChild(Ui.Rule());
         }

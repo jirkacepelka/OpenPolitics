@@ -64,6 +64,21 @@ internal static class FormationFixture
         return reports;
     }
 
+    /// <summary>Ends turns; when <paramref name="join"/> the player forms the suggested coalition as formateur and accepts offers, otherwise it rejects offers.</summary>
+    public static List<TurnReport> Drive(Game g, int turns, bool join, Action<Game>? each = null)
+    {
+        var reports = new List<TurnReport>();
+        for (int i = 0; i < turns; i++)
+        {
+            var f = Pol(g).Formation;
+            if (f is { PlayerIsFormateur: true } && join && g.SuggestCoalition() is { } s) Assert.True(g.Apply(new ProposeCoalition(s.Partners, s.Agreements)).Accepted);
+            else if (f?.Offer != null) g.Apply(join ? new AcceptOffer() : new RejectOffer());
+            each?.Invoke(g);
+            reports.Add(g.EndTurn());
+        }
+        return reports;
+    }
+
     public static IEnumerable<T> Events<T>(IEnumerable<TurnReport> rs) where T : PoliticalEvent =>
         rs.SelectMany(r => r.PoliticalEvents).OfType<T>();
 }

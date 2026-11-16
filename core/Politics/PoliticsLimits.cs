@@ -3,7 +3,7 @@ namespace OpenPolitics.Core.Politics;
 /// <summary>Rules of the political game that clients also need to show (when a button is available).</summary>
 public static class PoliticsLimits
 {
-    /// <summary>Promises can be made this many turns before an election.</summary>
+    /// <summary>Promises can be made this many turns before an election; each is judged at the election after the next term (decision 0015).</summary>
     public const int PromiseWindowTurns = 8;
 
     /// <summary>Policy ids for the electoral rules (percent of the vote; 0 = D'Hondt, 1 = Sainte-Lague, 2 = Hare quota).</summary>
@@ -11,7 +11,7 @@ public static class PoliticsLimits
 
     public static readonly string[] Methods = { "dhondt", "sainte_lague", "hare" };
 
-    /// <summary>At most this many promises per term.</summary>
+    /// <summary>At most this many promises in the window before each election (promises carried over from the previous one do not count; decision 0015).</summary>
     public const int MaxPromises = 2;
 
     /// <summary>Capital cannot be banked without limit: a party that never acts does not stockpile an unbeatable campaign.</summary>

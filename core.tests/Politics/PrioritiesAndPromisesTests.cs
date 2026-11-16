@@ -70,19 +70,20 @@ public class PrioritiesAndPromisesTests
     }
 
     [Fact]
-    public void APromiseIsKeptOrBrokenAtTheElection()
+    public void APromiseIsKeptOrBrokenAtTheElectionAfterTheNextTerm()
     {
-        var kept = Governing(turnsToElection: 4);
+        Game Make() => New(Load(Three, "a", government: new[] { "a" }, interval: 4, turnsToElection: 4, mutate: GameFixture.FreePolicies));
+        var kept = Make();
         kept.Apply(new MakePromise("d1"));
         kept.Apply(new SetPolicy("base:spend", 60));
-        var keptReports = Run(kept, 4);
+        var keptReports = Drive(kept, 8, join: true);
         Assert.Single(Events<PromiseKept>(keptReports));
         Assert.Empty(Events<PromiseBroken>(keptReports));
         Assert.Empty(Pol(kept).Party!.Promises!);
 
-        var broken = Governing(turnsToElection: 4);
+        var broken = Make();
         broken.Apply(new MakePromise("d1"));
-        var brokenReports = Run(broken, 4);
+        var brokenReports = Drive(broken, 8, join: true);
         Assert.Single(Events<PromiseBroken>(brokenReports));
         Assert.True(Pol(broken).Party!.Credibility < Pol(kept).Party!.Credibility);
     }
@@ -99,16 +100,13 @@ public class PrioritiesAndPromisesTests
         Assert.Equal(Pol(live).Party!.Promises, Pol(loaded).Party!.Promises);
     }
 
-    private static double VoteOf(Game g, string party)
-    {
-        var e = Events<ElectionHeld>(Run(g, 5)).Single();
-        return e.Votes[party];
-    }
+    /// <summary>The votes at the second election: the one that settles a promise made before the first (decision 0015).</summary>
+    private static double VoteOf(Game g, string party) => Events<ElectionHeld>(Drive(g, 9, join: true)).Last().Votes[party];
 
     [Fact]
     public void ABrokenPromiseCostsVotesAtTheElectionThatSettlesIt()
     {
-        var packs = Load(Three, "a", government: new[] { "a" }, turnsToElection: 5, extraGroups: true);
+        var packs = Load(Three, "a", government: new[] { "a" }, interval: 4, turnsToElection: 5, extraGroups: true);
         var none = New(packs);
         var broken = New(packs);
         Assert.True(broken.Apply(new MakePromise("d1")).Accepted); // spend stays at 40: never delivered
@@ -118,12 +116,12 @@ public class PrioritiesAndPromisesTests
     [Fact]
     public void AKeptPromiseBeatsABrokenOneAtTheElectionThatSettlesIt()
     {
-        var packs = Load(Three, "a", government: new[] { "a" }, turnsToElection: 5, extraGroups: true, mutate: GameFixture.FreePolicies);
+        var packs = Load(Three, "a", government: new[] { "a" }, interval: 4, turnsToElection: 5, extraGroups: true, mutate: GameFixture.FreePolicies);
         var broken = New(packs);
         broken.Apply(new MakePromise("d1"));
         var kept = New(packs);
         kept.Apply(new MakePromise("d1"));
-        kept.Apply(new SetPolicy("base:spend", 60));
+        kept.Apply(new SetPolicy("base:spend", 41)); // just enough: a big spending rise would bring fiscal blame
         Assert.True(VoteOf(kept, "base:a") > VoteOf(broken, "base:a"));
     }
 
