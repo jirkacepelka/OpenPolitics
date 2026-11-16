@@ -77,6 +77,13 @@ public sealed record SupportProposal(string ProposalId) : PoliticsAction;
 /// <summary>Oppose the open proposal (decision 0014). Free; once per proposal. A pivotal partner's no makes a measure fail.</summary>
 public sealed record OpposeProposal(string ProposalId) : PoliticsAction;
 
+/// <summary>
+/// Decision 0014 (g): any party that does not lead the government announces publicly what it would do with a policy. Costs
+/// <see cref="Politics.PoliticsLimits.AnnounceCost"/>; voter groups that would like the change warm to the party, the others cool; contradicting the
+/// party's own programme costs credibility. One a quarter, the same policy again after a cooldown. An AI-led government may adopt a popular one.
+/// </summary>
+public sealed record AnnouncePolicy(string PolicyId, double Target) : PoliticsAction;
+
 /// <param name="ErrorKey">Localization key such as error.unknown_policy; null when accepted.</param>
 public sealed record ActionResult(bool Accepted, string? ErrorKey, string? Detail)
 {

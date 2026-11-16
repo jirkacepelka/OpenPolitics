@@ -47,6 +47,17 @@ public static class PoliticsLimits
     public const double ProposalRelationSupport = 0.05, ProposalRelationOppose = 0.03, ProposalPartnerStrain = 0.05, ProposalBlockedHit = 0.1;
     public const double ProposalWarmth = 0.04, ProposalLoyaltyGain = 4, ProposalLoyaltyLoss = 3;
 
+    /// <summary>
+    /// Announced policy proposals (decision 0014 g): cost AnnounceCost; each voter group that cares about the policy moves by up to AnnounceWarmth
+    /// momentum (full effect for a change that brings the policy a tenth of its range closer to or further from the group's wish, scaled by how much the
+    /// group cares relative to the group that cares most); against the party's own programme credibility falls by AnnounceCredibilityLoss times the
+    /// platform weight. One announcement a quarter; the same policy again after AnnounceCooldownTurns quarters. When the size-weighted approval is above
+    /// AnnouncePopularity and the government is AI-led, it adopts the proposal at the end of the quarter with probability AnnounceAdoptChance (at most a
+    /// quarter of the range at once, never against a strong position of the leader or across a member's red line).
+    /// </summary>
+    public const double AnnounceCost = 2, AnnounceWarmth = 0.06, AnnounceCredibilityLoss = 0.05, AnnouncePopularity = 0.01, AnnounceAdoptChance = 0.35;
+    public const int AnnounceCooldownTurns = 4;
+
     /// <summary>The chance that an AI leader patches a majority lost to a walk-out with outside parties (when such a patch exists) instead of falling.</summary>
     public const double AiPatchChance = 0.5;
 }

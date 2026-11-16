@@ -113,6 +113,7 @@ internal sealed class PoliticsEngine
         _support.Calibrate(_scenario.Support, Input(satisfaction));
         _electoralDef = packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem);
         _rng = new Pcg32(seed, 99);
+        _announceRng = new Pcg32(seed, 103); // its own stream: announcing never shifts the draws of the rest of politics
         _poll = _support.Compute(Input(satisfaction), null);
         _seats = CurrentSystem().Allocate(_poll);
         _votes = _poll;
@@ -314,6 +315,7 @@ internal sealed class PoliticsEngine
         ReshuffleCoalition r => DoReshuffle(r, reportTurn),
         SupportProposal sp => DoAnswer(sp.ProposalId, Stance.Support),
         OpposeProposal op => DoAnswer(op.ProposalId, Stance.Oppose),
+        AnnouncePolicy an => DoAnnounce(an.PolicyId, an.Target, reportTurn),
         NoConfidence => DoNoConfidence(),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
@@ -707,6 +709,7 @@ internal sealed class PoliticsEngine
             if (!ProcessExits(turn, events))
             {
                 SettleProposal(turn, events);
+                SettleAnnouncement(turn, events);
                 StepLoyalty(turn, effective, events);
                 DecideProposals(turn, events);
                 OpenRequest(turn, events);
@@ -1076,6 +1079,7 @@ internal sealed class PoliticsEngine
     /// <summary>The government changed (election, formation, fall) before the proposal was settled: it comes to nothing.</summary>
     private void LapseProposal(int turn, List<PoliticalEvent> events)
     {
+        _announcement = null; // an announcement waiting for the government lapses with it
         if (_openProposal is not { } p) return;
         _openProposal = null;
         _nextProposalTurn = turn + PoliticsLimits.ProposalCooldownTurns;
@@ -1088,6 +1092,60 @@ internal sealed class PoliticsEngine
         var list = _passed.ToList();
         _passed.Clear();
         return list;
+    }
+
+    // ---- announced policy proposals (decision 0014 g) ----------------------------------------------------------
+
+    private readonly Pcg32 _announceRng;
+    private int _lastAnnounceTurn = -1;
+    private readonly SortedDictionary<string, int> _announceAllowed = new(Ord);
+    private (string PolicyId, double Target)? _announcement;
+
+    private ActionResult DoAnnounce(string policyId, double target, int reportTurn)
+    {
+        if (_phase == Phase.Governing && PlayerRole == Role.Leader) return Fail("error.not_for_leader");
+        if (!_policyDefs.TryGetValue(policyId, out var def)) return Fail("error.unknown_policy", policyId);
+        if (!double.IsFinite(target) || target < def.Min || target > def.Max) return Fail("error.value_out_of_range", policyId);
+        double current = Latest(policyId), range = def.Max - def.Min;
+        if (Math.Abs(target - current) <= 1e-9 * Math.Max(1.0, range)) return Fail("error.no_change", policyId);
+        if (_lastAnnounceTurn == reportTurn) return Fail("error.announce_limit");
+        if (_announceAllowed.TryGetValue(policyId, out var allowed) && reportTurn < allowed)
+            return Fail("error.announce_cooldown", (allowed - reportTurn).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (!TrySpend(PoliticsLimits.AnnounceCost)) return Fail("error.not_enough_capital");
+        _lastAnnounceTurn = reportTurn;
+        _announceAllowed[policyId] = reportTurn + PoliticsLimits.AnnounceCooldownTurns;
+        var caring = _groups.Where(g => g.PolicyPrefs.ContainsKey(policyId) && g.PolicyWeights.GetValueOrDefault(policyId) > 0).OrderBy(g => g.Id, Ord).ToList();
+        double maxWeight = caring.Count == 0 ? 0.0 : caring.Max(g => g.PolicyWeights[policyId]), totalSize = _groups.Sum(g => g.Size), approval = 0.0;
+        foreach (var g in caring)
+        {
+            double pref = g.PolicyPrefs[policyId];
+            double delta = range > 0 ? (Math.Abs(pref - current) - Math.Abs(pref - target)) / range : 0.0; // > 0: closer to what the group wants
+            _momentum[g.Id] += Math.Clamp(PoliticsLimits.AnnounceWarmth * delta / 0.1, -PoliticsLimits.AnnounceWarmth, PoliticsLimits.AnnounceWarmth)
+                * g.PolicyWeights[policyId] / maxWeight;
+            if (totalSize > 0) approval += g.Size * delta / totalSize;
+        }
+        double fit = Fit(policyId, current, target);
+        if (fit < 0) _credibility = Math.Max(0.0, _credibility + PoliticsLimits.AnnounceCredibilityLoss * fit);
+        _announcement = _phase == Phase.Governing && approval > PoliticsLimits.AnnouncePopularity ? (policyId, target) : null;
+        return ActionResult.Ok;
+    }
+
+    /// <summary>End of the quarter: an AI-led government may take up a popular announcement as its own measure.</summary>
+    private void SettleAnnouncement(int turn, List<PoliticalEvent> events)
+    {
+        if (_announcement is not { } a) return;
+        _announcement = null;
+        if (PlayerRole == Role.Leader || !_policyDefs.TryGetValue(a.PolicyId, out var def)) return;
+        string leader = _government.Leader;
+        double current = Latest(a.PolicyId), range = def.Max - def.Min;
+        double next = Math.Clamp(current + Math.Clamp(a.Target - current, -ProposalMaxMoveOfRange * range, ProposalMaxMoveOfRange * range), def.Min, def.Max);
+        if (_parties.GetValueOrDefault(leader)?.Platform.TryGetValue(a.PolicyId, out var pos) == true && pos.Weight > 0.5
+            && Math.Abs(next - pos.Target) > Math.Abs(current - pos.Target)) return; // the leader cares and wants the opposite
+        if (_government.Parties.Any(p => _parties[p].RedLines.Any(r => r.Policy == a.PolicyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current))))
+            return;
+        if (_announceRng.NextDouble() >= PoliticsLimits.AnnounceAdoptChance) return;
+        events.Add(new AnnouncementAdopted(turn, leader, a.PolicyId, a.Target));
+        _approved.Add((a.PolicyId, next));
     }
 
     // ---- coalition reshuffle (decision 0013) -------------------------------------------------------------------
