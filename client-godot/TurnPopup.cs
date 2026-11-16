@@ -159,14 +159,10 @@ public static class TurnPopup
             }
         }
 
-        var buttons = Ui.HBox(16);
-        var left = Ui.Btn(t.T(s.HasPolitics ? "ui.popup.open_politics" : "ui.brief.charts"), () => { Done(); if (s.HasPolitics) main.OpenScreen<PoliticsScreen>(); else main.OpenScreen<ChartsScreen>(); }, "ButtonSecondary", null, null, false, 42);
-        var right = Ui.Btn(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), Done, "", null, null, d.Blocking, 42);
-        left.SizeFlagsHorizontal = right.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        left.AddThemeFontOverride("font", AppTheme.Bold); right.AddThemeFontOverride("font", AppTheme.Bold);
-        buttons.AddChild(left); buttons.AddChild(right);
-        d.Body.AddChild(Ui.Gap(4));
-        d.Body.AddChild(buttons);
+        // The two answers live in the dialog's own footer, so they stay in view however long the news is.
+        d.AddAction(t.T(s.HasPolitics ? "ui.popup.open_politics" : "ui.brief.charts"), s.HasPolitics ? IconKind.Politics : IconKind.Chart,
+            () => { Done(); if (s.HasPolitics) main.OpenScreen<PoliticsScreen>(); else main.OpenScreen<ChartsScreen>(); });
+        d.AddAction(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), IconKind.Play, Done, d.Blocking, "");
         if (d.Blocking) d.Body.AddChild(Centred(Ui.L(t.T("ui.brief.decide_hint"), Tx.Small, AppTheme.WarnText, true)));
         d.Refit();
         return d;
