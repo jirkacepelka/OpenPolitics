@@ -245,7 +245,7 @@ internal sealed class PoliticsEngine
 
     /// <summary>Error key when the player may not change policies right now, otherwise null.</summary>
     public string? PolicyBlock() =>
-        _phase != Phase.Governing ? "error.no_majority" : PlayerRole != Role.Leader ? "error.not_leader" : null;
+        PlayerRole != Role.Leader ? "error.not_leader" : _phase != Phase.Governing ? "error.no_majority" : null; // decision 0015: a non-leader hears it is not the leader
 
     /// <summary>Capital cannot be banked without limit: a party that never acts does not stockpile an unbeatable campaign.</summary>
     public const double MaxCapital = PoliticsLimits.MaxCapital;

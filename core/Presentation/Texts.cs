@@ -23,27 +23,44 @@ public sealed class Texts
         return $"{_t.Name(d.Subject)} {d.Op} {target}";
     }
 
-    /// <summary>One line for a political event, or null for events that are shown elsewhere (elections).</summary>
-    public string? Event(PoliticalEvent e) => e switch
+    /// <summary>
+    /// Decision 0015 (role-aware texts): the variant of a text for the player's role. Keys are written for the leader (or neutrally); a key with a
+    /// suffix <c>_opposition</c> or <c>_partner</c> replaces it for that role when it exists. Every text that addresses the player as the
+    /// government must either have an <c>_opposition</c> variant or be listed in <see cref="RoleTexts.LeaderOnly"/> (enforced by a test).
+    /// </summary>
+    public string RoleKey(string key, Role role) => role switch
+    {
+        Role.Opposition when _t.Has(key + "_opposition") => key + "_opposition",
+        Role.Partner when _t.Has(key + "_partner") => key + "_partner",
+        _ => key,
+    };
+
+    /// <summary>The text of <paramref name="key"/> for the player's role (see <see cref="RoleKey"/>).</summary>
+    public string ForRole(string key, Role role, params object[] args) => _t.T(RoleKey(key, role), args);
+
+    /// <summary>One line for a political event as the leader of the government reads it (see the overload with the role).</summary>
+    public string? Event(PoliticalEvent e) => Event(e, Role.Leader);
+
+    /// <summary>One line for a political event, worded for the player's role; null for events that are shown elsewhere (elections).</summary>
+    public string? Event(PoliticalEvent e, Role role) => e switch
     {
         FormationStarted f => _t.T("ui.event.formation_started", _t.Name(f.Formateur)),
         FormationFailed f => _t.T("ui.event.formation_failed", _t.Name(f.Formateur)),
         OfferMade o => _t.T("ui.event.offer_made", _t.Name(o.Proposal.Formateur)),
-        OfferLapsed => _t.T("ui.event.offer_lapsed"),
         GovernmentFormed g => _t.T("ui.event.government_formed", string.Join(", ", g.Government.Parties.Select(_t.Name)), _t.Name(g.Government.Leader)),
         EarlyElectionsCalled => _t.T("ui.event.early_elections"),
         LoyaltyWarning w => w.DemandId is { } wd && DemandOf(w.PartyId, wd) is { } wdef
-            ? _t.T("ui.event.loyalty_warning_demand", _t.Name(w.PartyId), Demand(wdef))
-            : _t.T("ui.event.loyalty_warning", _t.Name(w.PartyId)),
+            ? ForRole("ui.event.loyalty_warning_demand", role, _t.Name(w.PartyId), Demand(wdef))
+            : ForRole("ui.event.loyalty_warning", role, _t.Name(w.PartyId)),
         Ultimatum u => u.DemandId is { } ud && DemandOf(u.PartyId, ud) is { } udef
-            ? _t.T("ui.event.ultimatum_demand", _t.Name(u.PartyId), u.TurnsLeft, Demand(udef))
-            : _t.T("ui.event.ultimatum", _t.Name(u.PartyId), u.TurnsLeft),
+            ? ForRole("ui.event.ultimatum_demand", role, _t.Name(u.PartyId), u.TurnsLeft, Demand(udef))
+            : ForRole("ui.event.ultimatum", role, _t.Name(u.PartyId), u.TurnsLeft),
         PartnerLeft l => _t.T("ui.event.partner_left", _t.Name(l.PartyId)),
         GovernmentFell => _t.T("ui.event.government_fell"),
         DemandRaised r when DemandOf(r.PartyId, r.DemandId) is { } rd =>
-            _t.T("ui.event.demand_raised", _t.Name(r.PartyId), Demand(rd), r.DueTurns),
+            ForRole("ui.event.demand_raised", role, _t.Name(r.PartyId), Demand(rd), r.DueTurns),
         DemandMet m when DemandOf(m.PartyId, m.DemandId) is { } md => _t.T("ui.event.demand_met", _t.Name(m.PartyId), Demand(md)),
-        DemandFailed f when DemandOf(f.PartyId, f.DemandId) is { } fd => _t.T("ui.event.demand_failed", _t.Name(f.PartyId), Demand(fd)),
+        DemandFailed f when DemandOf(f.PartyId, f.DemandId) is { } fd => ForRole("ui.event.demand_failed", role, _t.Name(f.PartyId), Demand(fd)),
         PromiseKept k when DemandOf(k.PartyId, k.DemandId) is { } kd => _t.T(k.Responsible ? "ui.event.promise_kept" : "ui.event.promise_kept_opposition", Demand(kd)),
         PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T(b.Responsible ? "ui.event.promise_broken" : "ui.event.promise_broken_opposition", Demand(bd)),
         PromiseCarried c when DemandOf(c.PartyId, c.DemandId) is { } cd => _t.T("ui.event.promise_carried", Demand(cd), c.JudgedIn),
@@ -65,6 +82,7 @@ public sealed class Texts
         ProposalFailed f => _t.T(f.Kind == ProposalKind.Measure ? "ui.event.proposal_failed_measure" : "ui.event.proposal_failed_request", _t.Name(f.Proposer), _t.Name(f.PolicyId)),
         ProposalLapsed l => _t.T("ui.event.proposal_lapsed", _t.Name(l.Proposer), _t.Name(l.PolicyId)),
         AnnouncementAdopted a when Pol(a.PolicyId) is { } ap => _t.T("ui.event.announcement_adopted", _t.Name(a.Leader), _t.Name(a.PolicyId), Fmt.Policy(ap, a.Target, _t)),
+        OfferLapsed => ForRole("ui.event.offer_lapsed", role),
         GovernmentMeasure m when _packs.Policies.FirstOrDefault(p => p.Id == m.PolicyId) is { } mp =>
             _t.T("ui.event.government_measure", _t.Name(m.PolicyId), Fmt.Policy(mp, m.From, _t), Fmt.Policy(mp, m.To, _t)),
         _ => null,
@@ -163,6 +181,16 @@ public sealed class Texts
 
     /// <summary>The heading over the party's goals on the overview: plain "Goals" in government, "Opposition goals" outside it.</summary>
     public string GoalsHeading(Role role) => _t.T(role == Role.Opposition ? "ui.party.goals" : "ui.party.goals_government");
+
+    /// <summary>
+    /// The texts the clients show for a role outside events and explanations (decision 0015), so a test can check all of them: role pill, welcome
+    /// title and text, the coalition-fragility label, the tips, the headings over the policies. Keys are base keys; <see cref="RoleKey"/> picks the variant.
+    /// </summary>
+    public static readonly IReadOnlyList<string> RoleScreenKeys = new[]
+    {
+        "ui.goal.fragility", "ui.client.welcome_politics", "ui.brief.welcome_title", "ui.heading.policies", "ui.client.policies_hint2",
+        "ui.tip.1", "ui.tip.2", "ui.tip.3", "ui.tip.4", "ui.tip.5", "ui.rail.government", "ui.pt.government_play", "ui.party.measures",
+    };
 
     /// <summary>Whether a demand or goal is met in the country right now (policy demands by the setting in force, value goals by the value).</summary>
     public static bool IsMet(DemandDef d, CountryState c) =>

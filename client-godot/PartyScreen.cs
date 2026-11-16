@@ -84,7 +84,7 @@ public sealed class PartyScreen : Screen
         double share = pol.Support.GetValueOrDefault(pol.PlayerParty);
         left.AddChild(Detail.LabelledBar(t.T("ui.goal.poll"), Ui.Num(share * 100) + " %", share / 0.4, AppTheme.Chrome));
         double fragility = pol.Loyalty is { Count: > 0 } l ? 100 - l.Values.Min() : 0;
-        left.AddChild(Detail.LabelledBar(t.T("ui.goal.fragility"), pol.Loyalty is { Count: > 0 } ? Ui.Num(fragility, "0") + " %" : "–", fragility / 100, AppTheme.Bad));
+        left.AddChild(Detail.LabelledBar(s.Texts.ForRole("ui.goal.fragility", pol.PlayerRole), pol.Loyalty is { Count: > 0 } ? Ui.Num(fragility, "0") + " %" : "–", fragility / 100, AppTheme.Bad));
         double rel = ps.Relations.Values.DefaultIfEmpty(0).Average();
         left.AddChild(Detail.LabelledBar(t.T("ui.goal.relations"), Ui.Num(rel, "0.00"), rel, AppTheme.Good));
         var compass = new CompassView { CustomMinimumSize = new Vector2(240, 260), SizeFlagsHorizontal = SizeFlags.ExpandFill };

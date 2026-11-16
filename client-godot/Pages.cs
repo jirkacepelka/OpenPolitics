@@ -129,7 +129,9 @@ public sealed class BudgetScreen : Screen
             var (inf, inu) = Ui.Money(t, interest);
             Tile(t.T("ui.fig.interest"), inf, inu, null, t.T("ui.bp.interest_note", Ui.Num(Math.Max(0, v.GetValueOrDefault("base:interest_rate") - v.GetValueOrDefault("base:inflation")))));
         }
-        if (f.BudgetPercentOfGdp is { } b) Tile(t.T("ui.line.budget"), Ui.Signed(b), t.T("ui.unit.gdp_short"), b < -3 ? AppTheme.BadText : b >= 0 ? AppTheme.GoodText : null, t.T("ui.bp.balance_note"));
+        // decision 0015: the deficit once, as in the top bar (positive = deficit), not a balance with the opposite sign beside it
+        if (v.TryGetValue("base:deficit_pct", out var deficit))
+            Tile(t.T("ui.fig.deficit"), Ui.Num(deficit), t.T("ui.unit.gdp_short"), deficit > 3 ? AppTheme.BadText : deficit <= 0 ? AppTheme.GoodText : null, t.T("ui.bp.deficit_note"));
         if (f.DebtPercentOfGdp is { } debt) Tile(t.T("ui.fig.debt"), Ui.Num(debt, "0"), t.T("ui.unit.gdp_short"), debt > 60 ? AppTheme.BadText : null);
         d.Body.AddChild(tiles);
 
@@ -179,7 +181,7 @@ public sealed class NewsScreen : Screen
     public override void Build(Session s, Dialog d, Main main)
     {
         var t = s.T;
-        if (s.Turn == 0) d.Body.AddChild(Ui.L(t.T(s.HasPolitics ? "ui.client.welcome_politics" : "ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
+        if (s.Turn == 0) d.Body.AddChild(Ui.L(s.Politics is { } wp ? s.Texts.ForRole("ui.client.welcome_politics", wp.PlayerRole, t.Name(wp.PlayerParty)) : t.T("ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
         if (s.News.Count == 0) { d.Body.AddChild(Ui.L(t.T("ui.client.no_news"), Tx.Body, AppTheme.Ink3)); return; }
         var sc = s.Packs.GetScenario(s.ScenarioId);
         foreach (var quarter in Enumerable.Reverse(s.News).GroupBy(n => n.Turn))

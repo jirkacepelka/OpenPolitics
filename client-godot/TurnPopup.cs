@@ -44,16 +44,11 @@ public static class TurnPopup
     /// <summary>True when there is anything to tell or decide.</summary>
     public static bool HasContent(Session s) => s.Digest.Count > 0 || DecisionCount(s) > 0;
 
-    /// <summary>Decisions that wait: an offer to answer or a government to form, running ultimatums and an unanswered proposal (decision 0014).</summary>
-    public static int DecisionCount(Session s)
-    {
-        if (s.Politics is not { } pol) return 0;
-        int n = 0;
-        if (pol.Formation is { } f && (f.Offer != null || f.PlayerIsFormateur)) n++;
-        n += pol.Ultimatums?.Count ?? 0;
-        n += pol.Proposals?.Count(p => p.Answer == null) ?? 0;
-        return n;
-    }
+    /// <summary>
+    /// Decisions that wait (decision 0015, <see cref="Decisions.Open"/>): an offer, the player's own formation, unanswered proposals, ultimatums to the
+    /// player's government, the window for promises. The briefing offers exactly these, each inline.
+    /// </summary>
+    public static int DecisionCount(Session s) => Decisions.Open(s.Country, s.Packs).Count;
 
     public static bool HasDecisions(Session s) => DecisionCount(s) > 0;
 
@@ -65,8 +60,11 @@ public static class TurnPopup
         var pol = s.Politics;
         string role = pol?.PlayerRole switch { Role.Partner => "_partner", Role.Opposition => "_opposition", _ => "" };
         string title = welcome ? t.T("ui.brief.welcome_title" + role) : pol?.Formation?.Offer is { } o ? t.T("ui.event.offer_made", t.Name(o.Formateur))
+            : pol?.Formation is { PlayerIsFormateur: true } ? t.T("ui.brief.title_formateur")
             : s.Digest.Count > 0 ? Shorten(s.Digest[0]) : t.T("ui.brief.quiet_title");
         var d = main.NewDialog("", null, 900);
+        Label hint = null!;
+        IconTextButton? cont = null;
         d.Key = "briefing";
         d.Closed += () => s.Digest.Clear();
         d.Blocking = Main.Blocking(s);
@@ -77,50 +75,21 @@ public static class TurnPopup
         d.Body.AddChild(head);
         if (welcome) d.Body.AddChild(Ui.L(s.HasPolitics ? t.T("ui.client.welcome_politics" + role, t.Name(pol!.PlayerParty)) : t.T("ui.client.welcome"), Tx.Body, AppTheme.Ink, true));
 
-        // Decisions first.
-        if (pol != null)
+        // Decisions first, each answered inline (decision 0015); the box redraws itself after an answer.
+        var decisions = Ui.VBox(10);
+        d.Body.AddChild(decisions);
+        void FillDecisions()
         {
-            if (pol.Formation is { Offer: { } offer })
-            {
-                var box = Ui.VBox(8);
-                box.AddChild(Ui.L(t.T("ui.formation.offer", t.Name(offer.Formateur), string.Join(", ", offer.Partners.Select(t.Name))), Tx.BodyStrong, AppTheme.Ink, true));
-                foreach (var a in offer.Agreements)
-                    if (s.Texts.DemandOf(a.PartyId, a.DemandId) is { } dm) box.AddChild(Ui.PartyName(s, a.PartyId, $"{t.Name(a.PartyId)}: {Ui.Fix(s.Texts.Demand(dm))}", Tx.Body));
-                var row = Ui.HBox(1);
-                var acc = Ui.Btn(t.T("ui.client.accept"), () => { s.Do(new AcceptOffer(), t.T("ui.formation.joined")); Done(); }, "", IconKind.Check, null, false, 40);
-                var rej = Ui.Btn(t.T("ui.client.reject"), () => { s.Do(new RejectOffer(), t.T("ui.formation.rejected")); Done(); }, "ButtonSecondary", IconKind.Close, null, false, 40);
-                acc.SizeFlagsHorizontal = rej.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-                row.AddChild(acc); row.AddChild(rej);
-                box.AddChild(row);
-                d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
-                d.Body.AddChild(Ui.Panel(box, "Inset"));
-            }
-            else if (pol.Formation is { PlayerIsFormateur: true })
-            {
-                var box = Ui.VBox(8);
-                box.AddChild(Ui.L(t.T("ui.popup.you_form", pol.Formation.TurnsLeft), Tx.BodyStrong, AppTheme.Ink, true));
-                var open = Ui.Btn(t.T("ui.popup.open_politics"), () => { Done(); main.OpenScreen<PoliticsScreen>(); }, "", IconKind.Politics, null, false, 38);
-                open.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-                box.AddChild(open);
-                d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
-                d.Body.AddChild(Ui.Panel(box, "Inset"));
-            }
-            foreach (var p in pol.Proposals ?? Array.Empty<ProposalInfo>())
-            {
-                d.Body.AddChild(Ui.Section(t.T("ui.popup.decisions")));
-                d.Body.AddChild(ProposalCard(s, p));
-            }
-            if (pol.Ultimatums is { Count: > 0 } ultimatums)
-                foreach (var u in ultimatums)
-                {
-                    string text = u.DemandId != null && s.Texts.DemandOf(u.PartyId, u.DemandId) is { } dm
-                        ? t.T("ui.event.ultimatum_demand", t.Name(u.PartyId), u.TurnsLeft, s.Texts.Demand(dm))
-                        : t.T("ui.event.ultimatum", t.Name(u.PartyId), u.TurnsLeft);
-                    var row = Ui.HBox(10);
-                    row.AddChild(new IconView(IconKind.Alert, 18, AppTheme.WarnText));
-                    row.AddChild(Ui.L(Ui.Fix(text), Tx.BodyStrong, AppTheme.WarnText, true));
-                    d.Body.AddChild(Ui.Panel(row, "Warn"));
-                }
+            if (!GodotObject.IsInstanceValid(decisions)) return;
+            Ui.Clear(decisions);
+            var open = Decisions.Open(s.Country, s.Packs);
+            if (open.Count > 0) decisions.AddChild(Ui.Section(t.T("ui.popup.decisions") + (open.Count > 1 ? $" ({open.Count})" : "")));
+            foreach (var dec in open)
+                if (DecisionCards.For(main, s, dec, FillDecisions) is { } card) decisions.AddChild(card);
+            d.Blocking = Main.Blocking(s);
+            d.CloseEnabled = !d.Blocking;
+            if (cont != null && GodotObject.IsInstanceValid(cont)) cont.Disabled = d.Blocking;
+            if (GodotObject.IsInstanceValid(hint)) hint.Visible = d.Blocking;
         }
 
         // Key indicators as pills.
@@ -162,8 +131,11 @@ public static class TurnPopup
         // The two answers live in the dialog's own footer, so they stay in view however long the news is.
         d.AddAction(t.T(s.HasPolitics ? "ui.popup.open_politics" : "ui.brief.charts"), s.HasPolitics ? IconKind.Politics : IconKind.Chart,
             () => { Done(); if (s.HasPolitics) main.OpenScreen<PoliticsScreen>(); else main.OpenScreen<ChartsScreen>(); });
-        d.AddAction(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), IconKind.Play, Done, d.Blocking, "");
-        if (d.Blocking) d.Body.AddChild(Centred(Ui.L(t.T("ui.brief.decide_hint"), Tx.Small, AppTheme.WarnText, true)));
+        cont = d.AddAction(t.T(welcome ? "ui.brief.begin" : "ui.popup.continue"), IconKind.Play, Done, d.Blocking, "");
+        hint = Centred(Ui.L(t.T("ui.brief.decide_hint"), Tx.Small, AppTheme.WarnText, true));
+        hint.Visible = d.Blocking;
+        d.Body.AddChild(hint);
+        FillDecisions();
         d.Refit();
         return d;
 

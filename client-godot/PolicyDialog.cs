@@ -101,7 +101,7 @@ public static class Detail
     }
 
     public static string? Blocked(Session s) => s.Politics is { } pol
-        ? (pol.Phase != Phase.Governing ? "ui.err.no_majority" : pol.PlayerRole != Role.Leader ? "ui.err.not_leader" : null)
+        ? (pol.PlayerRole != Role.Leader ? "ui.err.not_leader" : pol.Phase != Phase.Governing ? "ui.err.no_majority" : null)
         : null;
 }
 

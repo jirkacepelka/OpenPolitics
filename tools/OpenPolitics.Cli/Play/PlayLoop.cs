@@ -55,13 +55,16 @@ public sealed class PlayLoop
 
     private CountryState Current => _game.State.Countries.Single().Value;
 
+    /// <summary>A text in the variant for the player's role (decision 0015); the sandbox has no roles and reads the base text.</summary>
+    private string RoleText(string key) => Current.Politics is { } pol ? new Texts(_packs, _t).ForRole(key, pol.PlayerRole) : _t.T(key);
+
     public int Run()
     {
         _out.WriteLine($"=== {_t.T("ui.title")} ===");
         ShowTurnHeader();
         ShowOverview();
         ShowPolicies();
-        if (_tips) _out.WriteLine("\n" + _t.T("ui.tip.1"));
+        if (_tips) _out.WriteLine("\n" + RoleText("ui.tip.1"));
         while (true)
         {
             _out.WriteLine("\n" + _t.T("ui.prompt"));
@@ -205,7 +208,7 @@ public sealed class PlayLoop
         ShowPoliticalEvents(_last.PoliticalEvents);
         ShowProposal();
         ShowOverview();
-        if (_tips && _nextTip <= 5) _out.WriteLine("\n" + _t.T($"ui.tip.{_nextTip++}"));
+        if (_tips && _nextTip <= 5) _out.WriteLine("\n" + RoleText($"ui.tip.{_nextTip++}"));
         if (_game.State.Turn >= _maxTurns) { ShowEnd(); return true; }
         return false;
     }
@@ -431,7 +434,7 @@ public sealed class PlayLoop
         foreach (var e in events)
         {
             if (e is ElectionHeld held) { ShowElectionResult(held); continue; }
-            string? text = texts.Event(e); // one place for event wording, shared with the Godot client
+            string? text = texts.Event(e, Current.Politics?.PlayerRole ?? Role.Leader); // one place for event wording, shared with the Godot client
             if (text == null) continue;
             if (!header) { _out.WriteLine($"\n{_t.T("ui.heading.political_events")}"); header = true; }
             _out.WriteLine("  * " + text);
@@ -580,8 +583,8 @@ public sealed class PlayLoop
         double share = pol.Support.GetValueOrDefault(pol.PlayerParty);
         Line("    " + _t.T("ui.goal.poll"), $"{Fmt.Number(share * 100)} %  {ShareBar(share)}");
         if (pol.Loyalty is { Count: > 0 } loyalty)
-            Line("    " + _t.T("ui.goal.fragility"), Fmt.Number(100 - loyalty.Values.Min(), "0") + " %");
-        else Line("    " + _t.T("ui.goal.fragility"), "-");
+            Line("    " + RoleText("ui.goal.fragility"), Fmt.Number(100 - loyalty.Values.Min(), "0") + " %");
+        else Line("    " + RoleText("ui.goal.fragility"), "-");
         Line("    " + _t.T("ui.goal.relations"), Fmt.Number(ps.Relations.Values.DefaultIfEmpty(0).Average(), "0.00"));
         _out.WriteLine("  " + _t.T("ui.party.help"));
     }
@@ -823,7 +826,7 @@ public sealed class PlayLoop
 
     private void ShowPolicies()
     {
-        _out.WriteLine($"\n{_t.T("ui.heading.policies")}");
+        _out.WriteLine($"\n{RoleText("ui.heading.policies")}");
         var pending = _game.PendingPolicies;
         int turn = _game.State.Turn;
         for (int i = 0; i < _policies.Count; i++)
@@ -878,6 +881,6 @@ public sealed class PlayLoop
         double debt = v.TryGetValue(MacroModelV1.Ids.Debt, out var d) && v.TryGetValue(MacroModelV1.Ids.Gdp, out var y) && y > 0 ? d / y * 100 : 0;
         _out.WriteLine($"\n=== {_t.T("ui.end.heading")} ===");
         _out.WriteLine(_t.T("ui.end.summary", years, MoodLabel(mood), Fmt.Number(ratio, "0.0"), Fmt.Number(debt, "0") + " %"));
-        _out.WriteLine(_t.T(mood >= 0.2 ? "ui.end.good" : mood >= -0.3 ? "ui.end.ok" : "ui.end.bad"));
+        _out.WriteLine(RoleText(mood >= 0.2 ? "ui.end.good" : mood >= -0.3 ? "ui.end.ok" : "ui.end.bad"));
     }
 }

@@ -31,6 +31,9 @@ public sealed class Localizer
 
     public string Name(string id) => T("name." + id);
 
+    /// <summary>Whether the key has a text in the chosen language or in English.</summary>
+    public bool Has(string key) => _primary.ContainsKey(key) || _fallback.ContainsKey(key);
+
     public string? Description(string id) =>
         _primary.TryGetValue("desc." + id, out var v) ? v : _fallback.TryGetValue("desc." + id, out var f) ? f : null;
 

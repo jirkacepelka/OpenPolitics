@@ -16,7 +16,6 @@ public sealed class PoliticsScreen : Screen
     public override string TabId => "politics";
     public override float Width => 1200;
 
-    private readonly HashSet<string> _invited = new(StringComparer.Ordinal);
     private readonly HashSet<string> _rsDrop = new(StringComparer.Ordinal), _rsAdd = new(StringComparer.Ordinal);
     private readonly HashSet<(string Party, string Demand)> _rsAgreed = new();
     private Control? _rsCard;
@@ -28,7 +27,6 @@ public sealed class PoliticsScreen : Screen
         for (Node? n = _rsCard.GetParent(); n != null; n = n.GetParent())
             if (n is ScrollContainer sc) { sc.EnsureControlVisible(_rsCard); return; }
     }
-    private readonly HashSet<(string Party, string Demand)> _agreed = new();
     private Session? _s; private Dialog? _d; private Main? _main;
 
     private void Rebuild() { if (_s != null && _d != null && _main != null && GodotObject.IsInstanceValid(_d)) { Ui.Clear(_d.Body); Build(_s, _d, _main); } }
@@ -47,13 +45,14 @@ public sealed class PoliticsScreen : Screen
         var t = s.T;
         var pol = s.Politics;
         if (pol == null) { d.Body.AddChild(Ui.L(t.T("ui.err.no_politics"), Tx.Body)); return; }
-        if (pol.Formation is not { PlayerIsFormateur: true }) { _invited.Clear(); _agreed.Clear(); }
         var rules = s.Packs.Countries.First(c => c.Politics != null).Politics!;
         int total = pol.Seats.Values.Sum(), held = pol.GovernmentParties.Sum(p => pol.Seats.GetValueOrDefault(p));
         bool majority = held > total * rules.MajorityFraction;
 
         Formation(s, pol, d.Body, main);
         foreach (var p in pol.Proposals ?? Array.Empty<ProposalInfo>()) d.Body.AddChild(TurnPopup.ProposalCard(s, p, Rebuild));
+        if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader)
+            foreach (var u in pol.Ultimatums ?? Array.Empty<UltimatumInfo>()) d.Body.AddChild(DecisionCards.Ultimatum(main, s, u, Rebuild));
 
         var grid = new FlowGrid { MinColumn = 330, MaxColumns = 3, Gap = 12 };
         // Parliament
@@ -272,77 +271,11 @@ public sealed class PoliticsScreen : Screen
         var f = pol.Formation;
         var box = Ui.VBox(10);
         box.AddChild(Ui.L(t.T("ui.formation.heading"), Tx.Heading));
-        if (f.Offer != null)
-        {
-            box.AddChild(Ui.L(t.T("ui.formation.offer", t.Name(f.Offer.Formateur), string.Join(", ", f.Offer.Partners.Select(t.Name))), Tx.BodyStrong, AppTheme.Ink, true));
-            foreach (var a in f.Offer.Agreements)
-                if (s.Texts.DemandOf(a.PartyId, a.DemandId) is { } dm) box.AddChild(Ui.PartyName(s, a.PartyId, $"{t.Name(a.PartyId)}: {Ui.Fix(s.Texts.Demand(dm))}", Tx.Body));
-            var row = Ui.HBox(1);
-            row.AddChild(Ui.Btn(t.T("ui.client.accept"), () => s.Do(new AcceptOffer(), t.T("ui.formation.joined")), "", IconKind.Check));
-            row.AddChild(Ui.Btn(t.T("ui.client.reject"), () => s.Do(new RejectOffer(), t.T("ui.formation.rejected")), "ButtonSecondary", IconKind.Close));
-            box.AddChild(row);
-            box.AddChild(Ui.L(t.T("ui.formation.offer_hint"), Tx.Small, AppTheme.Ink3, true));
-        }
-        else if (!f.PlayerIsFormateur) box.AddChild(Ui.L(t.T("ui.formation.ai_forms", t.Name(f.Formateur), f.Attempt), Tx.Body, AppTheme.Ink, true));
-        else
-        {
-            var head = Ui.HBox(12);
-            head.AddChild(Ui.L(t.T("ui.formation.you_form", f.TurnsLeft), Tx.BodyStrong, AppTheme.WarnText, true));
-            head.AddChild(Ui.Btn(t.T("ui.client.auto_proposal"), () =>
-            {
-                if (s.Game.SuggestCoalition() is { } sug) s.Do(new ProposeCoalition(sug.Partners, sug.Agreements), t.T("ui.formation.proposed"));
-            }, "", IconKind.Check, t.T("ui.client.auto_hint")));
-            box.AddChild(head);
-            Draft(s, pol, box);
-        }
+        // the same cards as in the briefing (decision 0015): the offer, or the player's own formation with the suggested coalition and the draft
+        if (DecisionCards.Offer(s, Rebuild) is { } offer) box.AddChild(offer);
+        else if (DecisionCards.Formation(main, s, Rebuild) is { } form) box.AddChild(form);
+        else box.AddChild(Ui.L(t.T("ui.formation.ai_forms", t.Name(f.Formateur), f.Attempt), Tx.Body, AppTheme.Ink, true));
         body.AddChild(Ui.Panel(box, "Inset"));
-    }
-
-    private void Draft(Session s, CountryPolitics pol, VBoxContainer card)
-    {
-        var t = s.T;
-        var rules = s.Packs.Countries.First(c => c.Politics != null).Politics!;
-        int total = pol.Seats.Values.Sum();
-        int held = pol.Seats.GetValueOrDefault(pol.PlayerParty) + _invited.Sum(p => pol.Seats.GetValueOrDefault(p));
-        card.AddChild(Ui.L(t.T("ui.formation.majority_needed", (int)Math.Floor(rules.MajorityFraction * total), held, rules.ProgramSlots),
-            Tx.BodyStrong, held > total * rules.MajorityFraction ? AppTheme.GoodText : AppTheme.Ink2, true));
-        foreach (var party in s.Packs.Parties.Where(p => p.Id != pol.PlayerParty && pol.Seats.GetValueOrDefault(p.Id) > 0).OrderBy(p => p.Id, StringComparer.Ordinal))
-        {
-            var line = Ui.HBox(8);
-            line.AddChild(new ColorDot(Ui.PartyColor(s, party.Id)));
-            var invite = new CheckBox
-            {
-                Text = $"{t.Name(party.Id)}  ·  {Ui.Fix(t.T("ui.formation.party_line", pol.Seats[party.Id], Fmt.Number(CoalitionRules.RequiredWeight(party, pol.Party?.Relations.GetValueOrDefault(party.Id, 0.3) ?? 0.3))))}",
-                ButtonPressed = _invited.Contains(party.Id), FocusMode = Control.FocusModeEnum.None,
-            };
-            invite.Toggled += on =>
-            {
-                if (on) _invited.Add(party.Id); else { _invited.Remove(party.Id); _agreed.RemoveWhere(a => a.Party == party.Id); }
-                Rebuild();
-            };
-            line.AddChild(invite);
-            card.AddChild(line);
-            if (!_invited.Contains(party.Id)) continue;
-            foreach (var dm in party.Demands)
-            {
-                var box = new CheckBox
-                {
-                    Text = $"{Ui.Fix(s.Texts.Demand(dm))}   ({Ui.Fix(t.T("ui.formation.weight", Fmt.Number(dm.Weight)))})",
-                    ButtonPressed = _agreed.Contains((party.Id, dm.Id)), FocusMode = Control.FocusModeEnum.None,
-                };
-                box.AddThemeColorOverride("font_color", AppTheme.Ink2);
-                box.Toggled += on => { if (on) _agreed.Add((party.Id, dm.Id)); else _agreed.Remove((party.Id, dm.Id)); Rebuild(); };
-                var indent = Ui.Margin(box, 0, 0);
-                indent.AddThemeConstantOverride("margin_left", 36);
-                card.AddChild(indent);
-            }
-        }
-        var submit = Ui.Btn(t.T("ui.client.submit"), () =>
-            s.Do(new ProposeCoalition(_invited.OrderBy(x => x, StringComparer.Ordinal).ToList(),
-                _agreed.OrderBy(a => a.Party, StringComparer.Ordinal).ThenBy(a => a.Demand, StringComparer.Ordinal)
-                    .Select(a => new AgreedDemand(a.Party, a.Demand)).ToList()), t.T("ui.formation.proposed")), "", IconKind.Check);
-        submit.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
-        card.AddChild(submit);
     }
 
     private static Control? Coalition(Session s, CountryPolitics pol, Main main)

@@ -127,9 +127,11 @@ public class FormationTests
         var g = New(Load(Four, "z", government: new[] { "a", "z" }, leader: "a"));
         Assert.Equal("error.not_leader", g.Apply(new SetPolicy("base:tax", 35)).ErrorKey);
         g.EndTurn(); // election -> formation
-        Assert.Equal("error.no_majority", g.Apply(new SetPolicy("base:tax", 35)).ErrorKey);
+        Assert.Equal("error.not_leader", g.Apply(new SetPolicy("base:tax", 35)).ErrorKey); // decision 0015: a non-leader is told it does not lead
         var leader = New(Load(Four, "a"));
         Assert.True(leader.Apply(new SetPolicy("base:tax", 35)).Accepted);
+        leader.EndTurn(); // election -> formation: the caretaker leader has no majority
+        Assert.Equal("error.no_majority", leader.Apply(new SetPolicy("base:tax", 36)).ErrorKey);
     }
 
     [Fact]

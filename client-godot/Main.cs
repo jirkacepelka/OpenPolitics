@@ -161,6 +161,7 @@ public partial class Main : Control
             if (!Session.Load(file)) { ShowStart(); return; }
             _newsSeen = Session.News.Count;
             BuildGameUi();
+            if (PopupsEnabled) ShowBriefing(); // open decisions are offered right after loading (decision 0015)
         }
         catch (Exception e) { GD.PrintErr(e.ToString()); ShowStart(); }
     }
@@ -411,7 +412,12 @@ public partial class Main : Control
         if (Blocking(s)) { ShowBriefing(force: true); return; }
         CloseDialogs();
         _batch = true;
-        for (int i = 0; i < 4 && !s.Finished && !Blocking(s); i++) s.EndQuarter();
+        // decision 0015: stop as soon as something needs an answer, so no proposal, formation or ultimatum passes unseen
+        for (int i = 0; i < 4 && !s.Finished && !Blocking(s); i++)
+        {
+            s.EndQuarter();
+            if (Decisions.AnyUrgent(s.Country, s.Packs)) break;
+        }
         _batch = false;
         ShowBriefing();
     }

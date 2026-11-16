@@ -83,6 +83,7 @@ public sealed class Session
 
     public void EndQuarter()
     {
+        var roleBefore = Politics?.PlayerRole;
         Last = Game.EndTurn();
         History.Record();
         foreach (var id in Last.FiredEventIds)
@@ -90,8 +91,11 @@ public sealed class Session
         foreach (var e in Last.PoliticalEvents)
         {
             if (e is ElectionHeld held) AddNews(ElectionText(held));
-            else if (Texts.Event(e) is { } text) AddNews(text);
+            else if (Texts.Event(e, Politics?.PlayerRole ?? Role.Opposition) is { } text) AddNews(text);
         }
+        // decision 0015: say so when the party's role changed (it changes what the party can do and how the game talks to it)
+        if (roleBefore is { } rb && Politics?.PlayerRole is { } ra && ra != rb && Politics.Phase == Phase.Governing)
+            AddNews(T.T("ui.role_changed." + ra.ToString().ToLowerInvariant(), T.Name(Politics.PlayerParty)));
         Message = "";
         Changed?.Invoke();
         QuarterEnded?.Invoke();
