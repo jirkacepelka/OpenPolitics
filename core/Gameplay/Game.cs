@@ -184,6 +184,16 @@ public sealed class Game
     /// <summary>What announcing a policy proposal would do now (decision 0014 g); null without politics. Changes nothing.</summary>
     public AnnounceReaction? PreviewAnnouncement(string policyId, double target) => _politics?.Reaction(policyId, target);
 
+    /// <summary>
+    /// What proposing a policy would do now (decision 0015): to the leader (partner) or public (anyone else outside the lead), cost, the voters'
+    /// reaction, the points of support it moves per group and the leader's likely answer; null without politics. Changes nothing.
+    /// </summary>
+    public ProposalPreview? PreviewProposal(string policyId, double target) => _politics?.PreviewProposal(policyId, target, _turn + 1);
+
+    /// <summary>How many points of support (share × 100) a campaign would win in its voter group right now (decision 0015); 0 without politics.</summary>
+    public double PreviewCampaign(string groupId, int effort) =>
+        _politics == null ? 0.0 : _politics.SupportPoints(new Dictionary<string, double> { [groupId] = _politics.CampaignMomentum(effort) }).GetValueOrDefault(groupId);
+
     /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
     public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 

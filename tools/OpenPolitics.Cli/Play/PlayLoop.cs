@@ -108,7 +108,7 @@ public sealed class PlayLoop
                 case "promise": DoPromise(cmd.Args); break;
                 case "support": DoAnswer(support: true); break;
                 case "oppose": DoAnswer(support: false); break;
-                case "announce": DoAnnounce(cmd.Args); break;
+                case "announce": DoProposePolicy(cmd.Args); break; // decision 0015: an alias of propose
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
         }
@@ -591,7 +591,7 @@ public sealed class PlayLoop
         if (args.Length == 0) { _out.WriteLine(_t.T("ui.err.unknown_item", "")); return; }
         var value = Resolve(JoinArgs(args, 0), _values, v => v.Id, numbers: true);
         if (value == null) { _out.WriteLine(_t.T("ui.err.unknown_item", JoinArgs(args, 0))); return; }
-        Report(_game.Apply(new Criticize(value.Id)), "ui.party.criticized", quiet: true, _t.Name(value.Id));
+        Report(Supported(new Criticize(value.Id)), "ui.party.criticized", quiet: true, _t.Name(value.Id));
     }
 
     private void DoStance(string[] args)
@@ -614,9 +614,13 @@ public sealed class PlayLoop
         if (args.Length > 1 && int.TryParse(args[^1], NumberStyles.None, CultureInfo.InvariantCulture, out var e)) { effort = e; nameArgs = args[..^1]; }
         var group = Resolve(string.Join(" ", nameArgs), _packs.VoterGroups, g => g.Id, numbers: false);
         if (group == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", nameArgs))); return; }
-        Report(_game.Apply(new Campaign(group.Id, effort)), "ui.party.campaign_ok", quiet: true, _t.Name(group.Id));
+        Report(Supported(new Campaign(group.Id, effort)), "ui.party.campaign_ok", quiet: true, _t.Name(group.Id));
     }
 
+    /// <summary>
+    /// propose POLICY VALUE (decision 0015: the one way to propose; 'announce' is an alias) - a partner's proposal goes to the leader, anyone else's
+    /// goes public. Shows who decides, how the voters' support moves and the credibility cost first.
+    /// </summary>
     private void DoProposePolicy(string[] args)
     {
         if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_propose")); return; }
@@ -624,7 +628,10 @@ public sealed class PlayLoop
         if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args[..^1]))); return; }
         if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
         { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
-        Report(_game.Apply(new ProposePolicy(policy.Id, target)), "ui.exit.propose_ok", quiet: true, _t.Name(policy.Id));
+        var preview = _game.PreviewProposal(policy.Id, target);
+        if (preview is { ErrorKey: null })
+            foreach (var line in new Texts(_packs, _t).ProposalPreviewLines(preview)) _out.WriteLine("  " + line);
+        Report(Supported(new ProposePolicy(policy.Id, target)), preview?.ToLeader == true ? "ui.exit.propose_ok" : "ui.announce.ok", quiet: true, _t.Name(policy.Id));
     }
 
     /// <summary>The proposal waiting for the player's answer (decision 0014), with what an answer means.</summary>
@@ -642,26 +649,6 @@ public sealed class PlayLoop
     {
         if (Current.Politics?.Proposals?.FirstOrDefault(p => p.Answer == null) is not { } p) { _out.WriteLine(_t.T("ui.proposal.none")); return; }
         Report(_game.Apply(support ? new SupportProposal(p.Id) : new OpposeProposal(p.Id)), support ? "ui.proposal.ok_support" : "ui.proposal.ok_oppose", quiet: true, _t.Name(p.PolicyId));
-    }
-
-    /// <summary>announce POLICY VALUE - a public policy proposal of a party that does not lead (decision 0014 g); shows the voters' reaction first.</summary>
-    private void DoAnnounce(string[] args)
-    {
-        if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_announce")); return; }
-        var policy = Resolve(string.Join(" ", args[..^1]), _policies, p => p.Id, numbers: true);
-        if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args[..^1]))); return; }
-        if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
-        { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
-        if (_game.PreviewAnnouncement(policy.Id, target) is { } r)
-        {
-            var like = r.Groups.Where(kv => kv.Value > 1e-6).Select(kv => _t.Name(kv.Key)).ToList();
-            var dislike = r.Groups.Where(kv => kv.Value < -1e-6).Select(kv => _t.Name(kv.Key)).ToList();
-            if (like.Count > 0) _out.WriteLine("  " + _t.T("ui.announce.like", string.Join(", ", like)));
-            if (dislike.Count > 0) _out.WriteLine("  " + _t.T("ui.announce.dislike", string.Join(", ", dislike)));
-            if (r.Groups.Count == 0) _out.WriteLine("  " + _t.T("ui.announce.nobody"));
-            if (r.Credibility < 0) _out.WriteLine("  " + _t.T("ui.announce.credibility", Fmt.Number(r.Credibility * 100, "0") + " %"));
-        }
-        Report(_game.Apply(new AnnouncePolicy(policy.Id, target)), "ui.announce.ok", quiet: true, _t.Name(policy.Id));
     }
 
     private void DoDismiss(string[] args)
@@ -798,12 +785,24 @@ public sealed class PlayLoop
         Report(_game.Apply(new ProposeCoalition(_draftPartners.ToList(), _draftAgreements.ToList())), "ui.formation.proposed");
 
     /// <summary>Prints the outcome of an action: a success text, or the error (with the refusal detail).</summary>
+    /// <summary>Applies an action and, when accepted, prints how far it moved the party's support per voter group (decision 0015).</summary>
+    private ActionResult Supported(PlayerAction action)
+    {
+        var before = Current.Politics?.Party?.GroupSupport;
+        var r = _game.Apply(action);
+        if (r.Accepted && new Texts(_packs, _t).SupportChange(before, Current.Politics?.Party?.GroupSupport) is { } moved) _pendingNote = _t.T("ui.support.now", moved);
+        return r;
+    }
+
+    private string? _pendingNote;
+
     private void Report(ActionResult result, string successKey, bool quiet = false, params object[] args)
     {
         if (result.Accepted)
         {
             _draftPartners.Clear(); _draftAgreements.Clear();
             _out.WriteLine(_t.T(successKey, args));
+            if (_pendingNote != null) { _out.WriteLine("  " + _pendingNote); _pendingNote = null; }
             if (!quiet) ShowPolitics();
             return;
         }

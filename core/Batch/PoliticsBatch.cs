@@ -11,7 +11,12 @@ namespace OpenPolitics.Core.Batch;
 /// How the scripted player party behaves in a politics batch. All of them answer formation questions. Reformer (decision 0013) governs like the AI
 /// governor with its own platform - commitments, crisis responses, drift toward the platform - and pays for every change in political capital.
 /// </summary>
-public enum PoliticsStrategy { Ignorer, Keeper, Random, Extreme, Activist, Reformer }
+/// <remarks>
+/// Challenger (decision 0015): an opposition party that plays the opposition game consistently - campaigns among its core voter groups, proposes
+/// its platform positions that its core groups like, criticises what got worse, promises its goals before elections, builds its organisation, and
+/// governs like the reformer once it leads.
+/// </remarks>
+public enum PoliticsStrategy { Ignorer, Keeper, Random, Extreme, Activist, Reformer, Challenger }
 
 public sealed record PoliticsBatchReport(
     int Games, int Turns, string Strategy,
@@ -22,7 +27,8 @@ public sealed record PoliticsBatchReport(
     double GoverningShare = 0, double PlayerLeadShare = 0, double MeanCapital = 0,
     double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0, double MeanCapitalLeading = 0,
     int PlayerReshuffles = 0, int Reshuffles = 0,
-    int ProposalsPut = 0, int ProposalsAnswered = 0, int ProposalsFailed = 0, int Announcements = 0, int AnnouncementsAdopted = 0)
+    int ProposalsPut = 0, int ProposalsAnswered = 0, int ProposalsFailed = 0, int Announcements = 0, int AnnouncementsAdopted = 0,
+    IReadOnlyList<double>? PollByQuarter = null, int Elections = 0, int ElectionsWon = 0, int GovernmentsLed = 0)
 {
     public string ToText()
     {
@@ -48,6 +54,10 @@ public sealed record PoliticsBatchReport(
         sb.AppendLine($"  Proposals put to the player: {ProposalsPut} ({ProposalsAnswered} answered, {ProposalsFailed} failed or turned down)");
         sb.AppendLine($"  Announced proposals:         {Announcements} ({AnnouncementsAdopted} adopted by the government)");
         sb.AppendLine($"  Policy changes per year led: {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
+        sb.AppendLine($"  Elections won (most votes):  {ElectionsWon} of {Elections} ({(Elections > 0 ? 100.0 * ElectionsWon / Elections : 0).ToString("0.0", inv)} %); governments led by the player: {GovernmentsLed}");
+        if (PollByQuarter is { Count: > 0 } traj)
+            sb.AppendLine("  Player poll by quarter (mean %): " + string.Join(" | ", Enumerable.Range(0, traj.Count).Where(q => q % 4 == 0)
+                .Select(q => $"q{q} {(100 * traj[q]).ToString("0.0", inv)}")));
         return sb.ToString();
     }
 }
@@ -66,6 +76,8 @@ public static class PoliticsBatch
         double sumFirstLoss = 0, sumSupport = 0, sumSeats = 0, sumRun = 0;
         int negativeCapital = 0, governingTurns = 0, leadTurns = 0, lostLead = 0, reshuffles = 0;
         double sumCapital = 0, sumCapitalLeading = 0;
+        var pollByQuarter = new double[turns + 1];
+        int elections = 0, electionsWon = 0, governmentsLed = 0;
         var counter = new PolicyCounter();
         var policies = packs.Policies.ToDictionary(p => p.Id, StringComparer.Ordinal);
         var levers = Governor.Levers(packs);
@@ -82,6 +94,8 @@ public static class PoliticsBatch
             bool wasStuck = false, overspent = false;
             var memory = new ActivistMemory();
             bool led = game.State.Countries.Values.Single().Politics!.PlayerRole == Role.Leader, lost = false;
+            var start = game.State.Countries.Values.Single().Politics!;
+            pollByQuarter[0] += start.Support.GetValueOrDefault(start.PlayerParty);
 
             for (int t = 0; t < turns; t++)
             {
@@ -91,7 +105,11 @@ public static class PoliticsBatch
                 {
                     switch (e)
                     {
-                        case GovernmentFormed: governments++; formedTurns.Add(report.Turn); break;
+                        case GovernmentFormed gf: governments++; formedTurns.Add(report.Turn); if (gf.Government.Leader == start.PlayerParty) governmentsLed++; break;
+                        case ElectionHeld eh:
+                            elections++;
+                            if (eh.Votes.TryGetValue(start.PlayerParty, out var mine) && eh.Votes.All(kv => kv.Key == start.PlayerParty || kv.Value < mine)) electionsWon++;
+                            break;
                         case PartnerLeft: departures++; if (firstLoss < 0) firstLoss = report.Turn; break;
                         case GovernmentFell: falls++; fallTurns.Add(report.Turn); break;
                         case EarlyElectionsCalled: early++; break;
@@ -104,6 +122,7 @@ public static class PoliticsBatch
                 var now = game.State.Countries.Values.Single().Politics!;
                 if (now.Party!.PoliticalCapital < -1e-9) overspent = true;
                 runShare += now.Support.GetValueOrDefault(now.PlayerParty);
+                pollByQuarter[t + 1] += now.Support.GetValueOrDefault(now.PlayerParty);
                 var phase = now.Phase;
                 sumCapital += now.Party.PoliticalCapital;
                 if (phase == Phase.Governing) governingTurns++;
@@ -137,7 +156,8 @@ public static class PoliticsBatch
             Share(governingTurns, games, turns), Share(leadTurns, games, turns), games * turns > 0 ? sumCapital / (games * turns) : 0,
             PerYear(counter.Accepted, packs, scenarioId, leadTurns), PerYear(counter.Refused, packs, scenarioId, leadTurns), lostLead,
             leadTurns > 0 ? sumCapitalLeading / leadTurns : 0, counter.Reshuffles, reshuffles,
-            counter.ProposalsPut, counter.ProposalsAnswered, counter.ProposalsFailed, counter.Announcements, counter.Adopted);
+            counter.ProposalsPut, counter.ProposalsAnswered, counter.ProposalsFailed, counter.Announcements, counter.Adopted,
+            pollByQuarter.Select(x => games > 0 ? x / games : 0).ToList(), elections, electionsWon, governmentsLed);
     }
 
     private static double Share(int count, int games, int turns) => games * turns > 0 ? (double)count / (games * turns) : 0;
@@ -175,6 +195,8 @@ public static class PoliticsBatch
         AnswerProposals(game, pol, strategy, rng, counter);
         if (strategy is PoliticsStrategy.Activist or PoliticsStrategy.Reformer) Announce(game, pol, packs, policies, counter);
         if (strategy == PoliticsStrategy.Activist) { Activism(game, state, pol, packs, memory); return; }
+        if (strategy == PoliticsStrategy.Challenger && !(pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader))
+        { Challenge(game, state, pol, packs, policies, memory, counter); return; }
         if (pol.Phase != Phase.Governing || pol.PlayerRole != Role.Leader) return;
         var current = state.Countries.Values.Single().Policies;
         switch (strategy)
@@ -185,6 +207,7 @@ public static class PoliticsBatch
                     counter.Set(game, m.PolicyId, m.Value);
                 break;
             case PoliticsStrategy.Reformer:
+            case PoliticsStrategy.Challenger:
                 TryReshuffle(game, pol, counter);
                 var own = packs.Parties.FirstOrDefault(p => p.Id == pol.PlayerParty);
                 var partnerLines = pol.Government!.Parties.Where(p => p != pol.PlayerParty)
@@ -221,7 +244,7 @@ public static class PoliticsBatch
         bool? support = strategy switch
         {
             PoliticsStrategy.Keeper => p.Fit >= -0.1 || (p.Kind == ProposalKind.Measure && p.Pivotal),
-            PoliticsStrategy.Reformer or PoliticsStrategy.Activist => p.Fit > 1e-9 ? true : p.Fit < -1e-9 ? false : p.Kind == ProposalKind.Request ? true : null,
+            PoliticsStrategy.Reformer or PoliticsStrategy.Activist or PoliticsStrategy.Challenger => p.Fit > 1e-9 ? true : p.Fit < -1e-9 ? false : p.Kind == ProposalKind.Request ? true : null,
             PoliticsStrategy.Random => rng.NextDouble() < 0.5,
             PoliticsStrategy.Extreme => false,
             _ => null,
@@ -267,6 +290,85 @@ public static class PoliticsBatch
 
     private static double LatestPolicy(Game game, IReadOnlyDictionary<string, double> current, string id) =>
         game.PendingPolicies.LastOrDefault(p => p.PolicyId == id)?.Value ?? current[id];
+
+    /// <summary>
+    /// The challenger outside the lead (decision 0015): keeps a small reserve and spends the rest every quarter - its goals as promises in the window
+    /// before an election, the platform proposal its core groups like most (the one way to propose: to the leader as a partner, public otherwise),
+    /// criticism of the value that got worse for its core groups, a campaign among the core group where it gains most, organisation up to a half.
+    /// Its core groups are those with the highest affinity to it (top three by affinity × size).
+    /// </summary>
+    private static void Challenge(Game game, GameState state, CountryPolitics pol, PackSet packs, Dictionary<string, PolicyDef> policies, ActivistMemory memory,
+        PolicyCounter counter)
+    {
+        var country = state.Countries.Values.Single();
+        memory.Values.Add(new Dictionary<string, double>(country.Values));
+        if (memory.Values.Count > 5) memory.Values.RemoveAt(0);
+        var party = pol.Party!;
+        var def = packs.Parties.First(p => p.Id == pol.PlayerParty);
+        var core = packs.VoterGroups.OrderByDescending(g => def.Affinity.GetValueOrDefault(g.Id) * g.Size + 0.01 * (party.GroupSupport?.GetValueOrDefault(g.Id) ?? 0))
+            .ThenBy(g => g.Id, StringComparer.Ordinal).Take(3).ToList();
+        double Pc() => game.State.Countries.Values.Single().Politics!.Party!.PoliticalCapital;
+        const double reserve = 2;
+
+        // 1. promises: the party's own unmet goals, in the window before an election
+        if (pol.TurnsToElection <= PoliticsLimits.PromiseWindowTurns && pol.Phase != Phase.Formation)
+            foreach (var d in def.Demands.OrderByDescending(d => d.Weight).ThenBy(d => d.Id, StringComparer.Ordinal))
+                if (Pc() >= PartyRules.PromiseCost + reserve) game.Apply(new MakePromise(d.Id));
+
+        // 2. one proposal: the platform position that moves the core groups' support most (size-weighted), if any gains
+        if (Pc() >= PoliticsLimits.ProposeToLeaderCost + reserve)
+        {
+            var current = country.Policies;
+            (string Id, double Target, double Gain)? best = null;
+            foreach (var (id, target) in party.Platform.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                if (!policies.TryGetValue(id, out var pd) || Math.Abs(target - LatestPolicy(game, current, id)) < 0.05 * (pd.Max - pd.Min)) continue;
+                if (game.PreviewProposal(id, target) is not { ErrorKey: null } pv || pv.Reaction.Credibility < 0) continue;
+                double gain = packs.VoterGroups.Sum(g => g.Size * pv.SupportPoints.GetValueOrDefault(g.Id));
+                if (gain > 0 && (best == null || gain > best.Value.Gain)) best = (id, target, gain);
+            }
+            if (best is { } b && game.Apply(new ProposePolicy(b.Id, b.Target)).Accepted) counter.Announcements++;
+        }
+
+        // 3. criticism: the value that got worse for the core groups over the last four quarters
+        if (Pc() >= PartyRules.CriticizeCost + reserve && memory.Values.Count > 1)
+        {
+            var then = memory.Values[0];
+            string? worst = null; double bestScore = 0;
+            foreach (var v in packs.Values.OrderBy(v => v.Id, StringComparer.Ordinal))
+            {
+                double delta = country.Values[v.Id] - then[v.Id], score = 0;
+                if (delta == 0) continue;
+                foreach (var g in core)
+                {
+                    double w = g.ValueWeights.GetValueOrDefault(v.Id);
+                    score += g.Size * Math.Abs(w) * (Math.Sign(w) * Math.Sign(delta) < 0 ? 1 : -1);
+                }
+                if (score > bestScore) { bestScore = score; worst = v.Id; }
+            }
+            if (worst != null) game.Apply(new Criticize(worst));
+        }
+
+        // 4. before an election, court the closest seated party it would need as a partner (relations lower its price in coalition talks)
+        if (pol.TurnsToElection <= PoliticsLimits.PromiseWindowTurns && Pc() >= PartyRules.CourtCost + reserve)
+        {
+            var compass = game.Compass;
+            var me = compass.GetValueOrDefault(pol.PlayerParty);
+            var partner = pol.Seats.Where(kv => kv.Value > 0 && kv.Key != pol.PlayerParty && party.Relations.GetValueOrDefault(kv.Key) < 0.6)
+                .OrderBy(kv => Math.Abs(compass.GetValueOrDefault(kv.Key).X - me.X) + Math.Abs(compass.GetValueOrDefault(kv.Key).Y - me.Y)).ThenBy(kv => kv.Key, StringComparer.Ordinal)
+                .Select(kv => kv.Key).FirstOrDefault();
+            if (partner != null) game.Apply(new Court(partner));
+        }
+
+        // 5. organisation to a half (more income and turnout), then campaigns among the core group where they win most
+        if (party.Organization < 0.5 && Pc() >= PartyRules.OrgBuildCost + reserve + PartyRules.CampaignCostPerLevel) game.Apply(new BuildOrganization());
+        int effort = (int)Math.Min(3, Math.Floor((Pc() - reserve) / PartyRules.CampaignCostPerLevel));
+        if (effort >= 1 && core.Count > 0)
+        {
+            var target = core.OrderByDescending(g => g.Size * game.PreviewCampaign(g.Id, effort)).ThenBy(g => g.Id, StringComparer.Ordinal).First();
+            game.Apply(new Campaign(target.Id, effort));
+        }
+    }
 
     /// <summary>
     /// A party that works every quarter with the capital it has: criticises the value that got worse for most voters

@@ -269,8 +269,16 @@ public sealed class PartyScreen : Screen
         campaign.AddChild(groupBox);
         var effortRow = Ui.HBox(8);
         effortRow.AddChild(Ui.L(t.T("ui.client.effort"), Tx.Label));
-        effortRow.AddChild(Ui.Segmented(new[] { "1 · 3", "2 · 6", "3 · 9" }, _effort - 1, i => _effort = i + 1));
+        effortRow.AddChild(Ui.Segmented(new[] { "1 · 3", "2 · 6", "3 · 9" }, _effort - 1, i => { _effort = i + 1; s.Touch(); }));
         campaign.AddChild(effortRow);
+        // decision 0015: what the campaign wins, in points of support among the group, before paying for it
+        if (groups.Count > 0)
+        {
+            var gid = groups[Math.Clamp(_groupIndex, 0, groups.Count - 1)].Id;
+            double share = ps.GroupSupport?.GetValueOrDefault(gid) ?? 0;
+            campaign.AddChild(Ui.L(Ui.Fix(t.T("ui.campaign.preview", t.Name(gid), Ui.Num(share * 100, "0.0"), Texts.Points(s.Game.PreviewCampaign(gid, _effort)), PartyRules.MomentumHalfLifeTurns)), Tx.Small, AppTheme.GoodText, true));
+        }
+        groupBox.ItemSelected += _ => s.Touch();
         campaign.AddChild(Ui.Btn(t.T("ui.client.go"), () => s.Do(new Campaign(groups[_groupIndex].Id, _effort), t.T("ui.party.campaign_ok", t.Name(groups[_groupIndex].Id))), "", IconKind.Check));
         grid.AddChild(ActionCard(IconKind.Voters, t.T("ui.client.campaign"), campaign, s.Texts.Explain("campaign")));
 
@@ -287,30 +295,7 @@ public sealed class PartyScreen : Screen
         grid.AddChild(ActionCard(IconKind.Alert, t.T("ui.client.criticize"), crit, s.Texts.Explain("criticize")));
 
         var allPolicies = s.Packs.Policies.OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();
-        if (allPolicies.Count > 0)
-        {
-            _proposeIndex = Math.Clamp(_proposeIndex, 0, allPolicies.Count - 1);
-            var pdef = allPolicies[_proposeIndex];
-            double current = s.Country.Policies.GetValueOrDefault(pdef.Id, pdef.Default);
-            if (double.IsNaN(_proposeTarget) || _proposeTarget < pdef.Min || _proposeTarget > pdef.Max) _proposeTarget = current;
-            var prop = Ui.VBox(8);
-            var pBox = new OptionButton { Disabled = !partner, FocusMode = Control.FocusModeEnum.None, ClipText = true, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            foreach (var p in allPolicies) pBox.AddItem(t.Name(p.Id));
-            pBox.Selected = _proposeIndex;
-            pBox.ItemSelected += i => { _proposeIndex = (int)i; _proposeTarget = double.NaN; s.Touch(); };
-            prop.AddChild(pBox);
-            var srow = Ui.HBox(8);
-            var slider = new PolicySlider(compact: true) { Editable = partner, GovMarker = current };
-            slider.Configure(pdef.Min, pdef.Max, Math.Max((pdef.Max - pdef.Min) / 200.0, 0.05), current, null, _proposeTarget);
-            var pl = Ui.Right(Ui.L(Ui.Fix(Fmt.Policy(pdef, _proposeTarget, t)), Tx.Data));
-            pl.CustomMinimumSize = new Vector2(84, 0);
-            slider.TargetChanged += v => { _proposeTarget = v; pl.Text = Ui.Fix(Fmt.Policy(pdef, v, t)); };
-            srow.AddChild(slider); srow.AddChild(pl);
-            prop.AddChild(srow);
-            prop.AddChild(Ui.Costed(t.T("ui.client.go"), 3, () => s.Do(new ProposePolicy(pdef.Id, _proposeTarget), t.T("ui.exit.propose_ok", t.Name(pdef.Id))), partner ? null : t.T("ui.err.not_partner"), !partner));
-            grid.AddChild(ActionCard(IconKind.Policies, t.T("ui.client.propose"), prop, t.T("ui.client.propose_hint") + " " + s.Texts.Explain("propose")));
-            grid.AddChild(Announce(s, pol, allPolicies));
-        }
+        if (allPolicies.Count > 0) grid.AddChild(Propose(s, pol, allPolicies));
         var exits = Ui.VBox(8);
         exits.AddChild(Ui.Btn(t.T("ui.client.leave"), () => s.Do(new LeaveCoalition(), t.T("ui.exit.leave_ok")), "ButtonDanger", IconKind.Back, partner ? null : t.T("ui.err.not_partner"), !partner));
         exits.AddChild(Ui.Costed(t.T("ui.client.confidence"), 10, () => s.Do(new NoConfidence(), t.T("ui.exit.confidence_ok")), opposition ? null : t.T("ui.err.not_opposition"), !opposition, "ButtonDanger"));
@@ -318,32 +303,30 @@ public sealed class PartyScreen : Screen
         body.AddChild(grid);
     }
 
-    private int _announceIndex;
-    private double _announceTarget = double.NaN;
-
     /// <summary>
-    /// Announce a policy proposal (decision 0014 g), for any party that does not lead: policy picker, the policy slider with the target, a preview of
-    /// which voter groups would like or dislike it, and the Announce button. The leader changes policies in the policy dialog instead.
+    /// Propose a policy (decision 0015): the one control for every party that does not lead - policy picker, slider with the target, who decides
+    /// (the leader's likely answer for a partner; public for the opposition), how each group's support would move and the credibility cost.
     /// </summary>
-    private Control Announce(Session s, CountryPolitics pol, List<PolicyDef> policies)
+    private Control Propose(Session s, CountryPolitics pol, List<PolicyDef> policies)
     {
         var t = s.T;
         bool leader = pol.PlayerRole == Role.Leader && pol.Phase == Phase.Governing;
-        _announceIndex = Math.Clamp(_announceIndex, 0, policies.Count - 1);
-        var def = policies[_announceIndex];
+        bool partner = pol.PlayerRole == Role.Partner && pol.Phase == Phase.Governing;
+        _proposeIndex = Math.Clamp(_proposeIndex, 0, policies.Count - 1);
+        var def = policies[_proposeIndex];
         double current = s.Game.PendingPolicies.LastOrDefault(p => p.PolicyId == def.Id)?.Value ?? s.Country.Policies.GetValueOrDefault(def.Id, def.Default);
-        if (double.IsNaN(_announceTarget) || _announceTarget < def.Min || _announceTarget > def.Max)
-            _announceTarget = pol.Party?.Platform.TryGetValue(def.Id, out var own) == true ? own : current;
+        if (double.IsNaN(_proposeTarget) || _proposeTarget < def.Min || _proposeTarget > def.Max)
+            _proposeTarget = pol.Party?.Platform.TryGetValue(def.Id, out var own) == true ? own : current;
         var box = Ui.VBox(8);
         var picker = new OptionButton { Disabled = leader, FocusMode = Control.FocusModeEnum.None, ClipText = true, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var p in policies) picker.AddItem(t.Name(p.Id));
-        picker.Selected = _announceIndex;
-        picker.ItemSelected += i => { _announceIndex = (int)i; _announceTarget = double.NaN; s.Touch(); };
+        picker.Selected = _proposeIndex;
+        picker.ItemSelected += i => { _proposeIndex = (int)i; _proposeTarget = double.NaN; s.Touch(); };
         box.AddChild(picker);
         var srow = Ui.HBox(8);
         var slider = new PolicySlider(compact: true) { Editable = !leader, GovMarker = current };
-        slider.Configure(def.Min, def.Max, Math.Max((def.Max - def.Min) / 200.0, 0.05), current, null, _announceTarget);
-        var value = Ui.Right(Ui.L(Ui.Fix(Fmt.Policy(def, _announceTarget, t)), Tx.Data));
+        slider.Configure(def.Min, def.Max, Math.Max((def.Max - def.Min) / 200.0, 0.05), current, null, _proposeTarget);
+        var value = Ui.Right(Ui.L(Ui.Fix(Fmt.Policy(def, _proposeTarget, t)), Tx.Data));
         value.CustomMinimumSize = new Vector2(84, 0);
         srow.AddChild(slider); srow.AddChild(value);
         box.AddChild(srow);
@@ -351,21 +334,27 @@ public sealed class PartyScreen : Screen
         void Preview()
         {
             Ui.Clear(preview);
-            if (s.Game.PreviewAnnouncement(def.Id, _announceTarget) is not { } r) return;
-            var like = r.Groups.Where(kv => kv.Value > 1e-6).OrderByDescending(kv => kv.Value).Select(kv => t.Name(kv.Key)).ToList();
-            var dislike = r.Groups.Where(kv => kv.Value < -1e-6).OrderBy(kv => kv.Value).Select(kv => t.Name(kv.Key)).ToList();
-            if (r.Groups.Count == 0) preview.AddChild(Ui.L(t.T("ui.announce.nobody"), Tx.Small, AppTheme.Ink3, true));
-            if (like.Count > 0) preview.AddChild(Ui.L(t.T("ui.announce.like", string.Join(", ", like)), Tx.Small, AppTheme.GoodText, true));
-            if (dislike.Count > 0) preview.AddChild(Ui.L(t.T("ui.announce.dislike", string.Join(", ", dislike)), Tx.Small, AppTheme.BadText, true));
-            if (r.Credibility < 0) preview.AddChild(Ui.L(Ui.Fix(t.T("ui.announce.credibility", Ui.Signed(r.Credibility * 100, "0") + " %")), Tx.Small, AppTheme.WarnText, true));
-            if (r.MayBeAdopted) preview.AddChild(Ui.L(t.T("ui.announce.adoptable"), Tx.Small, AppTheme.Ink2, true));
+            if (leader || s.Game.PreviewProposal(def.Id, _proposeTarget) is not { } r) return;
+            if (r.ErrorKey == "error.no_change") { preview.AddChild(Ui.L(t.T("ui.pd.move_hint"), Tx.Small, AppTheme.Ink3, true)); return; }
+            if (r.ErrorKey != null) preview.AddChild(Ui.L(s.Texts.Error(new ActionResult(false, r.ErrorKey, null)), Tx.Small, AppTheme.WarnText, true));
+            var lines = s.Texts.ProposalPreviewLines(r);
+            for (int i = 0; i < lines.Count; i++)
+            {
+                var color = i == 0 ? (r.ToLeader && r.LeaderAgrees != true ? AppTheme.WarnText : AppTheme.Ink2)
+                    : i == lines.Count - 1 && r.Reaction.Credibility < 0 ? AppTheme.WarnText : AppTheme.Ink2;
+                preview.AddChild(Ui.L(Ui.Fix(lines[i]), Tx.Small, color, true));
+            }
         }
-        slider.TargetChanged += v => { _announceTarget = v; value.Text = Ui.Fix(Fmt.Policy(def, v, t)); Preview(); };
+        slider.TargetChanged += v => { _proposeTarget = v; value.Text = Ui.Fix(Fmt.Policy(def, v, t)); Preview(); };
         Preview();
         box.AddChild(preview);
-        box.AddChild(Ui.Costed(t.T("ui.client.announce_go"), (int)PoliticsLimits.AnnounceCost,
-            () => s.Do(new AnnouncePolicy(def.Id, _announceTarget), t.T("ui.announce.ok", t.Name(def.Id))), leader ? t.T("ui.err.not_for_leader") : null, leader));
-        return ActionCard(IconKind.News, t.T("ui.client.announce"), box, s.Texts.Explain("announce"));
+        box.AddChild(Ui.Costed(t.T("ui.client.propose_go"), (int)(partner ? PoliticsLimits.ProposeToLeaderCost : PoliticsLimits.AnnounceCost), () =>
+        {
+            bool toLeader = s.Game.PreviewProposal(def.Id, _proposeTarget)?.ToLeader == true;
+            s.Do(new ProposePolicy(def.Id, _proposeTarget), t.T(toLeader ? "ui.exit.propose_ok" : "ui.announce.ok", t.Name(def.Id)));
+        }, leader ? t.T("ui.err.not_for_leader") : null, leader));
+        string hint = t.T(leader ? "ui.client.propose_hint_leader" : partner ? "ui.client.propose_hint" : "ui.client.propose_hint_opposition") + " " + s.Texts.Explain("propose");
+        return ActionCard(IconKind.Policies, t.T("ui.client.propose"), box, hint);
     }
 
     private static void Measures(Session s, CountryPolitics pol, PartyStatus ps, VBoxContainer body)

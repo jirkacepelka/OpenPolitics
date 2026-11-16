@@ -48,16 +48,16 @@ public class PlayCoalitionActionsTests
     public void APartnerCanProposeAPolicyChange()
     {
         var o = Play("test:partner", "propose vat 14\nquit\n");
-        Assert.Contains("passed on to the leader", o);
-        Assert.Contains("answer", o);
+        Assert.Contains("went to the leader", o);
+        Assert.Contains("answers at the end of the quarter", o);
     }
 
     [Fact]
     public void ProposeUsageAndWrongRoleAreExplained()
     {
         Assert.Contains("Usage: propose", Play("test:partner", "propose\nquit\n"));
-        Assert.Contains("Only a governing partner", Play("test:leads", "propose vat 14\nquit\n"));
-        Assert.Contains("Only a governing partner", Play("test:watch", "propose vat 14\nquit\n"));
+        Assert.Contains("As the leader you change policies directly", Play("test:leads", "propose vat 14\nquit\n"));
+        Assert.Contains("is public", Play("test:watch", "propose vat 14\nquit\n")); // decision 0015: the opposition proposes publicly
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public class PlayCoalitionActionsTests
     public void TheCzechTextsExist()
     {
         var o = Play("test:partner", "propose vat 14\nquit\n", "cs");
-        Assert.Contains("předán vedoucí straně", o);
+        Assert.Contains("šel vedoucí straně", o);
     }
 
     [Fact]

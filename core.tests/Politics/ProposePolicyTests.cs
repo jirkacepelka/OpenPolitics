@@ -20,10 +20,10 @@ public class ProposePolicyTests
     private static double Capital(Game g) => Pol(g).Party!.PoliticalCapital;
 
     [Fact]
-    public void OnlyAPartnerMayPropose()
+    public void TheLeaderUsesThePolicyDialogAndEveryoneElseMayPropose()
     {
-        Assert.Equal("error.not_partner", Partner("a").Apply(new ProposePolicy("base:tax", 30)).ErrorKey);
-        Assert.Equal("error.not_partner", Partner("z").Apply(new ProposePolicy("base:tax", 30)).ErrorKey);
+        Assert.Equal("error.not_for_leader", Partner("a").Apply(new ProposePolicy("base:tax", 30)).ErrorKey);
+        Assert.True(Partner("z").Apply(new ProposePolicy("base:tax", 30)).Accepted); // decision 0015: the opposition proposes publicly
         var g = Partner();
         Assert.Equal("error.unknown_policy", g.Apply(new ProposePolicy("base:nope", 30)).ErrorKey);
         Assert.Equal("error.value_out_of_range", g.Apply(new ProposePolicy("base:tax", 999)).ErrorKey);

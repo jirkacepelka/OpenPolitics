@@ -115,6 +115,9 @@ internal sealed class PoliticsEngine
         _rng = new Pcg32(seed, 99);
         _announceRng = new Pcg32(seed, 103); // its own stream: announcing never shifts the draws of the rest of politics
         _poll = _support.Compute(Input(satisfaction), null);
+        _satisfaction = new SortedDictionary<string, double>(satisfaction.ToDictionary(kv => kv.Key, kv => kv.Value), Ord);
+        _groupSupportLast = GroupSupport();
+        _groupSupportPrev = _groupSupportLast;
         _seats = CurrentSystem().Allocate(_poll);
         _votes = _poll;
         _turnsToElection = _scenario.TurnsToElection;
@@ -162,13 +165,36 @@ internal sealed class PoliticsEngine
 
     private double Cohesion() => PartyMath.Cohesion(_parties[Player], _ranges);
 
-    private SupportInput Input(IReadOnlyDictionary<string, double> satisfaction) => new(
+    private SupportInput Input(IReadOnlyDictionary<string, double> satisfaction, IReadOnlyDictionary<string, double>? extraMomentum = null) => new(
         Effective(satisfaction), new HashSet<string>(_government.Parties, Ord),
         new Dictionary<string, double> { [Player] = _credibility * Cohesion() },
-        new Dictionary<string, double>(_momentum), Player,
+        _momentum.ToDictionary(kv => kv.Key, kv => kv.Value + (extraMomentum?.GetValueOrDefault(kv.Key) ?? 0.0), Ord), Player,
         new Dictionary<string, double> { [Player] = 1.0 + PartyRules.OrgTurnout * _org },
         new Dictionary<string, double>(_attribution),
         _fiscalBlame.ToDictionary(kv => kv.Key, kv => FiscalBlame.Penalty(kv.Value), Ord));
+
+    // ---- the player's support in each voter group (decision 0015) ---------------------------------------------
+    private SortedDictionary<string, double> _satisfaction = new(Ord);
+    private IReadOnlyDictionary<string, double> _groupSupportLast = new Dictionary<string, double>(), _groupSupportPrev = new Dictionary<string, double>();
+
+    /// <summary>The share of each voter group that would vote for the player's party now (no noise), optionally with extra momentum per group.</summary>
+    public IReadOnlyDictionary<string, double> GroupSupport(IReadOnlyDictionary<string, double>? extraMomentum = null) =>
+        _support.GroupShares(Input(_satisfaction, extraMomentum), Player);
+
+    /// <summary>How many points (share × 100) each group's support for the player's party would move with extra momentum (only groups that move).</summary>
+    public IReadOnlyDictionary<string, double> SupportPoints(IReadOnlyDictionary<string, double> extraMomentum)
+    {
+        var before = GroupSupport();
+        var after = GroupSupport(extraMomentum);
+        var points = new SortedDictionary<string, double>(Ord);
+        foreach (var (g, a) in after)
+            if (Math.Abs(a - before.GetValueOrDefault(g)) > 1e-9) points[g] = 100.0 * (a - before.GetValueOrDefault(g));
+        return points;
+    }
+
+    /// <summary>The momentum a campaign of the given effort would add to its group now (more in the last quarters before an election).</summary>
+    public double CampaignMomentum(int effort) =>
+        PartyRules.CampaignMomentumPerLevel * effort * (ElectionIn <= PartyRules.CampaignElectionTurns ? PartyRules.CampaignElectionBoost : 1.0);
 
     private double AttributionTarget(string id) =>
         id == _government.Leader ? 1.0 : _government.Parties.Contains(id) ? 0.7 : 0.0;
@@ -203,7 +229,8 @@ internal sealed class PoliticsEngine
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
             _measures.ToList(), _income,
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Weight),
-            _promises.Select(p => p.DemandId).ToList(), PromiseInfos(), _fiscalBlame.GetValueOrDefault(Player)),
+            _promises.Select(p => p.DemandId).ToList(), PromiseInfos(), _fiscalBlame.GetValueOrDefault(Player),
+            GroupSupport(), _groupSupportPrev),
         new SortedDictionary<string, double>(_grudge, Ord),
         new ReshuffleInfo(Math.Max(0, _nextReshuffleTurn - (_lastTurn + 1)), _reshuffle != null),
         _openProposal == null ? Array.Empty<ProposalInfo>() : new[] { Info(_openProposal) },
@@ -310,13 +337,13 @@ internal sealed class PoliticsEngine
         Campaign c => CampaignGroup(c.GroupId, c.Effort),
         Criticize c => DoCriticize(c.ValueId),
         TakeStance t => DoTakeStance(t.MeasureId, t.Stance),
-        ProposePolicy p => DoProposePolicy(p.PolicyId, p.Target),
+        ProposePolicy p => DoProposeAny(p.PolicyId, p.Target, reportTurn),
         LeaveCoalition => DoLeave(),
         DismissPartner d => DoDismiss(d.PartyId),
         ReshuffleCoalition r => DoReshuffle(r, reportTurn),
         SupportProposal sp => DoAnswer(sp.ProposalId, Stance.Support),
         OpposeProposal op => DoAnswer(op.ProposalId, Stance.Oppose),
-        AnnouncePolicy an => DoAnnounce(an.PolicyId, an.Target, reportTurn),
+        AnnouncePolicy an => DoProposeAny(an.PolicyId, an.Target, reportTurn), // decision 0015: one way to propose; the old verb is an alias
         NoConfidence => DoNoConfidence(),
         _ => Fail("error.unknown_action", action.GetType().Name),
     };
@@ -505,7 +532,7 @@ internal sealed class PoliticsEngine
         if (_groups.All(g => g.Id != groupId)) return Fail("error.unknown_group", groupId);
         if (effort < 1 || effort > 3) return Fail("error.bad_effort", effort.ToString());
         if (!TrySpend(PartyRules.CampaignCostPerLevel * effort)) return Fail("error.not_enough_capital");
-        _momentum[groupId] += PartyRules.CampaignMomentumPerLevel * effort * (ElectionIn <= PartyRules.CampaignElectionTurns ? PartyRules.CampaignElectionBoost : 1.0);
+        _momentum[groupId] += CampaignMomentum(effort);
         return ActionResult.Ok;
     }
 
@@ -540,16 +567,72 @@ internal sealed class PoliticsEngine
         return ActionResult.Ok;
     }
 
-    public const double ProposalCost = 3.0, ProposalMaxMoveOfRange = 0.25, ProposalThreshold = 0.5;
+    public const double ProposalCost = PoliticsLimits.ProposeToLeaderCost, ProposalMaxMoveOfRange = 0.25, ProposalThreshold = 0.5;
 
-    private ActionResult DoProposePolicy(string policyId, double target)
+    /// <summary>A partner's proposal goes to the leader (decided at the end of the quarter); any other party's goes public (decision 0015).</summary>
+    private bool ProposesToLeader => _phase == Phase.Governing && PlayerRole == Role.Partner;
+
+    /// <summary>
+    /// Decision 0015: one "propose a policy" for every party that does not lead a sitting government. A partner pays
+    /// <see cref="ProposalCost"/> and the leader answers at the end of the quarter; anyone else pays <see cref="PoliticsLimits.AnnounceCost"/> and
+    /// the proposal goes public (an AI-led government may adopt a popular one). Either way the voters react at once (<see cref="Reaction"/>), one
+    /// proposal a quarter, the same policy again after <see cref="PoliticsLimits.AnnounceCooldownTurns"/> quarters.
+    /// </summary>
+    private ActionResult DoProposeAny(string policyId, double target, int reportTurn)
     {
-        if (_phase != Phase.Governing || PlayerRole != Role.Partner) return Fail("error.not_partner");
+        if (ProposalBlock(policyId, target, reportTurn) is { } error) return error;
+        bool toLeader = ProposesToLeader;
+        if (!TrySpend(toLeader ? ProposalCost : PoliticsLimits.AnnounceCost)) return Fail("error.not_enough_capital");
+        _lastAnnounceTurn = reportTurn;
+        _announceAllowed[policyId] = reportTurn + PoliticsLimits.AnnounceCooldownTurns;
+        var reaction = Reaction(policyId, target);
+        foreach (var (group, warmth) in reaction.Groups) _momentum[group] += warmth;
+        _credibility = Math.Max(0.0, _credibility + reaction.Credibility);
+        if (toLeader) _proposals.Add((policyId, target));
+        else _announcement = reaction.MayBeAdopted ? (policyId, target) : null;
+        return ActionResult.Ok;
+    }
+
+    /// <summary>Why the player cannot propose this now (refused for free), or null.</summary>
+    private ActionResult? ProposalBlock(string policyId, double target, int reportTurn)
+    {
+        if (_phase == Phase.Governing && PlayerRole == Role.Leader) return Fail("error.not_for_leader");
         if (!_policyDefs.TryGetValue(policyId, out var def)) return Fail("error.unknown_policy", policyId);
         if (!double.IsFinite(target) || target < def.Min || target > def.Max) return Fail("error.value_out_of_range", policyId);
-        if (!TrySpend(ProposalCost)) return Fail("error.not_enough_capital");
-        _proposals.Add((policyId, target));
-        return ActionResult.Ok;
+        double current = Latest(policyId), range = def.Max - def.Min;
+        if (Math.Abs(target - current) <= 1e-9 * Math.Max(1.0, range)) return Fail("error.no_change", policyId);
+        if (_lastAnnounceTurn == reportTurn) return Fail("error.announce_limit");
+        // the same policy again only after a cooldown for public proposals; a partner may press the leader again next quarter
+        if (!ProposesToLeader && _announceAllowed.TryGetValue(policyId, out var allowed) && reportTurn < allowed)
+            return Fail("error.announce_cooldown", (allowed - reportTurn).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return null;
+    }
+
+    /// <summary>What proposing would do now: who decides, cost, the voters' reaction in warmth and in points of support, the leader's likely answer.</summary>
+    public ProposalPreview PreviewProposal(string policyId, double target, int reportTurn)
+    {
+        var reaction = Reaction(policyId, target);
+        bool toLeader = ProposesToLeader;
+        (bool Agrees, string? Reason)? leader = toLeader && _policyDefs.ContainsKey(policyId) ? LeaderAnswer(policyId, target) : null;
+        return new ProposalPreview(toLeader, toLeader ? ProposalCost : PoliticsLimits.AnnounceCost, reaction, leader?.Agrees, leader?.Reason,
+            SupportPoints(reaction.Groups), ProposalBlock(policyId, target, reportTurn)?.ErrorKey);
+    }
+
+    /// <summary>The leader's answer to a partner's proposal: from relations, the player's weight in the government and fit with its own platform.</summary>
+    private (bool Agrees, string? Reason) LeaderAnswer(string policyId, double target)
+    {
+        string leader = _government.Leader;
+        double govSeats = _government.Parties.Sum(p => _seats.GetValueOrDefault(p));
+        double share = govSeats > 0 ? _seats.GetValueOrDefault(Player) / govSeats : 0.0;
+        var def = _policyDefs[policyId];
+        double range = def.Max - def.Min, current = Latest(policyId);
+        double next = Math.Clamp(current + Math.Clamp(target - current, -ProposalMaxMoveOfRange * range, ProposalMaxMoveOfRange * range), def.Min, def.Max);
+        bool redLine = _government.Parties.Where(p => p != Player).Any(p => _parties[p].RedLines.Any(r =>
+            r.Policy == policyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current)));
+        double fit = _parties[leader].Platform.TryGetValue(policyId, out var pos) && range > 0
+            ? 1.0 - Math.Min(1.0, Math.Abs(target - pos.Target) / range) : 0.5;
+        double score = 0.4 * Relation(leader, Player) + 0.2 * share + 0.4 * fit;
+        return redLine ? (false, "red_line") : score >= ProposalThreshold ? (true, null) : (false, "score");
     }
 
     /// <summary>The leader's answer to the player's proposals, from relations, the player's weight in the government and fit with its own platform.</summary>
@@ -559,19 +642,13 @@ internal sealed class PoliticsEngine
         _proposals.Clear();
         if (_phase != Phase.Governing || PlayerRole != Role.Partner) return;
         string leader = _government.Leader;
-        double govSeats = _government.Parties.Sum(p => _seats.GetValueOrDefault(p));
-        double share = govSeats > 0 ? _seats.GetValueOrDefault(Player) / govSeats : 0.0;
         foreach (var (policyId, target) in proposals)
         {
             var def = _policyDefs[policyId];
             double range = def.Max - def.Min, current = Latest(policyId);
             double next = Math.Clamp(current + Math.Clamp(target - current, -ProposalMaxMoveOfRange * range, ProposalMaxMoveOfRange * range), def.Min, def.Max);
-            bool redLine = _government.Parties.Where(p => p != Player).Any(p => _parties[p].RedLines.Any(r =>
-                r.Policy == policyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current)));
-            double fit = _parties[leader].Platform.TryGetValue(policyId, out var pos) && range > 0
-                ? 1.0 - Math.Min(1.0, Math.Abs(target - pos.Target) / range) : 0.5;
-            double score = 0.4 * Relation(leader, Player) + 0.2 * share + 0.4 * fit;
-            if (!redLine && score >= ProposalThreshold)
+            var (agrees, reason) = LeaderAnswer(policyId, target);
+            if (agrees)
             {
                 events.Add(new PolicyProposalAccepted(turn, policyId, target));
                 _approved.Add((policyId, next));
@@ -579,7 +656,7 @@ internal sealed class PoliticsEngine
             }
             else
             {
-                events.Add(new PolicyProposalRejected(turn, policyId, redLine ? "red_line" : "score"));
+                events.Add(new PolicyProposalRejected(turn, policyId, reason!));
                 _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - 0.03);
             }
         }
@@ -712,7 +789,9 @@ internal sealed class PoliticsEngine
         // Voters judge the promises before they vote, so settle them ahead of this turn's poll when it is election day.
         if (_turnsToElection <= 1 || (_phase == Phase.Caretaker && _caretakerLeft <= 1)) SettlePromises(turn, events);
         var effective = Effective(satisfaction);
+        _satisfaction = new SortedDictionary<string, double>(satisfaction.ToDictionary(kv => kv.Key, kv => kv.Value), Ord);
         _poll = _support.Compute(Input(satisfaction), _rng);
+        NoteSupportMoves(turn, events);
 
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
@@ -732,6 +811,18 @@ internal sealed class PoliticsEngine
         }
         else { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); }
         return events;
+    }
+
+    /// <summary>Records this quarter's support per group and reports the groups where the player's party moved most (at least half a point).</summary>
+    private void NoteSupportMoves(int turn, List<PoliticalEvent> events)
+    {
+        var now = GroupSupport();
+        var moves = now.Select(kv => (Group: kv.Key, Before: _groupSupportLast.GetValueOrDefault(kv.Key, kv.Value), After: kv.Value))
+            .Where(m => Math.Abs(m.After - m.Before) >= PoliticsLimits.SupportNewsPoints / 100.0)
+            .OrderByDescending(m => Math.Abs(m.After - m.Before)).ThenBy(m => m.Group, Ord).Take(3).ToList();
+        if (moves.Count > 0) events.Add(new SupportMoved(turn, Player, moves.Select(m => new GroupMove(m.Group, m.Before, m.After)).ToList()));
+        _groupSupportPrev = _groupSupportLast;
+        _groupSupportLast = now;
     }
 
     private void HoldElection(int turn, List<PoliticalEvent> events)
@@ -1115,26 +1206,6 @@ internal sealed class PoliticsEngine
     private readonly SortedDictionary<string, int> _announceAllowed = new(Ord);
     private (string PolicyId, double Target)? _announcement;
 
-    private ActionResult DoAnnounce(string policyId, double target, int reportTurn)
-    {
-        if (_phase == Phase.Governing && PlayerRole == Role.Leader) return Fail("error.not_for_leader");
-        if (!_policyDefs.TryGetValue(policyId, out var def)) return Fail("error.unknown_policy", policyId);
-        if (!double.IsFinite(target) || target < def.Min || target > def.Max) return Fail("error.value_out_of_range", policyId);
-        double current = Latest(policyId), range = def.Max - def.Min;
-        if (Math.Abs(target - current) <= 1e-9 * Math.Max(1.0, range)) return Fail("error.no_change", policyId);
-        if (_lastAnnounceTurn == reportTurn) return Fail("error.announce_limit");
-        if (_announceAllowed.TryGetValue(policyId, out var allowed) && reportTurn < allowed)
-            return Fail("error.announce_cooldown", (allowed - reportTurn).ToString(System.Globalization.CultureInfo.InvariantCulture));
-        if (!TrySpend(PoliticsLimits.AnnounceCost)) return Fail("error.not_enough_capital");
-        _lastAnnounceTurn = reportTurn;
-        _announceAllowed[policyId] = reportTurn + PoliticsLimits.AnnounceCooldownTurns;
-        var reaction = Reaction(policyId, target);
-        foreach (var (group, warmth) in reaction.Groups) _momentum[group] += warmth;
-        _credibility = Math.Max(0.0, _credibility + reaction.Credibility);
-        _announcement = _phase == Phase.Governing && reaction.Approval > PoliticsLimits.AnnouncePopularity ? (policyId, target) : null;
-        return ActionResult.Ok;
-    }
-
     /// <summary>What announcing a policy proposal would do: warmth per voter group, the credibility change and the size-weighted approval.</summary>
     public AnnounceReaction Reaction(string policyId, double target)
     {
@@ -1153,7 +1224,7 @@ internal sealed class PoliticsEngine
         }
         double fit = Fit(policyId, current, target);
         return new AnnounceReaction(groups, fit < 0 ? PoliticsLimits.AnnounceCredibilityLoss * fit : 0.0, approval,
-            _phase == Phase.Governing && PlayerRole != Role.Leader && approval > PoliticsLimits.AnnouncePopularity);
+            _phase == Phase.Governing && PlayerRole == Role.Opposition && approval > PoliticsLimits.AnnouncePopularity);
     }
 
     /// <summary>End of the quarter: an AI-led government may take up a popular announcement as its own measure.</summary>

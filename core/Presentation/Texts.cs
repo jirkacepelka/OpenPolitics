@@ -47,6 +47,8 @@ public sealed class Texts
         PromiseKept k when DemandOf(k.PartyId, k.DemandId) is { } kd => _t.T(k.Responsible ? "ui.event.promise_kept" : "ui.event.promise_kept_opposition", Demand(kd)),
         PromiseBroken b when DemandOf(b.PartyId, b.DemandId) is { } bd => _t.T(b.Responsible ? "ui.event.promise_broken" : "ui.event.promise_broken_opposition", Demand(bd)),
         PromiseCarried c when DemandOf(c.PartyId, c.DemandId) is { } cd => _t.T("ui.event.promise_carried", Demand(cd), c.JudgedIn),
+        SupportMoved m => _t.T("ui.event.support_moved", _t.Name(m.PartyId),
+            string.Join(", ", m.Moves.Select(x => _t.T("ui.support.group_move", _t.Name(x.GroupId), Fmt.Number(100 * x.After, "0.0"), Points(100 * (x.After - x.Before)))))),
         PlayerLeftCoalition => _t.T("ui.event.player_left"),
         PartnerDismissed d => _t.T("ui.event.partner_dismissed", _t.Name(d.PartyId)),
         CoalitionReshuffled r => _t.T("ui.event.coalition_reshuffled", _t.Name(r.Leader), Names(r.Dropped), Names(r.Added)),
@@ -88,6 +90,43 @@ public sealed class Texts
 
     private static string N(double v, string format = "0.##") => Fmt.Number(v, format);
 
+    /// <summary>"+2.1" / "−0.4": percentage points with a sign.</summary>
+    public static string Points(double points) => (points >= 0 ? "+" : "−") + Fmt.Number(Math.Abs(points), "0.0");
+
+    /// <summary>
+    /// "+2.1 pts among Middle class, −0.4 pts among Pensioners" (decision 0015): how far the player's support moved per voter group, biggest first, at
+    /// most <paramref name="max"/> groups and only moves of at least 0.05 points; null when nothing moved.
+    /// </summary>
+    public string? SupportChange(IReadOnlyDictionary<string, double>? before, IReadOnlyDictionary<string, double>? after, int max = 3)
+    {
+        if (before == null || after == null) return null;
+        var points = after.Select(kv => (Group: kv.Key, Points: 100 * (kv.Value - before.GetValueOrDefault(kv.Key, kv.Value)))).ToList();
+        return SupportPoints(points.ToDictionary(p => p.Group, p => p.Points), max);
+    }
+
+    /// <summary>The same from points per group (as in <see cref="ProposalPreview.SupportPoints"/>); null when nothing moves by 0.05 points.</summary>
+    public string? SupportPoints(IReadOnlyDictionary<string, double> points, int max = 3)
+    {
+        var shown = points.Where(kv => Math.Abs(kv.Value) >= 0.05).OrderByDescending(kv => Math.Abs(kv.Value)).ThenBy(kv => kv.Key, StringComparer.Ordinal).Take(max)
+            .Select(kv => _t.T("ui.support.points_among", Points(kv.Value), _t.Name(kv.Key))).ToList();
+        return shown.Count == 0 ? null : string.Join(", ", shown);
+    }
+
+    /// <summary>
+    /// What a policy proposal would do (decision 0015), one line each: who decides (the leader's likely answer, or public and maybe adopted), how the
+    /// voters' support moves, the credibility cost of going against the programme.
+    /// </summary>
+    public IReadOnlyList<string> ProposalPreviewLines(ProposalPreview p)
+    {
+        var lines = new List<string>();
+        if (p.ToLeader) lines.Add(_t.T(p.LeaderAgrees == true ? "ui.propose.leader_yes" : p.LeaderReason == "red_line" ? "ui.propose.leader_red_line" : "ui.propose.leader_no"));
+        else lines.Add(_t.T(p.Reaction.MayBeAdopted ? "ui.announce.adoptable" : "ui.propose.public"));
+        if (SupportPoints(p.SupportPoints) is { } support) lines.Add(_t.T("ui.propose.support", support));
+        else if (p.Reaction.Groups.Count == 0) lines.Add(_t.T("ui.announce.nobody"));
+        if (p.Reaction.Credibility < 0) lines.Add(_t.T("ui.announce.credibility", Fmt.Number(p.Reaction.Credibility * 100, "0") + " %"));
+        return lines;
+    }
+
     /// <summary>
     /// The in-game explanation of a party stat or action (decision 0014 f), with the numbers the engine uses: capital, organisation, credibility,
     /// cohesion, relations, fiscal_blame; campaign, organise, court, criticize, stance, promise, priority, shift, propose, announce, proposals,
@@ -112,9 +151,8 @@ public sealed class Texts
             N(PartyRules.PromiseKeptCredibility * 100) + " %", N(PartyRules.PromiseBrokenCredibility * 100) + " %"),
         "priority" => _t.T("ui.explain.priority", N(PartyRules.PriorityCost), N(PartyRules.PriorityStep), N(PartyRules.PriorityCredibility)),
         "shift" => _t.T("ui.explain.shift", N(PartyRules.ShiftCost), N(PartyRules.ShiftMaxOfRange * 100), N(PartyRules.ShiftCredibility)),
-        "propose" => _t.T("ui.explain.propose", N(PoliticsEngine.ProposalCost)),
-        "announce" => _t.T("ui.explain.announce", N(PoliticsLimits.AnnounceCost), PoliticsLimits.AnnounceCooldownTurns, N(PoliticsLimits.AnnounceWarmth),
-            N(PoliticsLimits.AnnounceCredibilityLoss * 100) + " %", N(PoliticsLimits.AnnounceAdoptChance * 100)),
+        "propose" or "announce" => _t.T("ui.explain.propose", N(PoliticsLimits.ProposeToLeaderCost), N(PoliticsLimits.AnnounceCost), PoliticsLimits.AnnounceCooldownTurns,
+            N(PoliticsLimits.AnnounceAdoptChance * 100), N(PoliticsLimits.AnnounceWarmth), N(PoliticsLimits.AnnounceCredibilityLoss * 100) + " %"),
         "proposals" => _t.T("ui.explain.proposals", N(PoliticsLimits.ProposalCredibilityGain * 100) + " %", N(PoliticsLimits.ProposalCredibilityLoss * 100) + " %",
             N(PoliticsLimits.ProposalRelationSupport), N(PoliticsLimits.ProposalRelationOppose), N(PoliticsLimits.ProposalPartnerStrain), N(PoliticsLimits.ProposalWarmth),
             N(PoliticsLimits.ProposalBlockedHit), PoliticsLimits.ProposalCooldownTurns + 1),

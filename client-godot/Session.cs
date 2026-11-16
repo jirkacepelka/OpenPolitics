@@ -116,8 +116,11 @@ public sealed class Session
     /// <summary>Applies a player action; a refusal becomes the status message.</summary>
     public bool Do(PlayerAction action, string? okMessage = null)
     {
+        var before = Politics?.Party?.GroupSupport;
         var r = Game.Apply(action);
         Message = r.Accepted ? okMessage ?? "" : Texts.Error(r);
+        // decision 0015: say in numbers what the action did to the party's support among voter groups
+        if (r.Accepted && Texts.SupportChange(before, Politics?.Party?.GroupSupport) is { } moved) Message = (Message + " " + T.T("ui.support.now", moved)).Trim();
         Changed?.Invoke();
         return r.Accepted;
     }

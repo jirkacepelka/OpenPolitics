@@ -101,3 +101,17 @@ public sealed record AnnounceReaction(IReadOnlyDictionary<string, double> Groups
 public sealed record AnnouncementAdopted(int Turn, string Leader, string PolicyId, double Target) : PoliticalEvent(Turn);
 /// <summary>A policy change made by the government's AI governor (not by the player).</summary>
 public sealed record GovernmentMeasure(int Turn, string PolicyId, double From, double To) : PoliticalEvent(Turn);
+
+/// <summary>One voter group's support for a party (share of the group voting for it, 0..1) a quarter ago and now.</summary>
+public sealed record GroupMove(string GroupId, double Before, double After);
+
+/// <summary>Decision 0015: the voter groups where support for the player's party moved most this quarter (at least half a point each).</summary>
+public sealed record SupportMoved(int Turn, string PartyId, IReadOnlyList<GroupMove> Moves) : PoliticalEvent(Turn);
+
+/// <summary>
+/// What proposing a policy would do now (decision 0015): a partner's proposal goes to the leader (LeaderAgrees: its likely answer, LeaderReason
+/// "score" or "red_line" when it would refuse), any other party's goes public and an AI-led government may adopt it. Reaction: the voters' warmth
+/// and credibility; SupportPoints: how many points each group's support for the party moves at once; Cost in political capital.
+/// </summary>
+public sealed record ProposalPreview(bool ToLeader, double Cost, AnnounceReaction Reaction, bool? LeaderAgrees, string? LeaderReason,
+    IReadOnlyDictionary<string, double> SupportPoints, string? ErrorKey);

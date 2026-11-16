@@ -474,6 +474,14 @@ public static class GroupDialog
             head.AddChild(Ui.Pill(t.T(Moods.Key(sat)), AppTheme.Traffic((sat + 1) / 2)));
             left.AddChild(head);
             left.AddChild(Detail.LabelledBar(t.T("ui.gd.share"), Ui.Num(g.Size * 100, "0") + " %", g.Size, AppTheme.Chrome));
+            // decision 0015: besides the mood, how much of the group would vote for the player's party and how that moved
+            if (s.Politics is { Party.GroupSupport: { } gs } gp && gs.TryGetValue(id, out var mine))
+            {
+                double prev = gp.Party!.GroupSupportPrev?.GetValueOrDefault(id, mine) ?? mine;
+                left.AddChild(Detail.LabelledBar(t.T("ui.rail.view_support", t.Name(gp.PlayerParty)), Ui.Num(mine * 100, "0.0") + " % (" + Ui.Fix(Texts.Points(100 * (mine - prev))) + ")",
+                    mine / Math.Max(0.3, gs.Values.Max()), Ui.PartyColor(s, gp.PlayerParty)));
+                left.AddChild(Ui.L(t.T("ui.gd.support_hint"), Tx.Small, AppTheme.Ink3, true));
+            }
             if (t.Description(id) is { } desc) left.AddChild(Ui.L(desc, Tx.Body, AppTheme.Ink, true));
             var chart = new Chart { CustomMinimumSize = new Vector2(260, 180), SizeFlagsHorizontal = SizeFlags.ExpandFill };
             var (turns, vals) = s.History.Window(History.GroupKey(id), 0);

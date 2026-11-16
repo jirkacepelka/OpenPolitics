@@ -88,6 +88,44 @@ public sealed class SupportModel
         return r;
     }
 
+    /// <summary>
+    /// Decision 0015: the share of each voter group that would vote for <paramref name="partyId"/> now (0..1, no noise) - the party's support or
+    /// warmth in that group, as opposed to the group's mood about the country.
+    /// </summary>
+    public IReadOnlyDictionary<string, double> GroupShares(SupportInput input, string partyId)
+    {
+        var result = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        int target = _parties.FindIndex(p => p.Id == partyId);
+        if (target < 0) return result;
+        int np = _parties.Count;
+        var u = new double[np];
+        for (int g = 0; g < _groups.Count; g++)
+        {
+            for (int p = 0; p < np; p++) u[p] = Utility(input, g, p) / _tau;
+            double max = u.Max(), z = 0;
+            for (int p = 0; p < np; p++) { u[p] = DetMath.Exp(u[p] - max) * (input.TurnoutBoost?.GetValueOrDefault(_parties[p].Id, 1.0) ?? 1.0); z += u[p]; }
+            result[_groups[g].Id] = z > 0 ? u[target] / z : 0.0;
+        }
+        return result;
+    }
+
+    /// <summary>How much group <paramref name="g"/> leans to party <paramref name="p"/> before noise: offset, affinity, platform, blame, momentum, penalty.</summary>
+    private double Utility(SupportInput input, int g, int p)
+    {
+        var grp = _groups[g];
+        var party = _parties[p];
+        double sat = Math.Clamp(input.Satisfaction.GetValueOrDefault(grp.Id, 0.0), -1.0, 1.0);
+        double cred = input.Credibility.GetValueOrDefault(party.Id, 1.0);
+        double a = input.Attribution != null && input.Attribution.TryGetValue(party.Id, out var attr)
+            ? Math.Clamp(attr, 0.0, 1.0)
+            : (input.GovernmentParties.Contains(party.Id) ? 1.0 : 0.0);
+        double blame = _kGov * sat * (a - 0.5 * (1.0 - a));
+        double momentum = input.MomentumParty == party.Id && input.Momentum != null ? input.Momentum.GetValueOrDefault(grp.Id, 0.0) : 0.0;
+        return _offset[p] + party.Affinity.GetValueOrDefault(grp.Id, 0.0)
+            + _kPos * (1.0 - _distance[g, p]) * (0.5 + 0.5 * cred) + blame + momentum
+            - (input.Penalty?.GetValueOrDefault(party.Id, 0.0) ?? 0.0);
+    }
+
     private double[] Shares(SupportInput input, Pcg32? noise)
     {
         int np = _parties.Count;
@@ -96,21 +134,10 @@ public sealed class SupportModel
         for (int g = 0; g < _groups.Count; g++)
         {
             var grp = _groups[g];
-            double sat = Math.Clamp(input.Satisfaction.GetValueOrDefault(grp.Id, 0.0), -1.0, 1.0);
             for (int p = 0; p < np; p++)
             {
                 var party = _parties[p];
-                double cred = input.Credibility.GetValueOrDefault(party.Id, 1.0);
-                // How much voters hold the party responsible: 1 = fully (governing leader), 0 = not at all (opposition).
-                double a = input.Attribution != null && input.Attribution.TryGetValue(party.Id, out var attr)
-                    ? Math.Clamp(attr, 0.0, 1.0)
-                    : (input.GovernmentParties.Contains(party.Id) ? 1.0 : 0.0);
-                double blame = _kGov * sat * (a - 0.5 * (1.0 - a));
-                double momentum = input.MomentumParty == party.Id && input.Momentum != null
-                    ? input.Momentum.GetValueOrDefault(grp.Id, 0.0) : 0.0;
-                double v = _offset[p] + party.Affinity.GetValueOrDefault(grp.Id, 0.0)
-                    + _kPos * (1.0 - _distance[g, p]) * (0.5 + 0.5 * cred) + blame + momentum
-                    - (input.Penalty?.GetValueOrDefault(party.Id, 0.0) ?? 0.0);
+                double v = Utility(input, g, p);
                 if (noise is not null)
                 {
                     double sum = 0;
