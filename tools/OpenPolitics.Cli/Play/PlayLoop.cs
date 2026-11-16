@@ -106,6 +106,9 @@ public sealed class PlayLoop
                 case "platform": DoPlatform(cmd.Args); break;
                 case "priority": DoPriority(cmd.Args); break;
                 case "promise": DoPromise(cmd.Args); break;
+                case "support": DoAnswer(support: true); break;
+                case "oppose": DoAnswer(support: false); break;
+                case "announce": DoAnnounce(cmd.Args); break;
                 default: _out.WriteLine(_t.T("ui.err.unknown_command")); break;
             }
         }
@@ -146,6 +149,9 @@ public sealed class PlayLoop
         ["propose"] = "propose", ["navrhni"] = "propose",
         ["priority"] = "priority", ["priorita"] = "priority",
         ["promise"] = "promise", ["slib"] = "promise",
+        ["support"] = "support", ["podpor"] = "support", ["podporit"] = "support",
+        ["oppose"] = "oppose", ["proti"] = "oppose", ["nepodpor"] = "oppose",
+        ["announce"] = "announce", ["ohlas"] = "announce", ["ohlasit"] = "announce",
         ["leave"] = "leave", ["odejit"] = "leave",
         ["dismiss"] = "dismiss", ["vyloucit"] = "dismiss",
         ["reshuffle"] = "reshuffle", ["prestavba"] = "reshuffle", ["prestavet"] = "reshuffle",
@@ -197,6 +203,7 @@ public sealed class PlayLoop
                 _out.WriteLine("  * " + _t.T(_packs.Events.Single(e => e.Id == id).TextKey));
         }
         ShowPoliticalEvents(_last.PoliticalEvents);
+        ShowProposal();
         ShowOverview();
         if (_tips && _nextTip <= 5) _out.WriteLine("\n" + _t.T($"ui.tip.{_nextTip++}"));
         if (_game.State.Turn >= _maxTurns) { ShowEnd(); return true; }
@@ -618,6 +625,43 @@ public sealed class PlayLoop
         if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
         { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
         Report(_game.Apply(new ProposePolicy(policy.Id, target)), "ui.exit.propose_ok", quiet: true, _t.Name(policy.Id));
+    }
+
+    /// <summary>The proposal waiting for the player's answer (decision 0014), with what an answer means.</summary>
+    private void ShowProposal()
+    {
+        if (Current.Politics?.Proposals?.FirstOrDefault(p => p.Answer == null) is not { } p) return;
+        var texts = new Texts(_packs, _t);
+        var (who, what) = texts.Proposal(p);
+        _out.WriteLine($"\n{_t.T("ui.proposal.heading")}: {who} {what}");
+        foreach (var line in texts.ProposalHints(p)) _out.WriteLine("  " + line);
+        _out.WriteLine("  " + _t.T("ui.help.proposal"));
+    }
+
+    private void DoAnswer(bool support)
+    {
+        if (Current.Politics?.Proposals?.FirstOrDefault(p => p.Answer == null) is not { } p) { _out.WriteLine(_t.T("ui.proposal.none")); return; }
+        Report(_game.Apply(support ? new SupportProposal(p.Id) : new OpposeProposal(p.Id)), support ? "ui.proposal.ok_support" : "ui.proposal.ok_oppose", quiet: true, _t.Name(p.PolicyId));
+    }
+
+    /// <summary>announce POLICY VALUE - a public policy proposal of a party that does not lead (decision 0014 g); shows the voters' reaction first.</summary>
+    private void DoAnnounce(string[] args)
+    {
+        if (args.Length < 2) { _out.WriteLine(_t.T("ui.err.usage_announce")); return; }
+        var policy = Resolve(string.Join(" ", args[..^1]), _policies, p => p.Id, numbers: true);
+        if (policy == null) { _out.WriteLine(_t.T("ui.err.unknown_item", string.Join(" ", args[..^1]))); return; }
+        if (!double.TryParse(args[^1].Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture, out var target))
+        { _out.WriteLine(_t.T("ui.err.not_a_number", args[^1])); return; }
+        if (_game.PreviewAnnouncement(policy.Id, target) is { } r)
+        {
+            var like = r.Groups.Where(kv => kv.Value > 1e-6).Select(kv => _t.Name(kv.Key)).ToList();
+            var dislike = r.Groups.Where(kv => kv.Value < -1e-6).Select(kv => _t.Name(kv.Key)).ToList();
+            if (like.Count > 0) _out.WriteLine("  " + _t.T("ui.announce.like", string.Join(", ", like)));
+            if (dislike.Count > 0) _out.WriteLine("  " + _t.T("ui.announce.dislike", string.Join(", ", dislike)));
+            if (r.Groups.Count == 0) _out.WriteLine("  " + _t.T("ui.announce.nobody"));
+            if (r.Credibility < 0) _out.WriteLine("  " + _t.T("ui.announce.credibility", Fmt.Number(r.Credibility * 100, "0") + " %"));
+        }
+        Report(_game.Apply(new AnnouncePolicy(policy.Id, target)), "ui.announce.ok", quiet: true, _t.Name(policy.Id));
     }
 
     private void DoDismiss(string[] args)
