@@ -383,7 +383,6 @@ public static class ValueDialog
         var d = main.NewDialog(t.Name(id), Icons.For(id), 1000);
         d.Key = "value:" + id;
         main.Map?.Select(id);
-        int range = 0;
         void Build()
         {
             d.ClearBody(); d.ClearActions();

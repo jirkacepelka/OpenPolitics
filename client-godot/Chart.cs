@@ -22,7 +22,7 @@ public partial class Chart : Control
     public bool Tile { get; set; }
     /// <summary>Tile look: compare the latest value with the one this many points back (a year), shown beside it.</summary>
     public int DeltaSteps { get; set; }
-    public HashSet<string> Hidden { get; } = new();
+    public HashSet<string> HiddenSeries { get; } = new();
     public event Action? Clicked;
 
     public Chart(bool large = false)
@@ -47,7 +47,7 @@ public partial class Chart : Control
         return (cut > 2 ? title[..cut] : title).Trim();
     }
 
-    private IEnumerable<ChartSeries> Shown => _series.Where(s => !Hidden.Contains(s.Name));
+    private IEnumerable<ChartSeries> Shown => _series.Where(s => !HiddenSeries.Contains(s.Name));
 
     private (double Min, double Max) Range()
     {

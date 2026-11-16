@@ -35,7 +35,7 @@ public sealed partial class ChartPanel : VBoxContainer
         _legend.AddThemeConstantOverride("h_separation", 6); _legend.AddThemeConstantOverride("v_separation", 6);
         _chart = new Chart(large: true) { CustomMinimumSize = new Vector2(260, minHeight) };
         _chart.SizeFlagsVertical = fill ? SizeFlags.ExpandFill : SizeFlags.ShrinkBegin;
-        _chart.Hidden.UnionWith(_memo.Hidden);
+        _chart.HiddenSeries.UnionWith(_memo.Hidden);
         _tabs.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         AddChild(_tabs);
         var controls = Ui.HBox(12);
@@ -83,7 +83,7 @@ public sealed partial class ChartPanel : VBoxContainer
                 Text = TabLabel(_specs[i], _s.T), ToggleMode = true, ButtonGroup = group, ButtonPressed = i == _memo.Tab, ThemeTypeVariation = "ButtonTab",
                 FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 30), MouseDefaultCursorShape = CursorShape.PointingHand,
             };
-            b.Pressed += () => { _memo.Tab = k; _memo.Hidden.Clear(); _chart.Hidden.Clear(); Fill(); SpecChanged?.Invoke(_specs[k]); };
+            b.Pressed += () => { _memo.Tab = k; _memo.Hidden.Clear(); _chart.HiddenSeries.Clear(); Fill(); SpecChanged?.Invoke(_specs[k]); };
             _tabs.AddChild(b);
         }
     }
@@ -109,7 +109,7 @@ public sealed partial class ChartPanel : VBoxContainer
         if (series.Count <= 1) return;
         foreach (var line in series)
         {
-            var b = new IconTextButton(null) { Text = "●  " + line.Name, ToggleMode = true, ButtonPressed = !_chart.Hidden.Contains(line.Name), ThemeTypeVariation = "ButtonSecondary", FocusMode = FocusModeEnum.None };
+            var b = new IconTextButton(null) { Text = "●  " + line.Name, ToggleMode = true, ButtonPressed = !_chart.HiddenSeries.Contains(line.Name), ThemeTypeVariation = "ButtonSecondary", FocusMode = FocusModeEnum.None };
             foreach (var fc in new[] { "font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color" }) b.AddThemeColorOverride(fc, line.Color);
             b.AddThemeStyleboxOverride("pressed", AppTheme.Box(AppTheme.Surface, 0, line.Color, 2, 12, 4));
             b.AddThemeStyleboxOverride("hover_pressed", AppTheme.Box(AppTheme.Panel, 0, line.Color, 2, 12, 4));
@@ -118,7 +118,7 @@ public sealed partial class ChartPanel : VBoxContainer
             string name = line.Name;
             b.Toggled += on =>
             {
-                if (on) { _chart.Hidden.Remove(name); _memo.Hidden.Remove(name); } else { _chart.Hidden.Add(name); _memo.Hidden.Add(name); }
+                if (on) { _chart.HiddenSeries.Remove(name); _memo.Hidden.Remove(name); } else { _chart.HiddenSeries.Add(name); _memo.Hidden.Add(name); }
                 b.Modulate = on ? Colors.White : new Color(1, 1, 1, 0.45f); _chart.QueueRedraw();
             };
             _legend.AddChild(b);
