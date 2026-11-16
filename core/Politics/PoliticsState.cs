@@ -16,7 +16,8 @@ public sealed record CountryPolitics(
     IReadOnlyDictionary<string, double>? Loyalty = null, IReadOnlyList<CommitmentStatus>? Commitments = null,
     IReadOnlyList<UltimatumInfo>? Ultimatums = null, PartyStatus? Party = null,
     IReadOnlyDictionary<string, double>? Grudge = null, ReshuffleInfo? Reshuffle = null,
-    IReadOnlyList<ProposalInfo>? Proposals = null);
+    IReadOnlyList<ProposalInfo>? Proposals = null,
+    IReadOnlyDictionary<string, double>? FiscalBlame = null);
 
 /// <summary>Measure: the AI-led government puts a policy change to parliament. Request: an AI partner asks the leading player for one.</summary>
 public enum ProposalKind { Measure, Request }

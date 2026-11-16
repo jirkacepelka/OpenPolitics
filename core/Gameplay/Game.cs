@@ -201,15 +201,17 @@ public sealed class Game
         }
         double range = Math.Max(policy.Max - policy.Min, 1e-12);
         var groups = new List<GroupEffect>();
+        double necessity = Necessity.Factor(_values); // the same softening the voters apply (decision 0014 e)
+        double Dislike(double x, double pref) => Math.Abs(x - pref) * (Necessity.Austere(policy, x, pref) ? necessity : 1.0);
         foreach (var g in _packs.VoterGroups.OrderBy(g => g.Id, Ord))
             if (g.PolicyPrefs.TryGetValue(policyId, out var pref) && g.PolicyWeights.TryGetValue(policyId, out var weight))
-                groups.Add(new GroupEffect(g.Id, -weight * (Math.Abs(value - pref) - Math.Abs(from - pref)) / range));
+                groups.Add(new GroupEffect(g.Id, -weight * (Dislike(value, pref) - Dislike(from, pref)) / range));
         double delta = value - from;
         double budget = delta * policy.CostPerUnit - (policy.RevenueBaseValueId != null ? delta : 0.0);
         double cost = PolicyChangeCost(policyId, value);
         return new PolicyPreview(policyId, from, value,
             effects.Select(kv => new ValueEffect(kv.Key, kv.Value.Add, kv.Value.Rel)).ToList(), groups, budget,
-            cost, _politics == null || _politics.Capital + 1e-9 >= cost);
+            cost, _politics == null || _politics.Capital + 1e-9 >= cost, necessity);
     }
 
     /// <summary>Why a value the economic model owns moves and what it moves in turn, from the model's own terms; null for other values.</summary>

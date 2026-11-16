@@ -6,10 +6,11 @@ namespace OpenPolitics.Core.Gameplay;
 /// <param name="BudgetPercentOfGdp">Change of the deficit in percent of GDP (positive widens it).</param>
 /// <param name="CapitalCost">Political capital the leader pays for this change (0 without politics, see <see cref="Game.PolicyChangeCost"/>).</param>
 /// <param name="Affordable">Whether the player's party has that much capital now.</param>
+/// <param name="Necessity">Decision 0014 (e): how much of their dislike voters feel for an austere setting right now (1 = all, lower when the deficit or debt is high).</param>
 public sealed record PolicyPreview(
     string PolicyId, double From, double To,
     IReadOnlyList<ValueEffect> Values, IReadOnlyList<GroupEffect> Groups, double BudgetPercentOfGdp,
-    double CapitalCost = 0.0, bool Affordable = true);
+    double CapitalCost = 0.0, bool Affordable = true, double Necessity = 1.0);
 
 /// <summary>Additive is value units per year, Relative is percent per year (the edge's own units).</summary>
 public sealed record ValueEffect(string ValueId, double Additive, double Relative);

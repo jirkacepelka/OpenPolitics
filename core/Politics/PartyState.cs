@@ -12,7 +12,8 @@ public sealed record PartyStatus(
     double Income = 0.0,
     IReadOnlyDictionary<string, double>? Priorities = null,
     IReadOnlyList<string>? Promises = null,
-    IReadOnlyList<PromiseInfo>? PromiseDetails = null);
+    IReadOnlyList<PromiseInfo>? PromiseDetails = null,
+    double FiscalBlame = 0.0);
 
 /// <summary>
 /// A promise to voters (decision 0014): made in quarter MadeTurn, judged at the next election. QuartersElapsed quarters have passed since, the party sat

@@ -40,6 +40,9 @@ internal sealed class PoliticsEngine
     private readonly SortedDictionary<string, double> _attribution = new(Ord);
     /// <summary>Resentment between parties, keyed "a|b" = how much a resents b; raised by leaving and falls, fades slowly.</summary>
     private readonly SortedDictionary<string, double> _grudge = new(Ord);
+    /// <summary>Decision 0014 (e): how much voters blame each party for the deficit it ran up in government.</summary>
+    private readonly SortedDictionary<string, double> _fiscalBlame = new(Ord);
+    private double _lastDeficit;
     private static readonly double GrudgeDecay = DetMath.Pow(0.5, 1.0 / 8.0); // half-life of 8 turns
 
     private double Resent(string a, string b) => _grudge.GetValueOrDefault(a + "|" + b);
@@ -114,6 +117,7 @@ internal sealed class PoliticsEngine
         _seats = CurrentSystem().Allocate(_poll);
         _votes = _poll;
         _turnsToElection = _scenario.TurnsToElection;
+        _lastDeficit = lookup("value", "base:deficit_pct");
         ResetLoyalty();
     }
 
@@ -162,7 +166,8 @@ internal sealed class PoliticsEngine
         new Dictionary<string, double> { [Player] = _credibility * Cohesion() },
         new Dictionary<string, double>(_momentum), Player,
         new Dictionary<string, double> { [Player] = 1.0 + 0.2 * _org },
-        new Dictionary<string, double>(_attribution));
+        new Dictionary<string, double>(_attribution),
+        _fiscalBlame.ToDictionary(kv => kv.Key, kv => FiscalBlame.Penalty(kv.Value), Ord));
 
     private double AttributionTarget(string id) =>
         id == _government.Leader ? 1.0 : _government.Parties.Contains(id) ? 0.7 : 0.0;
@@ -197,10 +202,11 @@ internal sealed class PoliticsEngine
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Target),
             _measures.ToList(), _income,
             _parties[Player].Platform.OrderBy(k => k.Key, Ord).ToDictionary(k => k.Key, k => k.Value.Weight),
-            _promises.Select(p => p.DemandId).ToList(), PromiseInfos()),
+            _promises.Select(p => p.DemandId).ToList(), PromiseInfos(), _fiscalBlame.GetValueOrDefault(Player)),
         new SortedDictionary<string, double>(_grudge, Ord),
         new ReshuffleInfo(Math.Max(0, _nextReshuffleTurn - (_lastTurn + 1)), _reshuffle != null),
-        _openProposal == null ? Array.Empty<ProposalInfo>() : new[] { Info(_openProposal) });
+        _openProposal == null ? Array.Empty<ProposalInfo>() : new[] { Info(_openProposal) },
+        new SortedDictionary<string, double>(_fiscalBlame, Ord));
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
@@ -230,6 +236,13 @@ internal sealed class PoliticsEngine
         _history.Add(_valueIds.ToDictionary(id => id, id => _lookup("value", id), Ord));
         bool governing = _phase == Phase.Governing && _government.Parties.Contains(Player);
         foreach (var p in _promises) { p.Elapsed++; if (governing) p.InGovernment++; }
+        double deficit = _lookup("value", "base:deficit_pct"), before = _fiscalBlame.GetValueOrDefault(Player);
+        if (!double.IsFinite(deficit)) deficit = _lastDeficit;
+        bool sitting = _phase == Phase.Governing;
+        FiscalBlame.Step(_fiscalBlame, sitting ? _government.Leader : null, sitting ? _government.Parties : Array.Empty<string>(), deficit - _lastDeficit);
+        _lastDeficit = deficit;
+        double gained = _fiscalBlame.GetValueOrDefault(Player) - before;
+        if (gained > 0) _credibility = Math.Max(0.0, _credibility - FiscalBlame.CredibilityPerPoint * gained);
         if (_history.Count > 5) _history.RemoveAt(0);
         double share = _poll.GetValueOrDefault(Player);
         _org = Math.Max(0.0, _org - 0.01);

@@ -10,7 +10,8 @@ public sealed record SupportInput(
     IReadOnlyDictionary<string, double> Credibility,
     IReadOnlyDictionary<string, double>? Momentum = null, string? MomentumParty = null,
     IReadOnlyDictionary<string, double>? TurnoutBoost = null,
-    IReadOnlyDictionary<string, double>? Attribution = null);
+    IReadOnlyDictionary<string, double>? Attribution = null,
+    IReadOnlyDictionary<string, double>? Penalty = null);
 
 /// <summary>
 /// Turns voter-group satisfaction and party platforms into vote shares (spec M2, section 3):
@@ -108,7 +109,8 @@ public sealed class SupportModel
                 double momentum = input.MomentumParty == party.Id && input.Momentum != null
                     ? input.Momentum.GetValueOrDefault(grp.Id, 0.0) : 0.0;
                 double v = _offset[p] + party.Affinity.GetValueOrDefault(grp.Id, 0.0)
-                    + _kPos * (1.0 - _distance[g, p]) * (0.5 + 0.5 * cred) + blame + momentum;
+                    + _kPos * (1.0 - _distance[g, p]) * (0.5 + 0.5 * cred) + blame + momentum
+                    - (input.Penalty?.GetValueOrDefault(party.Id, 0.0) ?? 0.0);
                 if (noise is not null)
                 {
                     double sum = 0;

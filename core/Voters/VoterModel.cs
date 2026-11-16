@@ -12,6 +12,7 @@ public sealed class VoterModel
 {
     private readonly IReadOnlyList<VoterGroupDef> _groups;
     private readonly Dictionary<string, double> _policyRange;
+    private readonly Dictionary<string, PolicyDef> _policies;
     private readonly double _lambda;
     private readonly Dictionary<string, double> _habit = new(StringComparer.Ordinal);
     private const double HabitHalfLifeYears = 3.0;
@@ -21,6 +22,7 @@ public sealed class VoterModel
     {
         _groups = groups.OrderBy(g => g.Id, StringComparer.Ordinal).ToList();
         _policyRange = policies.ToDictionary(p => p.Id, p => Math.Max(p.Max - p.Min, 1e-12));
+        _policies = policies.ToDictionary(p => p.Id);
         _lambda = lambda;
     }
 
@@ -34,6 +36,7 @@ public sealed class VoterModel
     {
         double habitKeep = DetMath.Pow(0.5, dt / HabitHalfLifeYears);
         var result = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        double necessity = Necessity.Factor(values); // decision 0014 (e): austerity hurts less when the deficit or debt is high
         foreach (var g in _groups)
         {
             double s = satisfaction.TryGetValue(g.Id, out var s0) && double.IsFinite(s0) ? s0 : 0.0;
@@ -43,7 +46,7 @@ public sealed class VoterModel
             foreach (var (policyId, w) in g.PolicyWeights.OrderBy(kv => kv.Key, StringComparer.Ordinal))
                 if (g.PolicyPrefs.TryGetValue(policyId, out var pref) && policyParams.TryGetValue(policyId, out var p)
                     && _policyRange.TryGetValue(policyId, out var range))
-                    d -= w * Math.Abs(p - pref) / range;
+                    d -= w * Math.Abs(p - pref) / range * (necessity < 1.0 && Necessity.Austere(_policies[policyId], p, pref) ? necessity : 1.0);
             foreach (var (valueId, w) in (g.LevelWeights ?? new Dictionary<string, double>()).OrderBy(kv => kv.Key, StringComparer.Ordinal))
                 if (values != null && values.TryGetValue(valueId, out var level) && double.IsFinite(level))
                 {
