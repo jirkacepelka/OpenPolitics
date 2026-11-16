@@ -13,7 +13,7 @@ public enum WindowMode { Windowed, Borderless, Fullscreen }
 /// </summary>
 public static class DisplaySettings
 {
-    public const float MinScale = 0.8f, MaxScale = 1.4f;
+    public const float MinScale = 0.3f, MaxScale = 1.5f;
     public static readonly Vector2I Reference = new(1280, 720);
     public static readonly Vector2I MinLogical = new(960, 540);
     public static readonly Vector2I MinWindow = new(960, 540);
@@ -62,7 +62,7 @@ public static class DisplaySettings
         float auto = AutoScale ? Mathf.Clamp(Math.Min(Math.Min(win.X / MinLogical.X, win.Y / MinLogical.Y), 1f) / baseFit, 1f, 1.4f) : 1f;
         float f = auto * UiScale;
         float fMax = Math.Min(win.X / MinLogical.X, win.Y / MinLogical.Y) / baseFit;
-        return Mathf.Clamp(f, 0.5f, Math.Max(1f, fMax));
+        return Mathf.Clamp(f, 0.25f, Math.Max(1f, fMax));
     }
 
     /// <summary>The logical size the layout sees for a window size.</summary>
@@ -154,6 +154,13 @@ public static class DisplaySettings
     {
         if (Mode == WindowMode.Windowed && window.Mode == Window.ModeEnum.Windowed) LastSize = window.Size;
         Save();
+    }
+
+    /// <summary>The UI scale at which one logical point is one screen pixel (a Full HD window then lays out 1920 x 1080 points).</summary>
+    public static float NativeScale(Window window)
+    {
+        float baseFit = Math.Min(window.Size.X / (float)Reference.X, window.Size.Y / (float)Reference.Y);
+        return baseFit > 0 ? Mathf.Clamp(1f / baseFit, MinScale, MaxScale) : 1f;
     }
 
     public static void SetScale(Window window, float scale, bool save = true)

@@ -797,3 +797,7 @@ ui.explain.reshuffle: "Reshuffle the coalition (leader): {0} + {1} capital per p
 ui.explain.exits: "No confidence (opposition): {0} capital; it passes with enough willing parties (relation 0.4 or more) and unhappy partners. Dismiss a partner (leader): {1} capital, if the rest keep a majority. Leave the coalition (partner): free, −{2} credibility."
 ui.help.proposal: "Answer with: support  or  oppose  (free; before you end the quarter)"
 ui.err.usage_announce: "Usage: announce POLICY VALUE  (e.g. announce pensions 11)"
+ui.line.turn: "Quarter"
+ui.start.scale_default: "100 %"
+ui.start.scale_native: "1:1 pixels"
+ui.start.scale_native_hint: "One interface point per screen pixel: a Full HD window lays out 1920 x 1080 points (smaller text, more room)."

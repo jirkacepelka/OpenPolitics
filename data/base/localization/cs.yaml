@@ -797,3 +797,7 @@ ui.explain.reshuffle: "Přestavba koalice (vedoucí strana): {0} + {1} kapitálu
 ui.explain.exits: "Nedůvěra (opozice): {0} kapitálu; projde s dostatkem ochotných stran (vztah aspoň 0,4) a nespokojených partnerů. Odvolat partnera (vedoucí strana): {1} kapitálu, pokud zbytek udrží většinu. Odejít z koalice (partner): zdarma, −{2} důvěryhodnosti."
 ui.help.proposal: "Odpovězte: support  nebo  oppose  (zdarma; před koncem čtvrtletí)"
 ui.err.usage_announce: "Použití: announce POLITIKA HODNOTA  (např. announce duchody 11)"
+ui.line.turn: "Čtvrtletí"
+ui.start.scale_default: "100 %"
+ui.start.scale_native: "1:1 pixely"
+ui.start.scale_native_hint: "Jeden bod rozhraní na jeden pixel obrazovky: okno ve Full HD má 1920 x 1080 bodů (menší písmo, víc místa)."

@@ -299,6 +299,10 @@ public partial class TopBar : PanelContainer
             _progress.Set(1 - pol.TurnsToElection / (double)Math.Max(1, interval),
                 t.T("ui.line.next_election") + ": " + (pol.TurnsToElection <= 1 ? t.T("ui.politics.election_next") : t.T("ui.politics.election_in", pol.TurnsToElection)) + "\n" + s.DateText());
         }
-        else _progress.Set(s.Turn / (double)Session.HorizonTurns, s.DateText() + $"\n{s.Turn} / {Session.HorizonTurns}");
+        else
+        {
+            int perYear = Math.Max(1, s.Packs.GetScenario(s.ScenarioId).TurnsPerYear);
+            _progress.Set((s.Turn % perYear + 1) / (double)perYear, s.DateText() + $"\n{t.T("ui.line.turn")} {s.Turn}"); // the year so far; the game does not end
+        }
     }
 }

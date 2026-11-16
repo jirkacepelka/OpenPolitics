@@ -441,7 +441,7 @@ public partial class WorldMap : Control
         DrawCircle(ic, icon / 2, AppTheme.Chrome);
         bool politics = s.Politics?.Party is not null;
         Icons.Draw(this, politics ? IconKind.Coin : IconKind.Calendar, ic, icon * 0.6f, Colors.White);
-        string text = politics ? Ui.Num(s.Politics!.Party!.PoliticalCapital, "0") : $"{s.Turn}/{Session.HorizonTurns}";
+        string text = politics ? Ui.Num(s.Politics!.Party!.PoliticalCapital, "0") : s.Turn.ToString();
         int fs = (int)(_hubH * 0.38f);
         DrawString(AppTheme.FigSemi, new Vector2(ic.X + icon / 2 + 8, rect.GetCenter().Y + fs * 0.36f), text, HorizontalAlignment.Left, rect.End.X - ic.X - icon / 2 - 12, fs, Colors.White);
     }

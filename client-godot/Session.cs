@@ -9,7 +9,8 @@ namespace OpenPolitics.Client;
 /// <summary>One running game plus everything the screens share: texts, news history, last report, messages.</summary>
 public sealed class Session
 {
-    public const int HorizonTurns = 80; // twenty years: the end-of-campaign summary
+    /// <summary>The game has no end: the world goes on until the player stops (decision 0015). Kept for the CLI's optional turn limit.</summary>
+    public const int HorizonTurns = int.MaxValue;
 
     public PackSet Packs { get; }
     public Game Game { get; private set; }
@@ -60,7 +61,7 @@ public sealed class Session
     public CountryPolitics? Politics => Country.Politics;
     public bool HasPolitics => Politics != null;
     public int Turn => Game.State.Turn;
-    public bool Finished => Turn >= HorizonTurns;
+    public bool Finished => false;
 
     public string DateText() => DateAt(Turn);
 
