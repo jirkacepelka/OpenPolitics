@@ -148,6 +148,7 @@ public static class PolicyDialog
             popBox.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             bars.AddChild(popBox);
             left.AddChild(bars);
+            left.AddChild(new ChartPanel(s, "policy:" + id, Charts.ForPolicy(s, id), 170));
 
             var right = Ui.VBox(6);
             right.AddChild(Detail.Stat(t.T("ui.pd.category"), t.T("ui.client.group." + g)));
@@ -398,20 +399,7 @@ public static class ValueDialog
             if (t.Description(id) is { } desc) left.AddChild(Ui.L(desc, Tx.Body, AppTheme.Ink, true));
             var specs = Charts.For(s, id);
             var spec = specs.FirstOrDefault();
-            if (spec != null)
-            {
-                int tpy = s.Packs.GetScenario(s.ScenarioId).TurnsPerYear;
-                left.AddChild(Ui.Segmented(new[] { t.T("ui.chart.range.1y"), t.T("ui.chart.range.3y"), t.T("ui.chart.range.all") }, range == tpy ? 0 : range == 3 * tpy ? 1 : 2,
-                    i => { range = i == 0 ? tpy : i == 1 ? 3 * tpy : 0; Build(); }, 28));
-                foreach (var sp in specs)
-                {
-                    if (specs.Count > 1) left.AddChild(Ui.L(sp.Title(t), Tx.Overline, AppTheme.Ink2));
-                    var chart = new Chart { CustomMinimumSize = new Vector2(280, specs.Count > 1 ? 150 : 200), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-                    var (turns, series) = Charts.Build(s, sp, range);
-                    chart.Set(sp.Title(t), turns, series.Where(x => x.Name == t.Name(id) || series.Count == 1).DefaultIfEmpty(series.FirstOrDefault()).Where(x => x != null).Select(x => x!).ToList(), sp.Format, s.ShortDateAt);
-                    left.AddChild(chart);
-                }
-            }
+            if (spec != null) left.AddChild(new ChartPanel(s, "value:" + id, specs, 210));
             if (s.Game.ExplainValue(id) is { } model) left.AddChild(ModelCard(t, model));
             var right = Ui.VBox(4);
             right.AddChild(Ui.L(t.T("ui.heading.why", t.Name(id)), Tx.Overline, AppTheme.Ink2));
@@ -483,10 +471,7 @@ public static class GroupDialog
                 left.AddChild(Ui.L(t.T("ui.gd.support_hint"), Tx.Small, AppTheme.Ink3, true));
             }
             if (t.Description(id) is { } desc) left.AddChild(Ui.L(desc, Tx.Body, AppTheme.Ink, true));
-            var chart = new Chart { CustomMinimumSize = new Vector2(260, 180), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            var (turns, vals) = s.History.Window(History.GroupKey(id), 0);
-            chart.Set(t.Name(id), turns, new[] { new ChartSeries(t.Name(id), vals, AppTheme.Ink) }, "0.00", s.ShortDateAt);
-            left.AddChild(chart);
+            left.AddChild(new ChartPanel(s, "group:" + id, Charts.ForGroup(s, id), 190));
 
             var right = Ui.VBox(4);
             right.AddChild(Ui.L(t.T("ui.gd.policies"), Tx.Overline, AppTheme.Ink2));
@@ -544,10 +529,7 @@ public static class PartyDialog
             if (pol.Party?.Relations.TryGetValue(id, out var rel) == true) left.AddChild(Detail.LabelledBar(t.T("ui.party.relations"), Ui.Num(rel, "0.00"), rel, AppTheme.Chrome));
             if (s.Game.Compass.TryGetValue(id, out var c))
                 left.AddChild(Detail.Stat(t.T("ui.client.compass"), $"{Ui.Num(c.X, "0.00")} / {Ui.Num(c.Y, "0.00")}"));
-            var chart = new Chart { CustomMinimumSize = new Vector2(260, 170), SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            var (turns, vals) = s.History.Window(History.PollKey(id), 0);
-            chart.Set(t.Name(id), turns, new[] { new ChartSeries(t.Name(id), vals.Select(v => v * 100).ToList(), Ui.PartyColor(s, id)) }, "0.0", s.ShortDateAt);
-            left.AddChild(chart);
+            left.AddChild(new ChartPanel(s, "party:" + id, Charts.ForParty(s, id), 180));
             var right = Ui.VBox(8);
             right.AddChild(Ui.L(t.T("ui.party.demands"), Tx.Overline, AppTheme.Ink2));
             var party = s.Packs.Parties.First(x => x.Id == id);

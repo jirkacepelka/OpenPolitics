@@ -68,7 +68,7 @@ public sealed class PartyScreen : Screen
             var head = Ui.HBox(6); head.AddChild(new IconView(icon, 16, AppTheme.Chrome)); head.AddChild(Ui.L(label, Tx.Overline, AppTheme.Ink3));
             box.AddChild(head);
             box.AddChild(Ui.L(value, Tx.FigureXl, color ?? AppTheme.Ink));
-            if (sub.Length > 0) box.AddChild(Ui.L(sub, Tx.Small));
+            if (sub.Length > 0) box.AddChild(Ui.L(sub, Tx.Small, null, true));
             var panel = Ui.Panel(box, "Inset");
             if (topic != null) panel.TooltipText = s.Texts.Explain(topic);
             tiles.AddChild(panel);

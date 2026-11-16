@@ -268,7 +268,6 @@ public partial class WorldMap : Control
     }
 
     private static readonly Color Separator = new("cfc9bf");
-    private static readonly Color Watermark = new("e2ded6");
 
     public override void _Draw()
     {
@@ -280,18 +279,7 @@ public partial class WorldMap : Control
         var field = Field;
         if (!Main.Animations || DisplaySettings.ReduceMotion) { bool f0 = Focused(out var fz); _focusT = f0 ? 1 : 0; _shownFocus = f0 ? fz : null; }
 
-        // Sector names as quiet watermarks, then thin dashed separators.
-        var wm = AppTheme.Face(600, false, 3);
-        for (int g = 0; g < 3; g++)
-        {
-            float mid = (_bounds[g] + _bounds[g + 1]) / 2;
-            float d = EdgeDistance(mid, field.Size.X, field.Size.Y);
-            var at = _hub + new Vector2(Mathf.Cos(mid), Mathf.Sin(mid)) * d * 0.64f;
-            string name = t.T("ui.client.group." + g).ToUpperInvariant();
-            int fs = (int)Math.Clamp(field.Size.X / 48, 16, 30);
-            float w = wm.GetStringSize(name, HorizontalAlignment.Left, -1, fs).X;
-            DrawString(wm, at - new Vector2(w / 2, -fs / 3f), name, HorizontalAlignment.Left, -1, fs, Watermark);
-        }
+        // Thin dashed separators; the sector names are small tags drawn over the nodes at the end.
         for (int b = 0; b < 3; b++)
         {
             var u = new Vector2(Mathf.Cos(_bounds[b]), Mathf.Sin(_bounds[b]));
@@ -329,7 +317,39 @@ public partial class WorldMap : Control
             DrawNode(n, alpha, group, pending, n.Id == focus ? _focusT : 0);
         }
         DrawHub();
+        DrawSectorTags(field, t);
         if (focused && _byId.TryGetValue(focus!, out var fn)) DrawTag(fn, _focusT);
+    }
+
+    /// <summary>The sector names as small pills at the rim of each sector (readable over the nodes, unlike a faint watermark).</summary>
+    private void DrawSectorTags(Rect2 field, OpenPolitics.Core.Presentation.Localizer t)
+    {
+        var font = AppTheme.Face(600, false, 2);
+        const int fs = 11;
+        for (int g = 0; g < 3; g++)
+        {
+            float mid = (_bounds[g] + _bounds[g + 1]) / 2;
+            float d = EdgeDistance(mid, field.Size.X, field.Size.Y);
+            string name = t.T("ui.client.group." + g).ToUpperInvariant();
+            float w = font.GetStringSize(name, HorizontalAlignment.Left, -1, fs).X + 22;
+            Rect2 best = default; float bestScore = float.MaxValue;
+            for (float f = 0.97f; f >= 0.3f; f -= 0.03f) // the freest spot along the sector's middle, preferring the rim
+            {
+                var at = _hub + new Vector2(Mathf.Cos(mid), Mathf.Sin(mid)) * (d * f - 12);
+                var cand = new Rect2(new Vector2(Math.Clamp(at.X - w / 2, 8, Size.X - w - 8), Math.Clamp(at.Y - 12, 8, Size.Y - 32)), new Vector2(w, 24));
+                float score = (1 - f) * 6;
+                foreach (var n in _nodes)
+                {
+                    float dx = Math.Max(Math.Max(cand.Position.X - n.P.X, 0), n.P.X - cand.End.X), dy = Math.Max(Math.Max(cand.Position.Y - n.P.Y, 0), n.P.Y - cand.End.Y);
+                    float pen = n.R + 6 - MathF.Sqrt(dx * dx + dy * dy);
+                    if (pen > 0) score += 20 + pen;
+                }
+                if (score < bestScore) { bestScore = score; best = cand; }
+            }
+            var rect = best;
+            DrawStyleBox(AppTheme.Box(new Color(AppTheme.Surface, 0.94f), 12, AppTheme.Hairline, 1), rect);
+            DrawString(font, rect.Position + new Vector2(11, 16), name, HorizontalAlignment.Left, -1, fs, AppTheme.Ink3);
+        }
     }
 
     private void DrawEdge(Node a, Node b, Color color, double strength)

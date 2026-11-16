@@ -20,6 +20,8 @@ public sealed class VotersScreen : Screen
         d.Body.AddChild(Ui.L(t.T("ui.client.voters_hint"), Tx.Body, AppTheme.Ink2, true));
         var groups = s.Packs.VoterGroups.OrderByDescending(g => g.Size).ThenBy(g => g.Id, StringComparer.Ordinal).ToList();
         d.Body.AddChild(new StackBar(groups.Select((g, i) => (t.Name(g.Id), g.Size, Ui.PaletteColor(i))).ToList()));
+        var moods = Charts.Available(s).Where(c => c.Id is "groups" or "mood" or "group_support").OrderBy(c => c.Id == "groups" ? 0 : c.Id == "mood" ? 1 : 2).ToList();
+        if (moods.Count > 0 && s.History.Turns.Count > 1) d.Body.AddChild(new ChartPanel(s, "voters", moods, Layout.Short ? 150 : 200));
         d.Body.AddChild(Ui.Section(t.T("ui.vp.groups")));
         foreach (var g in groups)
         {
@@ -81,17 +83,24 @@ public sealed class ChartsScreen : Screen
     {
         var t = s.T;
         if (s.Turn == 0) d.Body.AddChild(Ui.L(t.T("ui.client.charts_hint"), Tx.Body, AppTheme.Ink2, true));
-        var grid = new FlowGrid { MinColumn = 230, MaxColumns = 5, Gap = 10 };
-        foreach (var spec in Charts.Available(s))
+        var available = Charts.Available(s).ToList();
+        foreach (var group in Charts.Groups)
         {
-            var chart = new Chart { Tile = true, CustomMinimumSize = new Vector2(200, Layout.Short ? 130 : 150) };
-            var (turns, series) = Charts.Build(s, spec, 0);
-            chart.Set(spec.Title(t), turns, series, spec.Format, s.ShortDateAt);
-            var captured = spec;
-            chart.Clicked += () => main.OpenChart(captured);
-            grid.AddChild(chart);
+            var specs = available.Where(c => Charts.GroupOf(c) == group).ToList();
+            if (specs.Count == 0) continue;
+            d.Body.AddChild(Ui.L(t.T("ui.chart.group." + group), Tx.Overline, AppTheme.Ink2));
+            var grid = new FlowGrid { MinColumn = 230, MaxColumns = 5, Gap = 10 };
+            foreach (var spec in specs)
+            {
+                var chart = new Chart { Tile = true, DeltaSteps = s.Packs.GetScenario(s.ScenarioId).TurnsPerYear, CustomMinimumSize = new Vector2(200, Layout.Short ? 130 : 150) };
+                var (turns, series) = Charts.Build(s, spec, 0);
+                chart.Set(spec.Title(t), turns, series, spec.Format, s.ShortDateAt);
+                var captured = spec;
+                chart.Clicked += () => main.OpenChart(captured);
+                grid.AddChild(chart);
+            }
+            d.Body.AddChild(grid);
         }
-        d.Body.AddChild(grid);
     }
 }
 
@@ -117,7 +126,7 @@ public sealed class BudgetScreen : Screen
             row.AddChild(Ui.L(fig, Tx.FigureXl, color ?? AppTheme.Ink));
             if (unit.Length > 0) { var u = Ui.L(unit, Tx.Label, AppTheme.Ink2); u.SizeFlagsVertical = SizeFlags.ShrinkEnd; row.AddChild(u); }
             box.AddChild(row);
-            if (note != null) box.AddChild(Ui.L(note, Tx.Small));
+            if (note != null) box.AddChild(Ui.L(note, Tx.Small, null, true));
             tiles.AddChild(Ui.Panel(box, "Inset"));
         }
         var (rf, ru) = Ui.Money(t, v.GetValueOrDefault("base:revenue"));
@@ -137,6 +146,8 @@ public sealed class BudgetScreen : Screen
         }
         if (f.DebtPercentOfGdp is { } debt) Tile(t.T("ui.fig.debt"), Ui.Num(debt, "0"), t.T("ui.unit.gdp_short"), debt > 60 ? AppTheme.BadText : null);
         d.Body.AddChild(tiles);
+        var trend = new[] { "revenue", "deficit", "debt", "interest_paid" }.Select(id => Charts.Available(s).FirstOrDefault(c => c.Id == id)).OfType<ChartSpec>().ToList();
+        if (trend.Count > 0 && s.History.Turns.Count > 1) d.Body.AddChild(new ChartPanel(s, "budget", trend, Layout.Short ? 150 : 190));
 
         var spend = s.Packs.Policies.Where(p => WorldMap.GroupOf(p) == 1).OrderByDescending(p => s.Country.Policies.GetValueOrDefault(p.Id) * p.CostPerUnit).ToList();
         var taxes = s.Packs.Policies.Where(p => WorldMap.GroupOf(p) == 0).OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();

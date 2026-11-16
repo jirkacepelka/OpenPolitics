@@ -75,4 +75,30 @@ public class HistoryTests
         var (allTurns, _) = h.Window(History.Mood, 0);
         Assert.Equal(11, allTurns.Count);
     }
+
+    [Fact]
+    public void EveryPolicySettingIsRecordedEveryTurn()
+    {
+        var (g, h) = Played(3);
+        var policies = g.State.Countries.Single().Value.Policies;
+        Assert.NotEmpty(policies);
+        foreach (var (id, value) in policies)
+        {
+            Assert.Equal(4, h.Series(History.PolicyKey(id)).Count);
+            Assert.Equal(value, h.Series(History.PolicyKey(id))[^1], 9);
+        }
+    }
+
+    [Fact]
+    public void SupportOfEveryVoterGroupForThePlayersPartyIsRecordedWithPolitics()
+    {
+        var (g, h) = Played(3);
+        var support = g.State.Countries.Single().Value.Politics!.Party!.GroupSupport!;
+        Assert.NotEmpty(support);
+        foreach (var (id, share) in support)
+        {
+            Assert.Equal(4, h.Series(History.SupportKey(id)).Count);
+            Assert.Equal(share, h.Series(History.SupportKey(id))[^1], 9);
+        }
+    }
 }

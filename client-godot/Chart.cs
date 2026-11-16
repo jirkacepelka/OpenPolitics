@@ -20,6 +20,8 @@ public partial class Chart : Control
     public bool Large { get; set; }
     /// <summary>Tile look: title and latest value on top, no axes.</summary>
     public bool Tile { get; set; }
+    /// <summary>Tile look: compare the latest value with the one this many points back (a year), shown beside it.</summary>
+    public int DeltaSteps { get; set; }
     public HashSet<string> Hidden { get; } = new();
     public event Action? Clicked;
 
@@ -37,6 +39,12 @@ public partial class Chart : Control
         if (xLabel != null) _xLabel = xLabel;
         if (Tile) { TooltipText = title; MouseDefaultCursorShape = CursorShape.PointingHand; }
         QueueRedraw();
+    }
+
+    private static string TileTitle(string title)
+    {
+        int cut = title.IndexOfAny(new[] { '(', ',' });
+        return (cut > 2 ? title[..cut] : title).Trim();
     }
 
     private IEnumerable<ChartSeries> Shown => _series.Where(s => !Hidden.Contains(s.Name));
@@ -100,10 +108,20 @@ public partial class Chart : Control
         int n = _turns.Count;
         if (Tile)
         {
-            DrawString(AppTheme.Face(600, false, 1), new Vector2(16, 24), _title.ToUpperInvariant(), HorizontalAlignment.Left, Size.X - 32, 11, AppTheme.Ink3);
+            DrawString(AppTheme.Face(600, false, 1), new Vector2(16, 24), TileTitle(_title).ToUpperInvariant(), HorizontalAlignment.Left, Size.X - 32, 11, AppTheme.Ink3);
             double last = double.NaN;
             foreach (var s in Shown.Take(1)) foreach (var v in s.Values) if (double.IsFinite(v)) last = v;
             DrawString(AppTheme.FigSemi, new Vector2(16, 48), Ui.Num(last, _format), HorizontalAlignment.Left, Size.X - 32, 20, AppTheme.Ink);
+            var first = Shown.FirstOrDefault();
+            if (DeltaSteps > 0 && first != null && first.Values.Count > DeltaSteps && double.IsFinite(last))
+            {
+                double before = first.Values[first.Values.Count - 1 - DeltaSteps];
+                if (double.IsFinite(before) && Math.Abs(last - before) > 1e-9)
+                {
+                    string d = (last > before ? "▲ " : "▼ ") + Ui.Num(Math.Abs(last - before), _format);
+                    DrawString(AppTheme.Semi, new Vector2(Size.X / 2, 47), d, HorizontalAlignment.Right, Size.X / 2 - 16, 12, AppTheme.Ink3);
+                }
+            }
         }
         else
         {

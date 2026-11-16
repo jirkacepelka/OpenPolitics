@@ -15,6 +15,10 @@ public sealed class History
     public static string GroupKey(string id) => "group:" + id;
     public static string PollKey(string id) => "poll:" + id;
     public static string LoyaltyKey(string id) => "loyalty:" + id;
+    /// <summary>The setting of a policy in force.</summary>
+    public static string PolicyKey(string id) => "policy:" + id;
+    /// <summary>The share of a voter group that would vote for the player's party.</summary>
+    public static string SupportKey(string id) => "support:" + id;
 
     private Game _game;
     private readonly PackSet _packs;
@@ -54,6 +58,7 @@ public sealed class History
         var now = new Dictionary<string, double>(StringComparer.Ordinal);
         foreach (var (id, v) in c.Values) now[ValueKey(id)] = v;
         foreach (var (id, s) in c.Satisfaction) now[GroupKey(id)] = s;
+        foreach (var (id, v) in c.Policies) now[PolicyKey(id)] = v;
         now[Mood] = Moods.Overall(_packs.VoterGroups, c.Satisfaction);
         if (c.Values.TryGetValue("base:debt", out var debt) && c.Values.TryGetValue("base:gdp", out var gdp) && gdp > 0)
             now[DebtRatio] = debt / gdp * 100.0;
@@ -62,6 +67,7 @@ public sealed class History
         if (c.Politics is { } pol)
         {
             foreach (var (id, share) in pol.Support) now[PollKey(id)] = share;
+            if (pol.Party?.GroupSupport is { } gs) foreach (var (id, v) in gs) now[SupportKey(id)] = v;
             if (pol.Loyalty != null) foreach (var (id, l) in pol.Loyalty) now[LoyaltyKey(id)] = l;
         }
         int before = _turns.Count;

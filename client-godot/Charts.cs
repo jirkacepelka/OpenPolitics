@@ -4,7 +4,8 @@ using OpenPolitics.Core.Presentation;
 namespace OpenPolitics.Client;
 
 /// <summary>A chart the client can show: which series of the history, how they are named, scaled and formatted.</summary>
-public sealed record ChartSpec(string Id, Func<Localizer, string> Title, string Format, double Scale, Func<Session, IReadOnlyList<(string Key, string Name, Color Color)>> Series);
+public sealed record ChartSpec(string Id, Func<Localizer, string> Title, string Format, double Scale, Func<Session, IReadOnlyList<(string Key, string Name, Color Color)>> Series,
+    Func<Localizer, string>? Tab = null);
 
 public static class Charts
 {
@@ -31,6 +32,10 @@ public static class Charts
             (History.ValueKey("base:spending"), s.T.T("ui.fig.expenditure"), Palette[7]),
         }),
         Value("growth", "base:real_growth", "0.0", InkLine),
+        new("productivity", t => t.T("ui.chart.productivity"), "0", 1, s => One(History.ValueKey("base:productivity"), s.T.Name("base:productivity"), InkLine)),
+        new("capital", t => t.T("ui.chart.capital"), "0.0", 1e-12, s => One(History.ValueKey("base:capital"), s.T.Name("base:capital"), InkLine)),
+        new("labour", t => t.T("ui.chart.labour"), "0.00", 1e-6, s => One(History.ValueKey("base:labour_force"), s.T.Name("base:labour_force"), InkLine)),
+        Value("price_level", "base:price_level", "0.0", InkLine),
         Value("unemployment", "base:unemployment", "0.0", InkLine),
         Value("inflation", "base:inflation", "0.0", InkLine),
         Value("deficit", "base:deficit_pct", "0.0", InkLine),
@@ -42,6 +47,8 @@ public static class Charts
         new("loyalty", t => t.T("ui.chart.loyalty"), "0", 1, s => Parties(s, History.LoyaltyKey, includeAll: false)),
         new("groups", t => t.T("ui.chart.groups"), "0.00", 1, s => s.Packs.VoterGroups.OrderBy(g => g.Id, StringComparer.Ordinal)
             .Select((g, i) => (History.GroupKey(g.Id), s.T.Name(g.Id), PaletteColor(i))).ToList()),
+        new("group_support", t => t.T("ui.chart.support_by_group"), "0.0", 100, s => s.Packs.VoterGroups.OrderBy(g => g.Id, StringComparer.Ordinal)
+            .Select((g, i) => (History.SupportKey(g.Id), s.T.Name(g.Id), PaletteColor(i))).ToList()),
         Value("health", "base:health", "0.0", InkLine),
         Value("education", "base:education_level", "0.0", InkLine),
         Value("crime", "base:crime", "0", InkLine),
@@ -49,12 +56,84 @@ public static class Charts
         Value("inequality", "base:inequality", "0.0", InkLine),
     };
 
-    /// <summary>The charts shown in an indicator's dialog: the debt gets its ratio to GDP and the interest paid on it; others the chart of their own series.</summary>
+    public static readonly string[] Groups = { "economy", "budget", "society", "politics" };
+
+    private static readonly Dictionary<string, string> GroupById = new(StringComparer.Ordinal)
+    {
+        ["gdp"] = "economy", ["growth"] = "economy", ["productivity"] = "economy", ["capital"] = "economy", ["labour"] = "economy",
+        ["unemployment"] = "economy", ["inflation"] = "economy", ["price_level"] = "economy", ["interest_rate"] = "economy",
+        ["revenue"] = "budget", ["deficit"] = "budget", ["debt"] = "budget", ["interest_paid"] = "budget",
+        ["mood"] = "society", ["groups"] = "society", ["health"] = "society", ["education"] = "society", ["crime"] = "society",
+        ["environment"] = "society", ["inequality"] = "society", ["polls"] = "politics", ["loyalty"] = "politics", ["group_support"] = "politics",
+    };
+
+    /// <summary>Which of the four groups a chart belongs to (the chart dialog's first row).</summary>
+    public static string GroupOf(ChartSpec c) => GroupById.GetValueOrDefault(c.Id, "economy");
+
+    private static ChartSpec ById(string id) => All.First(c => c.Id == id);
+
+    /// <summary>
+    /// The charts of an indicator's dialog, own chart first, then the ones that explain or follow from it (shown as tabs, one at a time). Every
+    /// value has at least one.
+    /// </summary>
     public static IReadOnlyList<ChartSpec> For(Session s, string valueId)
     {
-        if (valueId == "base:debt") return All.Where(c => c.Id is "debt" or "interest_paid").ToList();
-        var own = All.FirstOrDefault(c => c.Series(s).Any(x => x.Key == History.ValueKey(valueId)));
-        return own == null ? Array.Empty<ChartSpec>() : new[] { own };
+        string[] ids = valueId switch
+        {
+            "base:gdp" or "base:gdp_nominal" => new[] { "gdp", "growth", "productivity", "capital", "labour" },
+            "base:real_growth" => new[] { "growth", "gdp", "productivity" },
+            "base:productivity" => new[] { "productivity", "growth", "capital" },
+            "base:capital" => new[] { "capital", "productivity", "gdp" },
+            "base:labour_force" => new[] { "labour", "unemployment" },
+            "base:unemployment" => new[] { "unemployment", "labour", "growth" },
+            "base:inflation" => new[] { "inflation", "price_level", "interest_rate" },
+            "base:price_level" => new[] { "price_level", "inflation" },
+            "base:interest_rate" => new[] { "interest_rate", "inflation", "interest_paid" },
+            "base:debt" or "base:debt_pct" => new[] { "debt", "interest_paid", "deficit" },
+            "base:deficit_pct" => new[] { "deficit", "debt", "revenue" },
+            "base:revenue" or "base:spending" => new[] { "revenue", "deficit" },
+            _ => Array.Empty<string>(),
+        };
+        if (ids.Length == 0)
+        {
+            var own = All.FirstOrDefault(c => c.Series(s).Any(x => x.Key == History.ValueKey(valueId)));
+            return own == null ? Array.Empty<ChartSpec>() : new[] { own };
+        }
+        return ids.Select(ById).ToList();
+    }
+
+    /// <summary>A policy: its setting over time, then the indicators it drives most (by the strength of its edges).</summary>
+    public static IReadOnlyList<ChartSpec> ForPolicy(Session s, string policyId)
+    {
+        var list = new List<ChartSpec>
+        {
+            new("setting:" + policyId, t => t.T("ui.chart.setting"), "0.0#", 1, x => One(History.PolicyKey(policyId), x.T.Name(policyId), InkLine), t => t.T("ui.chart.tab_setting")),
+        };
+        foreach (var e in s.Packs.Edges.Where(e => e.From == policyId && e.To != policyId).OrderByDescending(e => Math.Abs(e.Strength)).ThenBy(e => e.To, StringComparer.Ordinal))
+        {
+            var spec = For(s, e.To).FirstOrDefault();
+            if (spec != null && list.All(c => c.Id != spec.Id)) list.Add(spec);
+            if (list.Count >= 4) break;
+        }
+        return list;
+    }
+
+    /// <summary>A voter group: its mood and, in a game with politics, how many of its voters would back the player's party.</summary>
+    public static IReadOnlyList<ChartSpec> ForGroup(Session s, string groupId)
+    {
+        var list = new List<ChartSpec> { new("mood:" + groupId, t => t.T("ui.chart.group_mood"), "0.00", 1, x => One(History.GroupKey(groupId), x.T.Name(groupId), InkLine), t => t.T("ui.chart.tab_mood")) };
+        if (s.HasPolitics && s.History.Series(History.SupportKey(groupId)).Any(double.IsFinite))
+            list.Add(new("support:" + groupId, t => t.T("ui.chart.group_support"), "0.0", 100, x => One(History.SupportKey(groupId), x.T.T("ui.chart.group_support"), Ui.PartyColor(x, x.Politics!.PlayerParty)), t => t.T("ui.chart.tab_support")));
+        return list;
+    }
+
+    /// <summary>A party: its poll and, while it governs with partners, their loyalty.</summary>
+    public static IReadOnlyList<ChartSpec> ForParty(Session s, string partyId)
+    {
+        var list = new List<ChartSpec> { new("poll:" + partyId, t => t.T("ui.chart.party_poll"), "0.0", 100, x => One(History.PollKey(partyId), x.T.Name(partyId), Ui.PartyColor(x, partyId)), t => t.T("ui.chart.tab_poll")) };
+        if (s.History.Series(History.LoyaltyKey(partyId)).Any(double.IsFinite))
+            list.Add(new("loyalty:" + partyId, t => t.T("ui.chart.loyalty"), "0", 1, x => One(History.LoyaltyKey(partyId), x.T.Name(partyId), Ui.PartyColor(x, partyId)), t => t.T("ui.chart.tab_loyalty")));
+        return list;
     }
 
     private static string t(Session s, string key) => s.T.T(key);
