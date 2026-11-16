@@ -21,7 +21,8 @@ public sealed record PoliticsBatchReport(
     double MeanPlayerSupportOverRun = 0,
     double GoverningShare = 0, double PlayerLeadShare = 0, double MeanCapital = 0,
     double PolicyChangesPerYear = 0, double PolicyRefusalsPerYear = 0, int GamesLosingLead = 0, double MeanCapitalLeading = 0,
-    int PlayerReshuffles = 0, int Reshuffles = 0)
+    int PlayerReshuffles = 0, int Reshuffles = 0,
+    int ProposalsPut = 0, int ProposalsAnswered = 0, int ProposalsFailed = 0, int Announcements = 0, int AnnouncementsAdopted = 0)
 {
     public string ToText()
     {
@@ -44,6 +45,8 @@ public sealed record PoliticsBatchReport(
         sb.AppendLine($"  Games where the player lost the lead: {GamesLosingLead}");
         sb.AppendLine($"  Player capital (mean):       {MeanCapital.ToString("0.0", inv)} overall, {MeanCapitalLeading.ToString("0.0", inv)} while leading");
         sb.AppendLine($"  Reshuffles:                  {Reshuffles} ({PlayerReshuffles} asked by the player)");
+        sb.AppendLine($"  Proposals put to the player: {ProposalsPut} ({ProposalsAnswered} answered, {ProposalsFailed} failed or turned down)");
+        sb.AppendLine($"  Announced proposals:         {Announcements} ({AnnouncementsAdopted} adopted by the government)");
         sb.AppendLine($"  Policy changes per year led: {PolicyChangesPerYear.ToString("0.00", inv)} accepted, {PolicyRefusalsPerYear.ToString("0.00", inv)} refused for capital");
         return sb.ToString();
     }
@@ -93,6 +96,9 @@ public static class PoliticsBatch
                         case GovernmentFell: falls++; fallTurns.Add(report.Turn); break;
                         case EarlyElectionsCalled: early++; break;
                         case CoalitionReshuffled: reshuffles++; break;
+                        case ProposalPut: counter.ProposalsPut++; break;
+                        case ProposalFailed: counter.ProposalsFailed++; break;
+                        case AnnouncementAdopted: counter.Adopted++; break;
                     }
                 }
                 var now = game.State.Countries.Values.Single().Politics!;
@@ -130,7 +136,8 @@ public static class PoliticsBatch
             games > 0 ? sumRun / games : 0,
             Share(governingTurns, games, turns), Share(leadTurns, games, turns), games * turns > 0 ? sumCapital / (games * turns) : 0,
             PerYear(counter.Accepted, packs, scenarioId, leadTurns), PerYear(counter.Refused, packs, scenarioId, leadTurns), lostLead,
-            leadTurns > 0 ? sumCapitalLeading / leadTurns : 0, counter.Reshuffles, reshuffles);
+            leadTurns > 0 ? sumCapitalLeading / leadTurns : 0, counter.Reshuffles, reshuffles,
+            counter.ProposalsPut, counter.ProposalsAnswered, counter.ProposalsFailed, counter.Announcements, counter.Adopted);
     }
 
     private static double Share(int count, int games, int turns) => games * turns > 0 ? (double)count / (games * turns) : 0;
@@ -142,7 +149,7 @@ public static class PoliticsBatch
     /// <summary>Policy changes the scripted player tried as leader: accepted, and refused because they cost more capital than it had.</summary>
     private sealed class PolicyCounter
     {
-        public int Accepted, Refused, Reshuffles;
+        public int Accepted, Refused, Reshuffles, ProposalsPut, ProposalsAnswered, ProposalsFailed, Announcements, Adopted;
 
         public void Set(Game game, string policyId, double value)
         {
@@ -165,6 +172,8 @@ public static class PoliticsBatch
             game.Apply(new ProposeCoalition(s.Partners, s.Agreements));
         else if (pol.Formation?.Offer != null) game.Apply(new AcceptOffer());
 
+        AnswerProposals(game, pol, strategy, rng, counter);
+        if (strategy is PoliticsStrategy.Activist or PoliticsStrategy.Reformer) Announce(game, pol, packs, policies, counter);
         if (strategy == PoliticsStrategy.Activist) { Activism(game, state, pol, packs, memory); return; }
         if (pol.Phase != Phase.Governing || pol.PlayerRole != Role.Leader) return;
         var current = state.Countries.Values.Single().Policies;
@@ -199,6 +208,42 @@ public static class PoliticsBatch
                         counter.Set(game, p.Id, (state.Turn / 8 + i) % 2 == 0 ? p.Max : p.Min);
                     }
                 break;
+        }
+    }
+
+    /// <summary>
+    /// How the scripted players answer proposals (decision 0014): the ignorer never does; keeper supports unless the change goes clearly against its
+    /// programme and never blocks a measure with pivotal seats; reformer and activist follow their programme; random flips a coin; extreme opposes all.
+    /// </summary>
+    private static void AnswerProposals(Game game, CountryPolitics pol, PoliticsStrategy strategy, Pcg32 rng, PolicyCounter counter)
+    {
+        if (strategy == PoliticsStrategy.Ignorer || pol.Proposals?.FirstOrDefault(p => p.Answer == null) is not { } p) return;
+        bool? support = strategy switch
+        {
+            PoliticsStrategy.Keeper => p.Fit >= -0.1 || (p.Kind == ProposalKind.Measure && p.Pivotal),
+            PoliticsStrategy.Reformer or PoliticsStrategy.Activist => p.Fit > 1e-9 ? true : p.Fit < -1e-9 ? false : p.Kind == ProposalKind.Request ? true : null,
+            PoliticsStrategy.Random => rng.NextDouble() < 0.5,
+            PoliticsStrategy.Extreme => false,
+            _ => null,
+        };
+        if (support == null) return;
+        if (game.Apply(support.Value ? new SupportProposal(p.Id) : new OpposeProposal(p.Id)).Accepted) counter.ProposalsAnswered++;
+    }
+
+    /// <summary>Reformer and activist outside the lead announce the platform position furthest from the current setting, when they can spare the capital.</summary>
+    private static void Announce(Game game, CountryPolitics pol, PackSet packs, Dictionary<string, PolicyDef> policies, PolicyCounter counter)
+    {
+        if (pol.PlayerRole == Role.Leader && pol.Phase == Phase.Governing || pol.Party is not { } party || party.PoliticalCapital < PoliticsLimits.AnnounceCost + 6) return;
+        var current = game.State.Countries.Values.Single().Policies;
+        var best = party.Platform.Where(kv => policies.ContainsKey(kv.Key))
+            .Select(kv => (Id: kv.Key, Target: kv.Value, Gap: Math.Abs(kv.Value - current[kv.Key]) / Math.Max(1e-9, policies[kv.Key].Max - policies[kv.Key].Min)))
+            .Where(x => x.Gap > 0.05)
+            .OrderByDescending(x => x.Gap * (party.Priorities?.GetValueOrDefault(x.Id, 1.0) ?? 1.0)).ThenBy(x => x.Id, StringComparer.Ordinal);
+        foreach (var c in best)
+        {
+            var preview = game.PreviewAnnouncement(c.Id, c.Target);
+            if (preview == null || preview.Approval <= 0) continue;
+            if (game.Apply(new AnnouncePolicy(c.Id, c.Target)).Accepted) { counter.Announcements++; return; }
         }
     }
 
