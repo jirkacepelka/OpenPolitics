@@ -1151,7 +1151,7 @@ internal sealed class PoliticsEngine
         string leader = _government.Leader;
         double current = Latest(a.PolicyId), range = def.Max - def.Min;
         double next = Math.Clamp(current + Math.Clamp(a.Target - current, -ProposalMaxMoveOfRange * range, ProposalMaxMoveOfRange * range), def.Min, def.Max);
-        if (_parties.GetValueOrDefault(leader)?.Platform.TryGetValue(a.PolicyId, out var pos) == true && pos.Weight > 0.5
+        if (_parties.GetValueOrDefault(leader)?.Platform.TryGetValue(a.PolicyId, out var pos) == true && pos.Weight > 0.3
             && Math.Abs(next - pos.Target) > Math.Abs(current - pos.Target)) return; // the leader cares and wants the opposite
         if (_government.Parties.Any(p => _parties[p].RedLines.Any(r => r.Policy == a.PolicyId && LoyaltyModel.RedLineViolated(r, next) && !LoyaltyModel.RedLineViolated(r, current))))
             return;

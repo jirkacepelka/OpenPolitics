@@ -55,7 +55,7 @@ public static class PoliticsLimits
     /// AnnouncePopularity and the government is AI-led, it adopts the proposal at the end of the quarter with probability AnnounceAdoptChance (at most a
     /// quarter of the range at once, never against a strong position of the leader or across a member's red line).
     /// </summary>
-    public const double AnnounceCost = 2, AnnounceWarmth = 0.06, AnnounceCredibilityLoss = 0.05, AnnouncePopularity = 0.01, AnnounceAdoptChance = 0.35;
+    public const double AnnounceCost = 2, AnnounceWarmth = 0.06, AnnounceCredibilityLoss = 0.05, AnnouncePopularity = 0.02, AnnounceAdoptChance = 0.2;
     public const int AnnounceCooldownTurns = 4;
 
     /// <summary>The chance that an AI leader patches a majority lost to a walk-out with outside parties (when such a patch exists) instead of falling.</summary>
