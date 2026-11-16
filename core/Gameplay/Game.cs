@@ -181,6 +181,9 @@ public sealed class Game
     /// <summary>The agreements the AI would offer the parties brought in by a reshuffle (null when the player does not lead or a price cannot be paid).</summary>
     public IReadOnlyList<AgreedDemand>? SuggestReshuffle(IReadOnlyList<string> drop, IReadOnlyList<string> add) => _politics?.SuggestReshuffle(drop, add);
 
+    /// <summary>What announcing a policy proposal would do now (decision 0014 g); null without politics. Changes nothing.</summary>
+    public AnnounceReaction? PreviewAnnouncement(string policyId, double target) => _politics?.Reaction(policyId, target);
+
     /// <summary>The coalition the AI would propose if the player's party is the formateur now (null otherwise).</summary>
     public CoalitionProposal? SuggestCoalition() => _politics?.Suggest();
 

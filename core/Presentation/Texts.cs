@@ -55,9 +55,71 @@ public sealed class Texts
         PolicyProposalAccepted a when _packs.Policies.FirstOrDefault(p => p.Id == a.PolicyId) is { } ap =>
             _t.T("ui.event.proposal_accepted", _t.Name(a.PolicyId), Fmt.Policy(ap, a.Target, _t)),
         PolicyProposalRejected r => _t.T("ui.event.proposal_rejected_" + r.Reason, _t.Name(r.PolicyId)),
+        ProposalPut p when Pol(p.Proposal.PolicyId) is { } pp => _t.T(p.Proposal.Kind == ProposalKind.Measure ? "ui.event.proposal_put_measure" : "ui.event.proposal_put_request",
+            _t.Name(p.Proposal.Proposer), _t.Name(pp.Id), Fmt.Policy(pp, p.Proposal.From, _t), Fmt.Policy(pp, p.Proposal.To, _t)),
+        ProposalPassed p when Pol(p.PolicyId) is { } pp => _t.T(p.Kind == ProposalKind.Measure ? "ui.event.proposal_passed_measure" : "ui.event.proposal_passed_request",
+            _t.Name(p.Proposer), _t.Name(pp.Id), Fmt.Policy(pp, p.From, _t), Fmt.Policy(pp, p.To, _t)),
+        ProposalFailed f => _t.T(f.Kind == ProposalKind.Measure ? "ui.event.proposal_failed_measure" : "ui.event.proposal_failed_request", _t.Name(f.Proposer), _t.Name(f.PolicyId)),
+        ProposalLapsed l => _t.T("ui.event.proposal_lapsed", _t.Name(l.Proposer), _t.Name(l.PolicyId)),
+        AnnouncementAdopted a when Pol(a.PolicyId) is { } ap => _t.T("ui.event.announcement_adopted", _t.Name(a.Leader), _t.Name(a.PolicyId), Fmt.Policy(ap, a.Target, _t)),
         GovernmentMeasure m when _packs.Policies.FirstOrDefault(p => p.Id == m.PolicyId) is { } mp =>
             _t.T("ui.event.government_measure", _t.Name(m.PolicyId), Fmt.Policy(mp, m.From, _t), Fmt.Policy(mp, m.To, _t)),
         _ => null,
+    };
+
+    private PolicyDef? Pol(string id) => _packs.Policies.FirstOrDefault(p => p.Id == id);
+
+    /// <summary>"Social Alliance asks you:" and "Pensions 9.0 % → 9.5 %": who proposes and what, in shown units (decision 0014).</summary>
+    public (string Who, string What) Proposal(ProposalInfo p) =>
+        (_t.T(p.Kind == ProposalKind.Measure ? "ui.proposal.measure" : "ui.proposal.request", _t.Name(p.Proposer)),
+         Pol(p.PolicyId) is { } d ? $"{_t.Name(p.PolicyId)}: {Fmt.Policy(d, p.From, _t)} → {Fmt.Policy(d, p.To, _t)}" : p.PolicyId);
+
+    /// <summary>What answering means: fit with the programme, whether the player's seats decide, what an answer or silence does.</summary>
+    public IReadOnlyList<string> ProposalHints(ProposalInfo p)
+    {
+        var lines = new List<string> { _t.T(p.Fit > 1e-9 ? "ui.proposal.matches" : p.Fit < -1e-9 ? "ui.proposal.contradicts" : "ui.proposal.neutral") };
+        if (p.Kind == ProposalKind.Request) lines.Add(_t.T("ui.proposal.request_hint"));
+        else if (p.Pivotal) lines.Add(_t.T("ui.proposal.pivotal"));
+        else lines.Add(_t.T("ui.proposal.not_pivotal"));
+        lines.Add(_t.T("ui.proposal.expires"));
+        return lines;
+    }
+
+    private static string N(double v, string format = "0.##") => Fmt.Number(v, format);
+
+    /// <summary>
+    /// The in-game explanation of a party stat or action (decision 0014 f), with the numbers the engine uses: capital, organisation, credibility,
+    /// cohesion, relations, fiscal_blame; campaign, organise, court, criticize, stance, promise, priority, shift, propose, announce, proposals,
+    /// reshuffle, exits. Unknown topics return the key.
+    /// </summary>
+    public string Explain(string topic) => topic switch
+    {
+        "capital" => _t.T("ui.explain.capital", N(PoliticsLimits.BaseIncome), N(PartyRules.OrgIncome), N(PoliticsLimits.LeaderIncome), N(PoliticsLimits.CoalitionIncome), N(PoliticsLimits.MaxCapital)),
+        "organisation" => _t.T("ui.explain.organisation", N(PartyRules.OrgIncome), N(PartyRules.OrgTurnout * 100), N(PartyRules.OrgBuildGain * 100), N(PartyRules.OrgBuildCost), N(PartyRules.OrgDecay * 100)),
+        "credibility" => _t.T("ui.explain.credibility", N(PartyRules.CredibilityRecoveryPerYear * 100), N(PartyRules.ShiftCredibility * 100), N(PartyRules.PromiseBrokenCredibility * 100),
+            N(PartyRules.LeaveCredibility * 100), N(PartyRules.PromiseKeptCredibility * 100)),
+        "cohesion" => _t.T("ui.explain.cohesion"),
+        "relations" => _t.T("ui.explain.relations", N(0.3), N(PoliticsLimits.CoalitionIncome), N(PartyRules.CourtGain), N(PartyRules.CourtCost), N(PartyRules.RelationDrift)),
+        "fiscal_blame" => _t.T("ui.explain.fiscal_blame", N(FiscalBlame.LeaderShare), N(FiscalBlame.PartnerShare), N(FiscalBlame.HalfLifeTurns), N(FiscalBlame.PenaltyPerPoint, "0.###"),
+            N(FiscalBlame.MaxPenalty), N(FiscalBlame.CredibilityPerPoint * 100) + " %"),
+        "campaign" => _t.T("ui.explain.campaign", N(PartyRules.CampaignCostPerLevel), N(PartyRules.CampaignMomentumPerLevel), PartyRules.CampaignElectionTurns, PartyRules.MomentumHalfLifeTurns),
+        "organise" => _t.T("ui.explain.organise", N(PartyRules.OrgBuildCost), N(PartyRules.OrgBuildGain * 100), N(PartyRules.OrgDecay * 100)),
+        "court" => _t.T("ui.explain.court", N(PartyRules.CourtCost), N(PartyRules.CourtGain)),
+        "criticize" => _t.T("ui.explain.criticize", N(PartyRules.CriticizeCost), N(PartyRules.CriticizeMomentum), N(PartyRules.CriticizePressure), N(PartyRules.CriticizeBackfire)),
+        "stance" => _t.T("ui.explain.stance", N(PartyRules.StanceCost), N(PartyRules.StanceMomentum)),
+        "promise" => _t.T("ui.explain.promise", PoliticsLimits.PromiseWindowTurns, PoliticsLimits.MaxPromises, N(PartyRules.PromiseCost), N(PartyRules.PromiseMomentum),
+            N(PartyRules.PromiseKeptCredibility * 100) + " %", N(PartyRules.PromiseBrokenCredibility * 100) + " %"),
+        "priority" => _t.T("ui.explain.priority", N(PartyRules.PriorityCost), N(PartyRules.PriorityStep), N(PartyRules.PriorityCredibility)),
+        "shift" => _t.T("ui.explain.shift", N(PartyRules.ShiftCost), N(PartyRules.ShiftMaxOfRange * 100), N(PartyRules.ShiftCredibility)),
+        "propose" => _t.T("ui.explain.propose", N(PoliticsEngine.ProposalCost)),
+        "announce" => _t.T("ui.explain.announce", N(PoliticsLimits.AnnounceCost), PoliticsLimits.AnnounceCooldownTurns, N(PoliticsLimits.AnnounceWarmth),
+            N(PoliticsLimits.AnnounceCredibilityLoss * 100) + " %", N(PoliticsLimits.AnnounceAdoptChance * 100)),
+        "proposals" => _t.T("ui.explain.proposals", N(PoliticsLimits.ProposalCredibilityGain * 100) + " %", N(PoliticsLimits.ProposalCredibilityLoss * 100) + " %",
+            N(PoliticsLimits.ProposalRelationSupport), N(PoliticsLimits.ProposalRelationOppose), N(PoliticsLimits.ProposalPartnerStrain), N(PoliticsLimits.ProposalWarmth),
+            N(PoliticsLimits.ProposalBlockedHit), PoliticsLimits.ProposalCooldownTurns + 1),
+        "reshuffle" => _t.T("ui.explain.reshuffle", N(PoliticsLimits.ReshuffleBaseCost), N(PoliticsLimits.ReshufflePerParty), PoliticsLimits.ReshuffleCooldownTurns, PoliticsLimits.ReshuffleRefusedCooldownTurns),
+        "exits" => _t.T("ui.explain.exits", N(PartyRules.NoConfidenceCost), N(PartyRules.DismissCost), N(PartyRules.LeaveCredibility * 100) + " %"),
+        _ => topic,
     };
 
     /// <summary>The heading over the party's goals on the overview: plain "Goals" in government, "Opposition goals" outside it.</summary>
@@ -85,7 +147,7 @@ public sealed class Texts
     {
         string key = "ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
         // a policy change the party cannot pay for: "cost|capital" in the detail (decision 0013)
-        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
         string text = _t.T(key);
         if (r.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && r.Detail is { Length: > 1 } detail)
         {

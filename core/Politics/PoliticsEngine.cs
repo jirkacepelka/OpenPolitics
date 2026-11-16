@@ -166,7 +166,7 @@ internal sealed class PoliticsEngine
         Effective(satisfaction), new HashSet<string>(_government.Parties, Ord),
         new Dictionary<string, double> { [Player] = _credibility * Cohesion() },
         new Dictionary<string, double>(_momentum), Player,
-        new Dictionary<string, double> { [Player] = 1.0 + 0.2 * _org },
+        new Dictionary<string, double> { [Player] = 1.0 + PartyRules.OrgTurnout * _org },
         new Dictionary<string, double>(_attribution),
         _fiscalBlame.ToDictionary(kv => kv.Key, kv => FiscalBlame.Penalty(kv.Value), Ord));
 
@@ -229,7 +229,7 @@ internal sealed class PoliticsEngine
     /// <summary>Charges the player's party for a policy change the game accepts; false (and nothing charged) when it cannot pay.</summary>
     public bool TrySpendCapital(double cost) => TrySpend(cost);
 
-    private static readonly double HalfLifeFactor = DetMath.Pow(0.5, 0.25); // half-life of 4 turns
+    private static readonly double HalfLifeFactor = DetMath.Pow(0.5, 1.0 / PartyRules.MomentumHalfLifeTurns); // half-life of 4 turns
 
     /// <summary>Per-turn upkeep of the player's party: decay, recovery and political capital income.</summary>
     private void TickParty()
@@ -246,12 +246,12 @@ internal sealed class PoliticsEngine
         if (gained > 0) _credibility = Math.Max(0.0, _credibility - FiscalBlame.CredibilityPerPoint * gained);
         if (_history.Count > 5) _history.RemoveAt(0);
         double share = _poll.GetValueOrDefault(Player);
-        _org = Math.Max(0.0, _org - 0.01);
-        _credibility = Math.Min(1.0, _credibility + 0.1 * _dt);
+        _org = Math.Max(0.0, _org - PartyRules.OrgDecay);
+        _credibility = Math.Min(1.0, _credibility + PartyRules.CredibilityRecoveryPerYear * _dt);
         foreach (var id in _relations.Keys.ToList())
         {
             double r = _relations[id];
-            _relations[id] = r > DefaultRelation ? Math.Max(DefaultRelation, r - 0.02) : Math.Min(DefaultRelation, r + 0.02);
+            _relations[id] = r > DefaultRelation ? Math.Max(DefaultRelation, r - PartyRules.RelationDrift) : Math.Min(DefaultRelation, r + PartyRules.RelationDrift);
         }
         foreach (var id in _momentum.Keys.ToList()) _momentum[id] *= HalfLifeFactor;
         foreach (var id in _pressure.Keys.ToList()) _pressure[id] *= HalfLifeFactor;
@@ -262,7 +262,7 @@ internal sealed class PoliticsEngine
             double g = _grudge[key] * GrudgeDecay;
             if (g < 0.005) _grudge.Remove(key); else _grudge[key] = g;
         }
-        _income = PoliticsLimits.BaseIncome + 8.0 * _org * share
+        _income = PoliticsLimits.BaseIncome + PartyRules.OrgIncome * _org * share
             + (_phase == Phase.Governing && _government.Leader == Player ? PoliticsLimits.LeaderIncome : 0.0) + CoalitionCapitalBonus();
         _pc = Math.Clamp(_pc + _income, 0.0, MaxCapital);
     }
@@ -322,16 +322,16 @@ internal sealed class PoliticsEngine
 
     private ActionResult DoBuild()
     {
-        if (!TrySpend(4)) return Fail("error.not_enough_capital");
-        _org = Math.Min(1.0, _org + 0.04);
+        if (!TrySpend(PartyRules.OrgBuildCost)) return Fail("error.not_enough_capital");
+        _org = Math.Min(1.0, _org + PartyRules.OrgBuildGain);
         return ActionResult.Ok;
     }
 
     private ActionResult CourtParty(string partyId)
     {
         if (partyId == Player || !_relations.ContainsKey(partyId)) return Fail("error.unknown_party", partyId);
-        if (!TrySpend(3)) return Fail("error.not_enough_capital");
-        _relations[partyId] = Math.Min(1.0, _relations[partyId] + 0.1);
+        if (!TrySpend(PartyRules.CourtCost)) return Fail("error.not_enough_capital");
+        _relations[partyId] = Math.Min(1.0, _relations[partyId] + PartyRules.CourtGain);
         return ActionResult.Ok;
     }
 
@@ -341,9 +341,9 @@ internal sealed class PoliticsEngine
         var party = _parties[Player];
         if (!party.Platform.TryGetValue(policyId, out var pos)) return Fail("error.not_in_platform", policyId);
         if (!double.IsFinite(target)) return Fail("error.value_out_of_range", policyId);
-        if (!TrySpend(1)) return Fail("error.not_enough_capital");
+        if (!TrySpend(PartyRules.ShiftCost)) return Fail("error.not_enough_capital");
         double range = def.Max - def.Min;
-        double delta = range > 0 ? Math.Clamp(target - pos.Target, -0.1 * range, 0.1 * range) : 0.0;
+        double delta = range > 0 ? Math.Clamp(target - pos.Target, -PartyRules.ShiftMaxOfRange * range, PartyRules.ShiftMaxOfRange * range) : 0.0;
         if (delta != 0.0)
         {
             var platform = party.Platform.ToDictionary(k => k.Key, k => k.Value, Ord);
@@ -351,7 +351,7 @@ internal sealed class PoliticsEngine
             var updated = party with { Platform = platform };
             _parties[Player] = updated;
             _support.UpdateParty(updated);
-            _credibility = Math.Max(0.0, _credibility - 0.5 * Math.Abs(delta) / range);
+            _credibility = Math.Max(0.0, _credibility - PartyRules.ShiftCredibility * Math.Abs(delta) / range);
         }
         return ActionResult.Ok;
     }
@@ -374,8 +374,8 @@ internal sealed class PoliticsEngine
         if (!party.Platform.TryGetValue(policyId, out var pos)) return Fail("error.not_in_platform", policyId);
         if (!double.IsFinite(weight) || weight < 0.0 || weight > 1.0) return Fail("error.value_out_of_range", policyId);
         if (Math.Abs(weight - pos.Weight) < 1e-9) return Fail("error.no_change", policyId);
-        if (!TrySpend(1)) return Fail("error.not_enough_capital");
-        double delta = Math.Clamp(weight - pos.Weight, -0.2, 0.2);
+        if (!TrySpend(PartyRules.PriorityCost)) return Fail("error.not_enough_capital");
+        double delta = Math.Clamp(weight - pos.Weight, -PartyRules.PriorityStep, PartyRules.PriorityStep);
         if (delta != 0.0)
         {
             var platform = party.Platform.ToDictionary(k => k.Key, k => k.Value, Ord);
@@ -383,7 +383,7 @@ internal sealed class PoliticsEngine
             var updated = party with { Platform = platform };
             _parties[Player] = updated;
             _support.UpdateParty(updated);
-            _credibility = Math.Max(0.0, _credibility - 0.1 * Math.Abs(delta));
+            _credibility = Math.Max(0.0, _credibility - PartyRules.PriorityCredibility * Math.Abs(delta));
         }
         return ActionResult.Ok;
     }
@@ -397,13 +397,13 @@ internal sealed class PoliticsEngine
         if (CommitmentMath.Satisfied(demand, _lookup(demand.Kind, demand.Subject))) return Fail("error.already_met", demandId);
         if (_promises.Any(p => p.DemandId == demandId)) return Fail("error.already_promised", demandId);
         if (_promises.Count >= PoliticsLimits.MaxPromises) return Fail("error.too_many_promises");
-        if (!TrySpend(2)) return Fail("error.not_enough_capital");
+        if (!TrySpend(PartyRules.PromiseCost)) return Fail("error.not_enough_capital");
         _promises.Add(new PromiseRecord(demandId, reportTurn));
         var affinity = _parties[Player].Affinity;
         double top = affinity.Count == 0 ? 0.0 : affinity.Values.Max();
         if (top > 0)
             foreach (var g in _groups.OrderBy(g => g.Id, Ord))
-                if (affinity.GetValueOrDefault(g.Id) is var a && a > 0) _momentum[g.Id] += 0.03 * a / top;
+                if (affinity.GetValueOrDefault(g.Id) is var a && a > 0) _momentum[g.Id] += PartyRules.PromiseMomentum * a / top;
         return ActionResult.Ok;
     }
 
@@ -422,7 +422,7 @@ internal sealed class PoliticsEngine
             bool responsible = Responsible(p);
             events.Add(kept ? new PromiseKept(turn, Player, p.DemandId, responsible) : new PromiseBroken(turn, Player, p.DemandId, responsible));
             if (!responsible) continue;
-            _credibility = kept ? Math.Min(1.0, _credibility + 0.1) : Math.Max(0.0, _credibility - 0.2);
+            _credibility = kept ? Math.Min(1.0, _credibility + PartyRules.PromiseKeptCredibility) : Math.Max(0.0, _credibility - PartyRules.PromiseBrokenCredibility);
             foreach (var g in _groups.OrderBy(g => g.Id, Ord))
                 if (affinity.GetValueOrDefault(g.Id) > 0) _momentum[g.Id] += kept ? 0.05 : -0.08;
         }
@@ -453,13 +453,13 @@ internal sealed class PoliticsEngine
         double then = _history.Count > 0 ? _history[0][valueId] : now;
         double delta = now - then;
         if (!(maxWeight > 0) || Math.Abs(delta) <= 1e-9 * Math.Max(1.0, Math.Abs(now))) return Fail("error.no_effect", valueId);
-        if (!TrySpend(2)) return Fail("error.not_enough_capital");
+        if (!TrySpend(PartyRules.CriticizeCost)) return Fail("error.not_enough_capital");
         foreach (var g in caring)
         {
             double w = g.ValueWeights[valueId], scale = Math.Abs(w) / maxWeight;
             bool worse = Math.Sign(w) * Math.Sign(delta) < 0;
-            if (worse) { _momentum[g.Id] += 0.15 * scale; _pressure[g.Id] += 0.10 * scale; }
-            else _momentum[g.Id] -= 0.10 * scale;
+            if (worse) { _momentum[g.Id] += PartyRules.CriticizeMomentum * scale; _pressure[g.Id] += PartyRules.CriticizePressure * scale; }
+            else _momentum[g.Id] -= PartyRules.CriticizeBackfire * scale;
         }
         return ActionResult.Ok;
     }
@@ -470,7 +470,7 @@ internal sealed class PoliticsEngine
         int i = _measures.FindIndex(m => m.Id == measureId);
         if (i < 0) return Fail("error.unknown_measure", measureId);
         if (_measures[i].StanceTaken) return Fail("error.already_taken", measureId);
-        if (!TrySpend(1)) return Fail("error.not_enough_capital");
+        if (!TrySpend(PartyRules.StanceCost)) return Fail("error.not_enough_capital");
         var m = _measures[i];
         double totalSize = _groups.Sum(g => g.Size);
         foreach (var g in _groups.OrderBy(g => g.Id, Ord))
@@ -480,7 +480,7 @@ internal sealed class PoliticsEngine
             if (after == before) continue;
             bool approves = after < before;
             bool good = stance == Stance.Support ? approves : !approves;
-            _momentum[g.Id] += (good ? 0.10 : -0.10) * g.Size / totalSize;
+            _momentum[g.Id] += (good ? PartyRules.StanceMomentum : -PartyRules.StanceMomentum) * g.Size / totalSize;
         }
         _measures[i] = m with { StanceTaken = true };
         return ActionResult.Ok;
@@ -490,8 +490,8 @@ internal sealed class PoliticsEngine
     {
         if (_groups.All(g => g.Id != groupId)) return Fail("error.unknown_group", groupId);
         if (effort < 1 || effort > 3) return Fail("error.bad_effort", effort.ToString());
-        if (!TrySpend(3.0 * effort)) return Fail("error.not_enough_capital");
-        _momentum[groupId] += 0.06 * effort * (ElectionIn <= 4 ? 2.0 : 1.0);
+        if (!TrySpend(PartyRules.CampaignCostPerLevel * effort)) return Fail("error.not_enough_capital");
+        _momentum[groupId] += PartyRules.CampaignMomentumPerLevel * effort * (ElectionIn <= PartyRules.CampaignElectionTurns ? PartyRules.CampaignElectionBoost : 1.0);
         return ActionResult.Ok;
     }
 
@@ -594,7 +594,7 @@ internal sealed class PoliticsEngine
         if (partyId == Player || !_government.Parties.Contains(partyId)) return Fail("error.unknown_party", partyId);
         if (!CoalitionRules.HasMajority(_government.Parties.Where(p => p != partyId), _seats, _rules.MajorityFraction))
             return Fail("error.would_lose_majority", partyId);
-        if (!TrySpend(4)) return Fail("error.not_enough_capital");
+        if (!TrySpend(PartyRules.DismissCost)) return Fail("error.not_enough_capital");
         _dismissQueue.Add(partyId);
         return ActionResult.Ok;
     }
@@ -603,7 +603,7 @@ internal sealed class PoliticsEngine
     {
         if (_phase != Phase.Governing) return Fail("error.wrong_phase");
         if (PlayerRole != Role.Opposition) return Fail("error.not_opposition");
-        if (!TrySpend(10)) return Fail("error.not_enough_capital");
+        if (!TrySpend(PartyRules.NoConfidenceCost)) return Fail("error.not_enough_capital");
         _noConfidenceQueued = true;
         return ActionResult.Ok;
     }
@@ -620,7 +620,7 @@ internal sealed class PoliticsEngine
             string leader = _government.Leader;
             events.Add(new PlayerLeftCoalition(turn));
             Depart(Player, turn, events, announce: false);
-            _credibility = Math.Max(0.0, _credibility - 0.15);
+            _credibility = Math.Max(0.0, _credibility - PartyRules.LeaveCredibility);
             _relations[leader] = Math.Max(0.0, _relations.GetValueOrDefault(leader, DefaultRelation) - 0.3);
             if (FallIfNoMajority(turn, events)) return true;
         }
@@ -1114,20 +1114,32 @@ internal sealed class PoliticsEngine
         if (!TrySpend(PoliticsLimits.AnnounceCost)) return Fail("error.not_enough_capital");
         _lastAnnounceTurn = reportTurn;
         _announceAllowed[policyId] = reportTurn + PoliticsLimits.AnnounceCooldownTurns;
+        var reaction = Reaction(policyId, target);
+        foreach (var (group, warmth) in reaction.Groups) _momentum[group] += warmth;
+        _credibility = Math.Max(0.0, _credibility + reaction.Credibility);
+        _announcement = _phase == Phase.Governing && reaction.Approval > PoliticsLimits.AnnouncePopularity ? (policyId, target) : null;
+        return ActionResult.Ok;
+    }
+
+    /// <summary>What announcing a policy proposal would do: warmth per voter group, the credibility change and the size-weighted approval.</summary>
+    public AnnounceReaction Reaction(string policyId, double target)
+    {
+        if (!_policyDefs.TryGetValue(policyId, out var def)) return new AnnounceReaction(new SortedDictionary<string, double>(Ord), 0, 0, false);
+        double current = Latest(policyId), range = def.Max - def.Min;
         var caring = _groups.Where(g => g.PolicyPrefs.ContainsKey(policyId) && g.PolicyWeights.GetValueOrDefault(policyId) > 0).OrderBy(g => g.Id, Ord).ToList();
         double maxWeight = caring.Count == 0 ? 0.0 : caring.Max(g => g.PolicyWeights[policyId]), totalSize = _groups.Sum(g => g.Size), approval = 0.0;
+        var groups = new SortedDictionary<string, double>(Ord);
         foreach (var g in caring)
         {
             double pref = g.PolicyPrefs[policyId];
             double delta = range > 0 ? (Math.Abs(pref - current) - Math.Abs(pref - target)) / range : 0.0; // > 0: closer to what the group wants
-            _momentum[g.Id] += Math.Clamp(PoliticsLimits.AnnounceWarmth * delta / 0.1, -PoliticsLimits.AnnounceWarmth, PoliticsLimits.AnnounceWarmth)
+            groups[g.Id] = Math.Clamp(PoliticsLimits.AnnounceWarmth * delta / 0.1, -PoliticsLimits.AnnounceWarmth, PoliticsLimits.AnnounceWarmth)
                 * g.PolicyWeights[policyId] / maxWeight;
             if (totalSize > 0) approval += g.Size * delta / totalSize;
         }
         double fit = Fit(policyId, current, target);
-        if (fit < 0) _credibility = Math.Max(0.0, _credibility + PoliticsLimits.AnnounceCredibilityLoss * fit);
-        _announcement = _phase == Phase.Governing && approval > PoliticsLimits.AnnouncePopularity ? (policyId, target) : null;
-        return ActionResult.Ok;
+        return new AnnounceReaction(groups, fit < 0 ? PoliticsLimits.AnnounceCredibilityLoss * fit : 0.0, approval,
+            _phase == Phase.Governing && PlayerRole != Role.Leader && approval > PoliticsLimits.AnnouncePopularity);
     }
 
     /// <summary>End of the quarter: an AI-led government may take up a popular announcement as its own measure.</summary>

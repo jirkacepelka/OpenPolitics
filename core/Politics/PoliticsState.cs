@@ -89,6 +89,12 @@ public sealed record ProposalPassed(int Turn, ProposalKind Kind, string Proposer
 public sealed record ProposalFailed(int Turn, ProposalKind Kind, string Proposer, string PolicyId) : PoliticalEvent(Turn);
 /// <summary>A proposal came to nothing: a request nobody answered, or the government changed before it was settled.</summary>
 public sealed record ProposalLapsed(int Turn, ProposalKind Kind, string Proposer, string PolicyId) : PoliticalEvent(Turn);
+/// <summary>
+/// What announcing a policy proposal would do (decision 0014 g): momentum per voter group (positive = warms to the party), the credibility change
+/// (negative when it goes against the programme), the size-weighted approval and whether an AI-led government might adopt it.
+/// </summary>
+public sealed record AnnounceReaction(IReadOnlyDictionary<string, double> Groups, double Credibility, double Approval, bool MayBeAdopted);
+
 /// <summary>The AI-led government adopted a proposal the player's party announced (decision 0014 g); the change follows as a government measure.</summary>
 public sealed record AnnouncementAdopted(int Turn, string Leader, string PolicyId, double Target) : PoliticalEvent(Turn);
 /// <summary>A policy change made by the government's AI governor (not by the player).</summary>
