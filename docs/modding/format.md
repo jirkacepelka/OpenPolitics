@@ -121,6 +121,31 @@ Satisfaction is an attitude and the only bounded quantity: it stays in [-1, 1].
 Condition grammar: numbers, value ids, `+ - * /`, `< <= > >= == !=`, `and or not`, parentheses. True is 1, false is 0;
 dividing by zero gives 0.
 
+## Parties (`parties/*.yaml`)
+
+```yaml
+- id: base:civic_right
+  platform:                               # the programme: a position (target, in the policy's unit) and a priority (weight 0..1) per policy
+    base:income_tax: {target: 19, weight: 0.8}
+  affinity: {base:high_income: 0.35}      # how much each voter group leans to the party regardless of policy
+  price: 4                                # demand weight a partner asks for in coalition talks
+  demands:                                # coalition demands, promises and (kind value) programme goals
+    - {id: income_tax_cut, kind: policy, policy: base:income_tax, op: "<=", target: 21, weight: 3, due_turns: 8}
+    - {id: balanced_budget, kind: value, value: base:deficit_pct, op: "<=", target: 0, weight: 2, due_turns: 16}
+  red_lines:
+    - {policy: base:income_tax, op: ">=", threshold: 30}
+  factions:
+    - {id: liberals, weight: 0.5, platform: {base:income_tax: 17}}
+```
+
+A demand of `kind: value` is a programme **goal** (decision 0014): balanced budget, low debt, low unemployment, low inflation, strong growth,
+lower crime, a greener environment, less inequality, better health or education. The engine judges it on the current value (for a policy demand:
+on the queued setting); a goal can be agreed in coalition talks, raised mid-term and promised to voters like a policy demand. A value goal that
+is already met is no concession: it pays nothing toward a partner's price, and the AI formateur does not offer it. AI governors work on an unmet
+value goal through the policies that drive the value (the pack's additive edges from a policy to that value). The base pack gives every party
+15–25 platform positions and at least two goals; the content tests check that platform positions satisfy the party's own policy demands and
+never cross its own red lines. `base:debt_pct` (debt as % of GDP, owned by `macro_v1`, unit `percent_flow`) exists for "low debt" goals.
+
 ## Countries and scenarios
 
 ```yaml
@@ -190,3 +215,6 @@ dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --party ci
 
 Politics strategies: `ignorer`, `keeper` (delivers the coalition agreement), `random`, `extreme`, `activist` (campaigns, criticises, courts),
 `reformer` (governs like the AI governor with its own platform, pays for every change and reshuffles away a partner under ultimatum).
+Since decision 0014 every strategy but `ignorer` answers proposals (keeper supports unless clearly against its programme and never blocks with
+pivotal seats; reformer and activist follow the programme; random flips a coin; extreme opposes), and reformer and activist announce their
+platform positions outside the lead. The report also counts proposals and announcements.

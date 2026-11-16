@@ -53,11 +53,16 @@ drawn in code; the only bundled asset is the Inter font.
   - *Voters*, *Charts*, *Budget*, *Politics* (parliament half-circle, polls with the threshold mark, compass, coalition and government
     formation; for the leader of a sitting government a **Reshuffle the coalition** card - partners to drop, seated outside parties to bring in
     with the demands they ask for, the seats the new coalition would hold, what the parties would answer, cost and cooldown, and the confirm
-    button; the parliament card has a button that scrolls to it), *Your party* (tabs: overview, platform with a compact slider and a priority stepper per policy, promises, relations,
-    actions and stances), *News*.
+    button; the parliament card has a button that scrolls to it; an open **proposal** card sits at the top), *Your party* (tabs: overview with a
+    tooltip on every stat tile - capital, organisation, credibility, cohesion, fiscal blame - and a **How it works** section built from the
+    engine's numbers; platform with the programme's goals and demands (met / not met, weight) above a compact slider and a priority stepper per
+    policy; promises, each holding until the next election with the quarters left and whether breaking it would cost you; relations; actions with
+    an explanation per card, including **Announce a proposal** for parties that do not lead (policy picker, slider, which voter groups would like
+    or dislike it, Announce · 2); stances), *News*. The policy dialog notes when a high deficit or debt softens the voters' dislike of a cut.
 - **Briefing** after each quarter (and a welcome at the start), styled after Democracy 4's intro modal: big title, decisions first (accept
-  or decline an offer, form a government, running ultimatums), six key indicators as pills with traffic bars, the news, two full-width
-  buttons.
+  or decline an offer, form a government, a **Proposal** card - who proposes which change in shown units, whether it matches your programme,
+  whether your seats decide, Support / Oppose answered inline -, running ultimatums), six key indicators as pills with traffic bars, the news,
+  two full-width buttons. An unanswered proposal counts on the Politics badge but never blocks the quarter (it expires with the neutral default).
 - **Start screen**: scenario cards, the party cards of the political scenario (colour, name, starting role - leads the government, junior
   partner or opposition -, poll share and seats, a mini compass and its words; the role is explained under the cards), language, seed,
   the display card, load and start. The welcome briefing depends on the role.
@@ -84,7 +89,9 @@ GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh /tm
 
 Besides every screen of every scenario it presses a party card on the start screen, plays the political scenario as an opposition party
 (Civic Right), checks that the policy dialog refuses an unaffordable change and charges an affordable one, and asks a coalition reshuffle
-from the Politics screen (shots `start-party`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`).
+from the Politics screen (shots `start-party`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`). Decision 0014: as the
+opposition it waits for a proposal, answers it with the Support button of the briefing, makes a promise and announces a proposal, and opens the
+overview, programme, promises and actions tabs (shots `proposal-briefing`, `proposal-answered`, `party0014-tab0..4`).
 
 ## Look and feel
 
