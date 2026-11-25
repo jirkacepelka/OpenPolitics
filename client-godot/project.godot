@@ -21,3 +21,7 @@ project/assembly_name="OpenPolitics.Client"
 
 [gui]
 theme/default_font_size=16
+
+[rendering]
+
+textures/vram_compression/import_etc2_astc=true
