@@ -9,6 +9,12 @@ public interface IElectoralSystem
 
     /// <summary>Result has an entry for every party (0 for no seats), keys in ordinal order.</summary>
     IReadOnlyDictionary<string, int> Allocate(IReadOnlyDictionary<string, double> votes);
+
+    /// <summary>
+    /// Like <see cref="Allocate(IReadOnlyDictionary{string, double})"/> with a higher threshold for some lists (joint lists, decision 0019):
+    /// <paramref name="thresholdFactor"/> multiplies the threshold of the list it names. Systems without a threshold ignore it.
+    /// </summary>
+    IReadOnlyDictionary<string, int> Allocate(IReadOnlyDictionary<string, double> votes, IReadOnlyDictionary<string, double>? thresholdFactor) => Allocate(votes);
 }
 
 /// <summary>Proportional representation: threshold, then a divisor method (D'Hondt, Sainte-Lague) or largest remainders (Hare quota).</summary>
@@ -27,13 +33,15 @@ public sealed class ProportionalSystem : IElectoralSystem
 
     public int Seats { get; }
 
-    public IReadOnlyDictionary<string, int> Allocate(IReadOnlyDictionary<string, double> votes)
+    public IReadOnlyDictionary<string, int> Allocate(IReadOnlyDictionary<string, double> votes) => Allocate(votes, null);
+
+    public IReadOnlyDictionary<string, int> Allocate(IReadOnlyDictionary<string, double> votes, IReadOnlyDictionary<string, double>? thresholdFactor)
     {
         var ids = votes.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList();
         double total = ids.Sum(i => votes[i]);
         if (!(total > 0)) throw new ArgumentException("Total votes must be positive.", nameof(votes));
 
-        var eligible = ids.Where(i => votes[i] / total >= _threshold).ToList();
+        var eligible = ids.Where(i => votes[i] / total >= _threshold * (thresholdFactor?.GetValueOrDefault(i, 1.0) ?? 1.0)).ToList();
         if (eligible.Count == 0) eligible = ids; // nobody passes: ignore the threshold so all seats are filled
 
         var seats = ids.ToDictionary(i => i, _ => 0, StringComparer.Ordinal);

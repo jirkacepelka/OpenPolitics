@@ -43,6 +43,12 @@ public static class Smoke
                 // the programme is a choice of laws: a minus per law, "add program" lists the rest, both change the programme
                 main.StartGame("base:cz_2015", 7, "en", "base:civic_right");
                 await ProgrammeEditing(main, screenshots);
+                // decision 0019: a joint list in the districts, proposed from the politics screen
+                if (main.Packs.Scenarios.Any(sc => sc.Id == "base:cz_2015_districts"))
+                {
+                    main.StartGame("base:cz_2015_districts", 7, "en", "base:open_net");
+                    await AllianceFlow(main, screenshots);
+                }
                 // decision 0015: every decision answered in the briefing - forming the government as formateur, an ultimatum, promises
                 main.StartGame("base:cz_2015", 7, "en", "base:citizens_movement");
                 await DecisionsInBriefing(main, screenshots);
@@ -147,6 +153,36 @@ public static class Smoke
             GD.Print("smoke: main menu, settings, new game and load ok");
         }
         finally { if (System.IO.File.Exists(file)) System.IO.File.Delete(file); }
+    }
+
+    private static async Task AllianceFlow(Main main, string? shots)
+    {
+        var s = main.Session!;
+        var t = s.T;
+        for (int i = 0; i < 4; i++) s.EndQuarter(); // the window opens eight quarters before the election
+        var screen = main.Screens.OfType<PoliticsScreen>().First();
+        main.Open(screen);
+        await Frames(main, 4);
+        string partner = "base:social_alliance";
+        var chip = FindAll<Button>(main).FirstOrDefault(b => b.ThemeTypeVariation == "ButtonSeg" && b.Text.StartsWith(t.Name(partner), StringComparison.Ordinal))
+            ?? throw new Exception("no party to choose for a joint list");
+        chip.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 4);
+        if (shots != null)
+        {
+            foreach (var sc in FindAll<ScrollContainer>(main)) sc.ScrollVertical = 100000; // the card sits below the parliament and polls
+            await Frames(main, 3);
+            Shot(main, shots, "alliance");
+        }
+        var form = FindAll<IconTextButton>(main).FirstOrDefault(b => b.Text.StartsWith(t.T("ui.alliance.form"), StringComparison.Ordinal)) ?? throw new Exception("no button to form the list");
+        if (form.Disabled) throw new Exception("the list the partner would join cannot be formed");
+        form.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (s.Politics!.Alliances is not { Count: > 0 } lists || !lists.Any(a => a.Members.Contains(partner) && a.Members.Contains(s.Politics.PlayerParty)))
+            throw new Exception("forming the joint list did not register");
+        if (shots != null) Shot(main, shots, "alliance-formed");
+        main.CloseDialogs();
+        GD.Print("smoke: joint list ok");
     }
 
     private static async Task ProgrammeEditing(Main main, string? shots)

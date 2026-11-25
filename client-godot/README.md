@@ -84,6 +84,9 @@ drawn in code; the only bundled asset is the Inter font.
   one. Middle: one row per party, largest first - colour, name, starting role (government, coalition, opposition), poll, seats and its place
   on the compass. Right: the chosen party in full (poll, seats, compass and its words, what the role means), the random seed and Start.
   Esc goes back to the menu. The welcome briefing depends on the role.
+- **Programme tab** (party screen): the party's programme is a choice of laws ("26 of 30"), each with a red minus; "Add program" lists the laws
+  that are not in it. **Electoral alliance** card (Politics screen): in the last eight quarters before an election choose one or two parties,
+  see what each would win and lose (seats alone and together, voters who stay away) and form a joint list with a joint programme.
 - **Settings** (main menu and in-game menu): language (main menu only), window mode and size, interface size, automatic scaling, reduce motion.
 - **Load game**: the saved games, newest first, with scenario, party, the date in the game and when it was saved.
 - Keyboard: Space = End quarter, M = map, 1-6 = the screens, Esc = close / clear the lens, Ctrl+S = quick save, F11 = full screen.
@@ -109,7 +112,7 @@ GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh /tm
 
 Besides every screen of every scenario it opens the main menu, the settings (and switches the language) and the load list, presses a party row on the new-game screen, plays the political scenario as an opposition party
 (Civic Right), checks that the policy dialog refuses an unaffordable change and charges an affordable one, and asks a coalition reshuffle
-from the Politics screen (shots `menu`, `settings`, `start-party`, `load`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`). Decision 0014: as the
+from the Politics screen (shots `menu`, `settings`, `start-party`, `load`, `programme`, `programme-add`, `alliance`, `alliance-formed`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`). Decision 0014: as the
 opposition it waits for a proposal, answers it with the Support button of the briefing, makes a promise and announces a proposal, and opens the
 overview, programme, promises and actions tabs (shots `proposal-briefing`, `proposal-answered`, `party0014-tab0..4`). Decision 0015: it
 checks the Mood / Support toggle; as Citizens' Movement it forms the government from the briefing (Adjust, then Form this coalition), leads until a

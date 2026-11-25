@@ -76,6 +76,12 @@ public sealed record Court(string PartyId) : PoliticsAction;
 /// <summary>Move the party's position on a policy toward Target by at most 10 % of the policy's range.</summary>
 public sealed record ShiftPlatform(string PolicyId, double Target) : PoliticsAction;
 
+/// <summary>Run a joint list with these parties at the coming election (within 8 quarters of it; costs 3 capital; every partner must be better off).</summary>
+public sealed record FormAlliance(IReadOnlyList<string> Partners) : PoliticsAction;
+
+/// <summary>Leave the joint list the party is in (costs some credibility).</summary>
+public sealed record LeaveAlliance : PoliticsAction;
+
 /// <summary>Put a law into the party's programme (it starts at the setting now in force, with a middling priority; costs 1 capital).</summary>
 public sealed record AddToPlatform(string PolicyId) : PoliticsAction;
 

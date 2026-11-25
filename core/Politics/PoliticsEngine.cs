@@ -170,11 +170,12 @@ internal sealed class PoliticsEngine
         return def;
     }
 
-    private IElectoralSystem CurrentSystem()
+    private IElectoralSystem CurrentSystem(IReadOnlyDictionary<string, (double X, double Y)>? extra = null)
     {
         var rules = CurrentRules();
         if (rules.Type == "proportional") return ElectoralSystems.Create(rules);
-        var at = Compass();
+        var at = Compass().ToDictionary(kv => kv.Key, kv => kv.Value, Ord);
+        if (extra != null) foreach (var (id, pos) in extra) at[id] = pos;
         return ElectoralSystems.Create(rules, (a, b) =>
         {
             if (!at.TryGetValue(a, out var pa) || !at.TryGetValue(b, out var pb)) return 1.0;
@@ -288,7 +289,7 @@ internal sealed class PoliticsEngine
         _openProposal == null ? Array.Empty<ProposalInfo>() : new[] { Info(_openProposal) },
         new SortedDictionary<string, double>(_fiscalBlame, Ord),
         new SortedDictionary<string, double>(_fiscalCredit, Ord),
-        UltimatumSnapshot(), Math.Max(0, _nextUltimatumTurn - (_lastTurn + 1)));
+        UltimatumSnapshot(), Math.Max(0, _nextUltimatumTurn - (_lastTurn + 1)), _alliances.ToList());
 
     private double Current(Commitment c) => _lookup(c.Demand.Kind, c.Demand.Subject);
 
@@ -410,6 +411,8 @@ internal sealed class PoliticsEngine
         BuildOrganization => DoBuild(),
         Court c => CourtParty(c.PartyId),
         ShiftPlatform s => Shift(s.PolicyId, s.Target),
+        FormAlliance f => DoFormAlliance(f.Partners, reportTurn),
+        LeaveAlliance => DoLeaveAlliance(reportTurn),
         AddToPlatform a => DoAddToPlatform(a.PolicyId),
         RemoveFromPlatform r => DoRemoveFromPlatform(r.PolicyId),
         SetPriority s => DoSetPriority(s.PolicyId, s.Weight),
@@ -464,6 +467,139 @@ internal sealed class PoliticsEngine
             _talkCache.Clear();
             _credibility = Math.Max(0.0, _credibility - PartyRules.ShiftCredibility * Math.Abs(delta) / range);
         }
+        return ActionResult.Ok;
+    }
+
+    // ---- joint lists before an election (decision 0019) ------------------------------------------------------
+
+    private readonly List<Alliance> _alliances = new();
+    private bool _aiAlliancesDone;
+
+    private Alliance MakeAlliance(IEnumerable<string> members, bool byPlayer)
+    {
+        var ids = members.Distinct(Ord).OrderBy(m => m, Ord).ToList();
+        var defs = ids.Select(m => _parties[m]).ToList();
+        double distance = AllianceMath.MeanDistance(defs, _ranges);
+        var joint = AllianceMath.MergePlatform(defs, ids.Select(m => _poll.GetValueOrDefault(m)).ToList());
+        // each member's voters are asked to back the joint programme: the farther it is from the member's own, the more of them stay home
+        var loss = ids.ToDictionary(m => m, m => Math.Min(0.6, AllianceRules.LossBase + AllianceRules.LossPerDistance * AllianceMath.DistanceTo(_parties[m], joint, _ranges)), Ord);
+        return new Alliance(ids, 1.0 - distance, loss.Values.Average(), joint, byPlayer, loss);
+    }
+
+    /// <summary>
+    /// The seats parties would win with these joint lists: each list stands as one party (its votes are the members' less what a compromise
+    /// loses, its compass position the members' mean), a proportional count holds it to a higher threshold, and the list's seats are then split
+    /// among its members by their own votes.
+    /// </summary>
+    private IReadOnlyDictionary<string, int> AllocateSeats(IReadOnlyDictionary<string, double> votes, IReadOnlyList<Alliance> alliances)
+    {
+        if (alliances.Count == 0) return CurrentSystem().Allocate(votes);
+        var lists = new SortedDictionary<string, double>(votes.ToDictionary(kv => kv.Key, kv => kv.Value, Ord), Ord);
+        var factors = new Dictionary<string, double>(Ord);
+        var where = new Dictionary<string, (double X, double Y)>(Ord);
+        var compass = Compass();
+        foreach (var a in alliances)
+        {
+            double sum = a.Members.Sum(m => votes.GetValueOrDefault(m));
+            foreach (var m in a.Members) lists.Remove(m);
+            lists[a.ListId] = a.Members.Sum(m => a.Counted(m, votes.GetValueOrDefault(m)));
+            factors[a.ListId] = AllianceRules.ThresholdFactor(a.Members.Count);
+            where[a.ListId] = sum > 0
+                ? (a.Members.Sum(m => compass[m].X * votes.GetValueOrDefault(m)) / sum, a.Members.Sum(m => compass[m].Y * votes.GetValueOrDefault(m)) / sum)
+                : (0.0, 0.0);
+        }
+        var raw = CurrentSystem(where).Allocate(lists, factors);
+        var seats = new SortedDictionary<string, int>(Ord);
+        foreach (var id in votes.Keys) seats[id] = 0;
+        foreach (var (id, n) in raw)
+        {
+            var list = alliances.FirstOrDefault(a => a.ListId == id);
+            if (list == null) seats[id] = n;
+            else foreach (var (m, k) in AllianceMath.SplitSeats(n, list.Members, list.Members.ToDictionary(m => m, m => list.Counted(m, votes.GetValueOrDefault(m)), Ord))) seats[m] = k;
+        }
+        return seats;
+    }
+
+    private bool InAlliance(string party) => _alliances.Any(a => a.Members.Contains(party));
+
+    /// <summary>What a joint list of the player's party and these partners would do at the current poll, and who would join. Changes nothing.</summary>
+    public AlliancePreview PreviewAlliance(IReadOnlyList<string> partners)
+    {
+        var ids = partners.Append(Player).Distinct(Ord).OrderBy(m => m, Ord).ToList();
+        AlliancePreview Error(string key, string? detail = null) => new(key, detail, ids, 0, 0, 1, Array.Empty<AllianceMemberView>(), AllianceRules.Cost);
+        if (_phase != Phase.Governing) return Error("error.wrong_phase");
+        if (ElectionIn > AllianceRules.WindowTurns) return Error("error.alliance_too_early", AllianceRules.WindowTurns.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (ids.Count < 2 || ids.Count > AllianceRules.MaxMembers) return Error("error.alliance_size", AllianceRules.MaxMembers.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        foreach (var m in ids)
+        {
+            if (!_parties.ContainsKey(m) || _poll.GetValueOrDefault(m) <= 0) return Error("error.unknown_party", m);
+            if (InAlliance(m)) return Error("error.in_alliance", m);
+        }
+        return AssessAlliance(MakeAlliance(ids, true));
+    }
+
+    private AlliancePreview AssessAlliance(Alliance alliance)
+    {
+        var alone = AllocateSeats(_poll, _alliances);
+        var together = AllocateSeats(_poll, _alliances.Append(alliance).ToList());
+        var views = new List<AllianceMemberView>();
+        foreach (var m in alliance.Members)
+        {
+            var others = alliance.Members.Where(x => x != m).Select(x => _parties[x]).ToList();
+            double far = others.Average(o => PartyMath.Distance(_parties[m], o, _ranges));
+            string? reason = far > AllianceRules.MaxDistance ? "far" : together[m] < alone[m] ? "seats" : null;
+            views.Add(new AllianceMemberView(m, alone[m], together[m], m == Player || reason == null, m == Player ? null : reason, alliance.LossOf(m)));
+        }
+        return new AlliancePreview(null, null, alliance.Members, alliance.Coherence, alliance.Loss, AllianceRules.ThresholdFactor(alliance.Members.Count), views, AllianceRules.Cost);
+    }
+
+    /// <summary>The AI parties' own joint lists: the closest pairs, when both would win no fewer seats and together more than apart.</summary>
+    private void FormAiAlliances(int turn, List<PoliticalEvent> events)
+    {
+        _aiAlliancesDone = true;
+        var ids = _parties.Keys.Where(id => id != Player && _poll.GetValueOrDefault(id) > 0).OrderBy(id => id, Ord).ToList();
+        var pairs = (from a in ids from b in ids where string.CompareOrdinal(a, b) < 0
+                     select (A: a, B: b, D: PartyMath.Distance(_parties[a], _parties[b], _ranges)))
+            .Where(p => p.D <= AllianceRules.MaxDistance).OrderBy(p => p.D).ThenBy(p => p.A, Ord).ThenBy(p => p.B, Ord).ToList();
+        var alone = AllocateSeats(_poll, _alliances);
+        int total = alone.Values.Sum();
+        // only a party that holds fewer seats than its votes deserve has a reason to look for a partner (and counting seats is the costly part)
+        bool Wants(string id) => alone[id] < 0.75 * total * _poll.GetValueOrDefault(id);
+        foreach (var p in pairs)
+        {
+            if (InAlliance(p.A) || InAlliance(p.B) || !(Wants(p.A) || Wants(p.B))) continue;
+            var alliance = MakeAlliance(new[] { p.A, p.B }, false);
+            var together = AllocateSeats(_poll, _alliances.Append(alliance).ToList());
+            if (together[p.A] < alone[p.A] || together[p.B] < alone[p.B] || together[p.A] + together[p.B] <= alone[p.A] + alone[p.B]) continue;
+            _alliances.Add(alliance);
+            alone = together;
+            events.Add(new AllianceFormed(turn, alliance.Members, false));
+        }
+    }
+
+    private ActionResult DoFormAlliance(IReadOnlyList<string> partners, int reportTurn)
+    {
+        var preview = PreviewAlliance(partners);
+        if (preview.ErrorKey != null) return Fail(preview.ErrorKey, preview.Detail);
+        if (preview.Views.FirstOrDefault(v => !v.Accepts) is { } no) return Fail("error.alliance_refused", no.PartyId + ":" + no.Reason);
+        if (!TrySpend(AllianceRules.Cost)) return Fail("error.not_enough_capital");
+        var made = MakeAlliance(preview.Members, true);
+        _alliances.Add(made);
+        // standing on a programme that contradicts one's own costs the party its credibility with its own voters
+        _credibility = Math.Max(0.0, _credibility - AllianceRules.JoinCredibilityPerDistance * AllianceMath.DistanceTo(_parties[Player], made.Platform, _ranges));
+        foreach (var m in preview.Members.Where(m => m != Player && _relations.ContainsKey(m))) _relations[m] = Math.Min(1.0, _relations[m] + 0.1);
+        _pending.Add(new AllianceFormed(reportTurn, preview.Members, true));
+        return ActionResult.Ok;
+    }
+
+    private ActionResult DoLeaveAlliance(int reportTurn)
+    {
+        var mine = _alliances.FirstOrDefault(a => a.Members.Contains(Player));
+        if (mine == null) return Fail("error.no_alliance");
+        _alliances.Remove(mine);
+        _credibility = Math.Max(0.0, _credibility - AllianceRules.LeaveCredibility);
+        foreach (var m in mine.Members.Where(m => m != Player && _relations.ContainsKey(m))) _relations[m] = Math.Max(0.0, _relations[m] - 0.1);
+        _pending.Add(new AllianceBroken(reportTurn, mine.Members));
         return ActionResult.Ok;
     }
 
@@ -916,6 +1052,7 @@ internal sealed class PoliticsEngine
         _poll = _support.Compute(Input(satisfaction), _rng);
         NoteSupportMoves(turn, events);
 
+        if (_phase == Phase.Governing && !_aiAlliancesDone && _turnsToElection <= AllianceRules.AiTurn) FormAiAlliances(turn, events);
         bool electionDue = --_turnsToElection <= 0;
         if (!electionDue && _phase == Phase.Caretaker) electionDue = --_caretakerLeft <= 0;
         if (electionDue) { _proposals.Clear(); _leaveQueued = false; _noConfidenceQueued = false; _dismissQueue.Clear(); CancelReshuffle(); LapseProposal(turn, events); LapseUltimatum(turn, events); HoldElection(turn, events); return events; }
@@ -962,8 +1099,9 @@ internal sealed class PoliticsEngine
         if (!(total > 0)) foreach (var id in votes.Keys.ToList()) votes[id] = _poll[id];
         else foreach (var id in votes.Keys.ToList()) votes[id] /= total;
         _votes = votes;
-        _seats = CurrentSystem().Allocate(votes);
-        events.Add(new ElectionHeld(turn, Sorted(votes), Sorted(_seats), CurrentRules().Type));
+        _seats = AllocateSeats(votes, _alliances);
+        events.Add(new ElectionHeld(turn, Sorted(votes), Sorted(_seats), CurrentRules().Type, _alliances.Select(a => a.Members).ToList()));
+        _alliances.Clear(); _aiAlliancesDone = false;
         _turnsToElection = _rules.ElectionIntervalTurns;
 
         BeginFormation(turn, events, null);

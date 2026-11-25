@@ -204,6 +204,9 @@ public sealed class Game
     public NegotiationView? AssessCoalition(CoalitionProposal draft) => _politics?.AssessCoalition(draft);
 
     /// <summary>What the AI formateur would answer to the player's counter-offer as an invited party (decision 0016); null without politics.</summary>
+    /// <summary>What a joint list of the player's party and these partners would do (decision 0019); null without politics. Changes nothing.</summary>
+    public AlliancePreview? PreviewAlliance(IReadOnlyList<string> partners) => _politics?.PreviewAlliance(partners);
+
     public CounterPreview? PreviewCounter(IReadOnlyList<AgreedDemand> extra, IReadOnlyList<PortfolioGrant> portfolios) => _politics?.PreviewCounter(extra, portfolios);
 
     /// <summary>The cabinet portfolios of the country (decision 0016); empty without politics or without portfolios in the pack.</summary>

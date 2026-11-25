@@ -28,6 +28,82 @@ public sealed class PoliticsScreen : Screen
             if (n is ScrollContainer sc) { sc.EnsureControlVisible(_rsCard); return; }
     }
     private Session? _s; private Dialog? _d; private Main? _main;
+    private readonly HashSet<string> _alPick = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Joint lists before an election (decision 0019): the lists that will run (members, how well their programmes agree, what each member's voters
+    /// think of the joint programme) and, within the window, a way to propose one: choose up to two parties, see what each would win and lose, form it.
+    /// </summary>
+    private Control? AllianceCard(Session s, CountryPolitics pol)
+    {
+        var t = s.T;
+        bool window = pol.Phase == Phase.Governing && pol.TurnsToElection <= AllianceRules.WindowTurns;
+        var lists = pol.Alliances ?? Array.Empty<Alliance>();
+        if (pol.Phase != Phase.Governing && lists.Count == 0) return null;
+        var box = Ui.VBox(10);
+        box.AddChild(Ui.L(t.T("ui.alliance.hint"), Tx.Small, AppTheme.Ink3, true));
+        double threshold = (s.Game.ElectoralKind ?? "proportional") == "proportional" ? s.Game.ElectoralThreshold ?? 0 : 0;
+        foreach (var a in lists)
+        {
+            var one = Ui.VBox(6);
+            var head = Ui.HBox(10);
+            foreach (var m in a.Members) head.AddChild(Ui.PartyName(s, m, null, Tx.BodyStrong));
+            head.AddChild(Ui.Spacer());
+            head.AddChild(Ui.Pill(t.T(a.ByPlayer ? "ui.alliance.yours" : "ui.alliance.ai"), a.ByPlayer ? AppTheme.Chrome : AppTheme.Ink3));
+            one.AddChild(head);
+            one.AddChild(Ui.L(t.T("ui.alliance.coherence", Ui.Num(a.Coherence * 100, "0")) + (threshold > 0 ? " · " + t.T("ui.alliance.threshold", Ui.Num(threshold * AllianceRules.ThresholdFactor(a.Members.Count) * 100, "0.#")) : ""), Tx.Small, AppTheme.Ink2, true));
+            foreach (var m in a.Members) one.AddChild(Ui.L(t.Name(m) + ": " + t.T("ui.alliance.loses", Ui.Num(a.LossOf(m) * 100, "0")), Tx.Small, AppTheme.Ink3, true));
+            var top = a.Platform.OrderByDescending(kv => kv.Value.Weight).ThenBy(kv => kv.Key, StringComparer.Ordinal).Take(6)
+                .Select(kv => s.Packs.Policies.FirstOrDefault(p => p.Id == kv.Key) is { } def ? t.Name(kv.Key) + " " + Fmt.Policy(def, kv.Value.Target, t) : null).Where(x => x != null);
+            one.AddChild(Ui.L(t.T("ui.alliance.programme") + ": " + Ui.Fix(string.Join(" · ", top)), Tx.Small, AppTheme.Ink2, true));
+            if (a.Members.Contains(pol.PlayerParty) && window)
+                one.AddChild(Ui.Btn(t.T("ui.alliance.leave"), () => s.Do(new LeaveAlliance()), "ButtonDanger", IconKind.Back, null, false, 32));
+            box.AddChild(Ui.Panel(Ui.Margin(one, 10, 8), "Inset"));
+        }
+        bool mine = lists.Any(a => a.Members.Contains(pol.PlayerParty));
+        if (!mine)
+        {
+            if (!window) box.AddChild(Ui.L(t.T("ui.alliance.closed", AllianceRules.WindowTurns), Tx.Body, AppTheme.Ink2, true));
+            else
+            {
+                box.AddChild(Ui.L(t.T("ui.alliance.pick"), Tx.Small, AppTheme.Ink3));
+                var chips = new FlowGrid { MinColumn = 200, MaxColumns = 4, Gap = 6 };
+                var free = s.Packs.Parties.Select(p => p.Id).Where(id => id != pol.PlayerParty && !lists.Any(a => a.Members.Contains(id)) && pol.Support.GetValueOrDefault(id) > 0)
+                    .OrderByDescending(id => pol.Support.GetValueOrDefault(id)).ThenBy(id => id, StringComparer.Ordinal).ToList();
+                _alPick.RemoveWhere(id => !free.Contains(id));
+                foreach (var id in free)
+                {
+                    string pid = id;
+                    var b = new Button { ToggleMode = true, ButtonPressed = _alPick.Contains(pid), Text = t.Name(pid) + " · " + Ui.Num(pol.Support.GetValueOrDefault(pid) * 100) + " %",
+                        ThemeTypeVariation = "ButtonSeg", FocusMode = FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 32), ClipText = true };
+                    b.Pressed += () =>
+                    {
+                        if (!_alPick.Remove(pid)) { if (_alPick.Count >= AllianceRules.MaxMembers - 1) _alPick.Clear(); _alPick.Add(pid); }
+                        Rebuild();
+                    };
+                    chips.AddChild(b);
+                }
+                box.AddChild(chips);
+                if (_alPick.Count > 0 && s.Game.PreviewAlliance(_alPick.OrderBy(x => x, StringComparer.Ordinal).ToList()) is { ErrorKey: null } pv)
+                {
+                    foreach (var v in pv.Views)
+                    {
+                        var row = Ui.HBox(10);
+                        row.AddChild(Ui.PartyName(s, v.PartyId, null, Tx.Label));
+                        row.AddChild(Ui.Spacer());
+                        row.AddChild(Ui.L(t.T("ui.alliance.seats", v.SeatsAlone, v.SeatsTogether), Tx.Data));
+                        row.AddChild(Ui.L(t.T("ui.alliance.loses", Ui.Num(v.Loss * 100, "0")), Tx.Small, AppTheme.Ink3));
+                        row.AddChild(v.PartyId == pol.PlayerParty ? Ui.Spacer() : Ui.Pill(v.Accepts ? t.T("ui.alliance.joins") : t.T("ui.alliance.reason." + v.Reason), v.Accepts ? AppTheme.Good : AppTheme.Bad));
+                        box.AddChild(row);
+                    }
+                    var picked = _alPick.OrderBy(x => x, StringComparer.Ordinal).ToList();
+                    box.AddChild(Ui.Costed(t.T("ui.alliance.form"), (int)AllianceRules.Cost, () => { if (s.Do(new FormAlliance(picked), t.T("ui.event.alliance_formed_you", string.Join(", ", picked.Select(t.Name))))) _alPick.Clear(); },
+                        t.T("ui.alliance.formed_hint", AllianceRules.Cost), !pv.AllAccept, "ButtonPlay"));
+                }
+            }
+        }
+        return Card(t.T("ui.alliance.title"), box);
+    }
 
     private void Rebuild() { if (_s != null && _d != null && _main != null && GodotObject.IsInstanceValid(_d)) { Ui.Clear(_d.Body); Build(_s, _d, _main); } }
 
@@ -127,6 +203,7 @@ public sealed class PoliticsScreen : Screen
         var coal = Coalition(s, pol, main);
         if (coal != null) { coal.SetMeta("span", 2); grid.AddChild(coal); }
         d.Body.AddChild(grid);
+        if (AllianceCard(s, pol) is { } alliances) d.Body.AddChild(alliances);
         if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader) { _rsCard = Reshuffle(s, pol); d.Body.AddChild(_rsCard); }
         else { _rsDrop.Clear(); _rsAdd.Clear(); _rsAgreed.Clear(); }
         if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader)

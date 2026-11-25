@@ -107,6 +107,8 @@ public sealed record SaveData(
             else if (action is Court court) dto.Actions.Add(new ActionDto { Turn = turn, Type = "court", Party = court.PartyId });
             else if (action is ShiftPlatform sh)
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "shift_platform", Policy = sh.PolicyId, Value = sh.Target.ToString("R", CultureInfo.InvariantCulture) });
+            else if (action is FormAlliance fa) dto.Actions.Add(new ActionDto { Turn = turn, Type = "form_alliance", Partners = fa.Partners.ToList() });
+            else if (action is LeaveAlliance) dto.Actions.Add(new ActionDto { Turn = turn, Type = "leave_alliance" });
             else if (action is AddToPlatform add) dto.Actions.Add(new ActionDto { Turn = turn, Type = "add_platform", Policy = add.PolicyId });
             else if (action is RemoveFromPlatform rem) dto.Actions.Add(new ActionDto { Turn = turn, Type = "remove_platform", Policy = rem.PolicyId });
             else if (action is Campaign camp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "campaign", Group = camp.GroupId, Effort = camp.Effort });
@@ -178,6 +180,8 @@ public sealed record SaveData(
                 "build_organization" => new BuildOrganization(),
                 "court" => new Court(a.Party),
                 "shift_platform" => new ShiftPlatform(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "form_alliance" => new FormAlliance(a.Partners.ToList()),
+                "leave_alliance" => new LeaveAlliance(),
                 "add_platform" => new AddToPlatform(a.Policy),
                 "remove_platform" => new RemoveFromPlatform(a.Policy),
                 "campaign" => new Campaign(a.Group, a.Effort),

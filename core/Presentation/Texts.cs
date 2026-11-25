@@ -72,6 +72,8 @@ public sealed class Texts
         UltimatumDelivered d when Pol(d.PolicyId) is { } dp => _t.T("ui.event.myult_delivered", _t.Name(d.Leader), _t.Name(d.PolicyId), Fmt.Policy(dp, d.Target, _t)),
         UltimatumCarriedOut c => _t.T("ui.event.myult_carried_out", _t.Name(c.Leader), _t.Name(c.PolicyId)),
         UltimatumLapsed => _t.T("ui.event.myult_lapsed"),
+        AllianceFormed f => f.ByPlayer ? _t.T("ui.event.alliance_formed_you", Names(f.Members)) : _t.T("ui.event.alliance_formed", Names(f.Members)),
+        AllianceBroken b => _t.T("ui.event.alliance_broken", Names(b.Members)),
         CounterOfferAnswered c => c.Accepted ? _t.T("ui.event.counter_accepted", _t.Name(c.Formateur))
             : _t.T("ui.event.counter_refused", _t.Name(c.Formateur), CounterReason(c.Reason)),
         FiscalCreditEarned c => _t.T("ui.event.fiscal_credit", "+" + N(c.Capital, "0.0"), Points(c.Points), N(c.From, "0.0"), N(c.To, "0.0")),
@@ -325,7 +327,9 @@ public sealed class Texts
     {
         string key = "ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
         // a policy change the party cannot pay for: "cost|capital" in the detail (decision 0013)
-        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" or "error.ultimatum_cooldown" or "error.platform_full" or "error.platform_min" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" or "error.ultimatum_cooldown" or "error.platform_full" or "error.platform_min" or "error.alliance_too_early" or "error.alliance_size" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        if (r.ErrorKey == "error.alliance_refused" && r.Detail is { } ad && ad.LastIndexOf(':') is var cut and > 0)
+            return _t.T(key, _t.Name(ad[..cut]), _t.T("ui.alliance.reason." + ad[(cut + 1)..]));
         string text = _t.T(key);
         if (r.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && r.Detail is { Length: > 1 } detail)
         {

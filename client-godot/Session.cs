@@ -137,7 +137,8 @@ public sealed class Session
     {
         var parts = e.Seats.Where(kv => kv.Value > 0).OrderByDescending(kv => kv.Value).ThenBy(kv => kv.Key, StringComparer.Ordinal)
             .Select(kv => $"{T.Name(kv.Key)} {kv.Value}");
-        return T.T("ui.politics.result_heading") + ": " + string.Join(", ", parts);
+        string lists = e.Alliances is { Count: > 0 } al ? " · " + T.T("ui.politics.result_lists", string.Join("; ", al.Select(a => string.Join(" + ", a.Select(T.Name))))) : "";
+        return T.T("ui.politics.result_heading") + ": " + string.Join(", ", parts) + lists;
     }
 
     /// <summary>Asks every screen to redraw (UI-only changes such as a different selection).</summary>

@@ -19,7 +19,7 @@ public sealed record CountryPolitics(
     IReadOnlyList<ProposalInfo>? Proposals = null,
     IReadOnlyDictionary<string, double>? FiscalBlame = null,
     IReadOnlyDictionary<string, double>? FiscalCredit = null,
-    PlayerUltimatumInfo? PlayerUltimatum = null, int UltimatumCooldown = 0);
+    PlayerUltimatumInfo? PlayerUltimatum = null, int UltimatumCooldown = 0, IReadOnlyList<Alliance>? Alliances = null);
 
 /// <summary>
 /// Decision 0016 (3): a government party earned fiscal credit for cutting the deficit from From to To (% of GDP) this quarter: Capital political
@@ -90,7 +90,8 @@ public abstract record PoliticalEvent(int Turn);
 
 /// <summary>An election took place: the votes (shares summing to 1) and the resulting seats. Kind is the electoral system used ("proportional", "fptp", "two_round").</summary>
 public sealed record ElectionHeld(
-    int Turn, IReadOnlyDictionary<string, double> Votes, IReadOnlyDictionary<string, int> Seats, string Kind = "proportional") : PoliticalEvent(Turn);
+    int Turn, IReadOnlyDictionary<string, double> Votes, IReadOnlyDictionary<string, int> Seats, string Kind = "proportional",
+    IReadOnlyList<IReadOnlyList<string>>? Alliances = null) : PoliticalEvent(Turn);
 
 public sealed record FormationStarted(int Turn, string Formateur) : PoliticalEvent(Turn);
 public sealed record FormationFailed(int Turn, string Formateur) : PoliticalEvent(Turn);
