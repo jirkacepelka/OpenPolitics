@@ -12,8 +12,8 @@ public sealed record PolicyPreview(
     IReadOnlyList<ValueEffect> Values, IReadOnlyList<GroupEffect> Groups, double BudgetPercentOfGdp,
     double CapitalCost = 0.0, bool Affordable = true, double Necessity = 1.0);
 
-/// <summary>Additive is value units per year, Relative is percent per year (the edge's own units).</summary>
-public sealed record ValueEffect(string ValueId, double Additive, double Relative);
+/// <summary>Additive is value units per year, Relative is percent per year (the edge's own units), Level the one-off shift of the level in percent.</summary>
+public sealed record ValueEffect(string ValueId, double Additive, double Relative, double Level = 0.0);
 
 /// <summary>Change of the group's satisfaction pressure per year caused by the policy setting itself.</summary>
 public sealed record GroupEffect(string GroupId, double Pressure);

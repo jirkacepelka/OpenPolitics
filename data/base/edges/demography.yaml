@@ -1,0 +1,211 @@
+# ILLUSTRATIVE data: what moves the population (decision 0021). Rates are values: they settle at the level their drivers imply.
+- id: base:family_allowances_to_fertility
+  from: base:family_allowances
+  to: base:fertility
+  strength: 0.12
+  delay: {type: lag, turns: 8}
+- id: base:childcare_to_fertility
+  from: base:childcare
+  to: base:fertility
+  strength: 0.1
+  delay: {type: lag, turns: 8}
+- id: base:housing_support_to_fertility
+  from: base:housing_support
+  to: base:fertility
+  strength: 0.06
+  delay: {type: lag, turns: 8}
+- id: base:public_housing_to_fertility
+  from: base:public_housing
+  to: base:fertility
+  strength: 0.05
+  delay: {type: lag, turns: 12}
+- id: base:paid_leave_to_fertility
+  from: base:paid_leave
+  to: base:fertility
+  strength: 0.15
+  delay: {type: lag, turns: 8}
+- id: base:abortion_access_to_fertility
+  from: base:abortion_access
+  to: base:fertility
+  strength: -0.1
+  delay: {type: lag, turns: 4}
+- id: base:unemployment_to_fertility
+  from: base:unemployment
+  to: base:fertility
+  strength: -0.02
+  delay: {type: smooth, turns: 8}
+- id: base:fertility_to_fertility
+  from: base:fertility
+  to: base:fertility
+  strength: -0.05
+  delay: {type: lag, turns: 1}
+- id: base:health_to_life_expectancy
+  from: base:health
+  to: base:life_expectancy
+  strength: 0.5
+  delay: {type: smooth, turns: 12}
+- id: base:environment_to_life_expectancy
+  from: base:environment
+  to: base:life_expectancy
+  strength: 0.15
+  delay: {type: smooth, turns: 12}
+- id: base:life_expectancy_to_life_expectancy
+  from: base:life_expectancy
+  to: base:life_expectancy
+  strength: -0.5
+  delay: {type: lag, turns: 1}
+- id: base:migration_to_net_migration
+  from: base:migration
+  to: base:net_migration
+  strength: 4.0
+  delay: {type: lag, turns: 2}
+- id: base:asylum_policy_to_net_migration
+  from: base:asylum_policy
+  to: base:net_migration
+  strength: 1.5
+  delay: {type: lag, turns: 2}
+- id: base:citizenship_rules_to_net_migration
+  from: base:citizenship_rules
+  to: base:net_migration
+  strength: 1.0
+  delay: {type: lag, turns: 4}
+- id: base:real_growth_to_net_migration
+  from: base:real_growth
+  to: base:net_migration
+  strength: 0.2
+  delay: {type: smooth, turns: 4}
+- id: base:unemployment_to_net_migration
+  from: base:unemployment
+  to: base:net_migration
+  strength: -0.1
+  delay: {type: smooth, turns: 4}
+- id: base:net_migration_to_net_migration
+  from: base:net_migration
+  to: base:net_migration
+  strength: -0.5
+  delay: {type: lag, turns: 1}
+- id: base:real_growth_to_mobility_up
+  from: base:real_growth
+  to: base:mobility_up
+  strength: 0.2
+  delay: {type: smooth, turns: 4}
+- id: base:unemployment_to_mobility_up
+  from: base:unemployment
+  to: base:mobility_up
+  strength: -0.25
+  delay: {type: smooth, turns: 4}
+- id: base:education_level_to_mobility_up
+  from: base:education_level
+  to: base:mobility_up
+  strength: 0.3
+  delay: {type: smooth, turns: 8}
+- id: base:inequality_to_mobility_up
+  from: base:inequality
+  to: base:mobility_up
+  strength: -0.3
+  delay: {type: smooth, turns: 8}
+- id: base:minimum_wage_to_mobility_up
+  from: base:minimum_wage
+  to: base:mobility_up
+  strength: 0.4
+  delay: {type: lag, turns: 4}
+- id: base:vocational_training_to_mobility_up
+  from: base:vocational_training
+  to: base:mobility_up
+  strength: 0.5
+  delay: {type: lag, turns: 8}
+- id: base:startup_support_to_mobility_up
+  from: base:startup_support
+  to: base:mobility_up
+  strength: 0.4
+  delay: {type: lag, turns: 8}
+- id: base:scholarships_to_mobility_up
+  from: base:scholarships
+  to: base:mobility_up
+  strength: 0.5
+  delay: {type: lag, turns: 8}
+- id: base:active_labour_policy_to_mobility_up
+  from: base:active_labour_policy
+  to: base:mobility_up
+  strength: 0.4
+  delay: {type: lag, turns: 4}
+- id: base:mobility_up_to_mobility_up
+  from: base:mobility_up
+  to: base:mobility_up
+  strength: -0.5
+  delay: {type: lag, turns: 1}
+- id: base:unemployment_to_mobility_down
+  from: base:unemployment
+  to: base:mobility_down
+  strength: 0.3
+  delay: {type: smooth, turns: 4}
+- id: base:real_growth_to_mobility_down
+  from: base:real_growth
+  to: base:mobility_down
+  strength: -0.15
+  delay: {type: smooth, turns: 4}
+- id: base:inequality_to_mobility_down
+  from: base:inequality
+  to: base:mobility_down
+  strength: 0.2
+  delay: {type: smooth, turns: 8}
+- id: base:inflation_to_mobility_down
+  from: base:inflation
+  to: base:mobility_down
+  strength: 0.1
+  delay: {type: smooth, turns: 4}
+- id: base:social_benefits_to_mobility_down
+  from: base:social_benefits
+  to: base:mobility_down
+  strength: -0.4
+  delay: {type: lag, turns: 4}
+- id: base:mobility_down_to_mobility_down
+  from: base:mobility_down
+  to: base:mobility_down
+  strength: -0.5
+  delay: {type: lag, turns: 1}
+- id: base:rural_development_to_urban_share
+  from: base:rural_development
+  to: base:urban_share
+  strength: -0.004
+  delay: {type: lag, turns: 8}
+- id: base:regional_funds_to_urban_share
+  from: base:regional_funds
+  to: base:urban_share
+  strength: -0.003
+  delay: {type: lag, turns: 8}
+- id: base:agriculture_subsidies_to_urban_share
+  from: base:agriculture_subsidies
+  to: base:urban_share
+  strength: -0.003
+  delay: {type: lag, turns: 8}
+- id: base:public_transport_to_urban_share
+  from: base:public_transport
+  to: base:urban_share
+  strength: 0.002
+  delay: {type: lag, turns: 8}
+- id: base:zoning_planning_to_urban_share
+  from: base:zoning_planning
+  to: base:urban_share
+  strength: 0.006
+  delay: {type: lag, turns: 8}
+- id: base:public_housing_to_urban_share
+  from: base:public_housing
+  to: base:urban_share
+  strength: 0.003
+  delay: {type: lag, turns: 8}
+- id: base:rail_network_to_urban_share
+  from: base:rail_network
+  to: base:urban_share
+  strength: 0.002
+  delay: {type: lag, turns: 8}
+- id: base:urban_share_to_urban_share
+  from: base:urban_share
+  to: base:urban_share
+  strength: -0.002
+  delay: {type: lag, turns: 1}
+- id: base:pension_funded_share_to_inequality
+  from: base:pension_funded_share
+  to: base:inequality
+  strength: -0.8
+  delay: {type: smooth, turns: 8}

@@ -7,15 +7,20 @@ public sealed record PackManifest(
 
 /// <summary>A simulated quantity in real units. Owner is null or the id of the economy model that steps it.</summary>
 public sealed record ValueDef(
-    string Id, string Unit, double Initial, double Reference, double Scale, string? Owner, string Source);
+    string Id, string Unit, double Initial, double Reference, double Scale, string? Owner, string Source, bool Hidden = false, double? Floor = null);
 
 /// <summary>A player-controlled lever. AxisX/AxisY (-1..1) say how raising it moves a party on the compass: economic left (-) to right (+), social liberal (-) to authoritarian (+). Min/Max bound the lever, not any simulated value. Unit "tax_rate" needs BaseShare (the share of GDP the tax is levied on): the parameter is revenue as percent of GDP, shown to players as the rate on that base; unit "nominal_spending" shows the parameter (percent of GDP) as a yearly amount of money. CapitalCost (0..10, default 1) weighs how much political capital a change of the lever costs (see Politics.PolicyCost).</summary>
 public sealed record PolicyDef(
     string Id, string Unit, double Min, double Max, double Default,
     string? CostValueId, double CostPerUnit, int DelayTurns, string? RevenueBaseValueId, string Source,
-    double AxisX = 0.0, double AxisY = 0.0, double BaseShare = 0.0, double CapitalCost = 1.0);
+    double AxisX = 0.0, double AxisY = 0.0, double BaseShare = 0.0, double CapitalCost = 1.0,
+    bool StartActive = true, bool Abolishable = true, double? IntroValue = null, string? CostDriver = null);
 
-public enum EdgeKind { Additive, Relative }
+/// <summary>
+/// Additive: a rate in value units per year. Relative: a growth rate in percent per year. Level (decision 0021): a one-off shift of the target's
+/// LEVEL, in percent, that the edge's delay spreads out; it ends when the source stops moving (a tax raises the price level once, then inflation settles).
+/// </summary>
+public enum EdgeKind { Additive, Relative, Level }
 
 public sealed record FnDef(string Type, double P, double Scale, double At, double Width);
 
@@ -31,7 +36,13 @@ public sealed record VoterGroupDef(
     IReadOnlyDictionary<string, double> PolicyPrefs,
     IReadOnlyDictionary<string, double> PolicyWeights,
     string Source,
-    IReadOnlyDictionary<string, double>? LevelWeights = null);
+    IReadOnlyDictionary<string, double>? LevelWeights = null,
+    string? SizeValue = null, double SizeFactor = 1.0, double SizeOffset = 0.0)
+{
+    /// <summary>The group's share of the voters now: the value it follows (times a factor, plus an offset) when the pack names one, else the fixed size.</summary>
+    public double SizeNow(IReadOnlyDictionary<string, double>? values) =>
+        SizeValue != null && values != null && values.TryGetValue(SizeValue, out var v) && double.IsFinite(v) ? Math.Max(0.0, SizeOffset + SizeFactor * v) : Size;
+}
 
 public sealed record EffectDef(string ValueId, double Delta);
 

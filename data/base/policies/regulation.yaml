@@ -1,5 +1,6 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:environment_regulation
+  abolishable: false
   unit: index
   min: 0
   max: 10
@@ -8,6 +9,7 @@
   axis_x: -0.4
   axis_y: -0.3
 - id: base:migration
+  abolishable: false
   capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
@@ -55,6 +57,7 @@
   delay_turns: 2
   axis_x: 0.5
 - id: base:retirement_age
+  abolishable: false
   capital_cost: 2.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 60
@@ -63,6 +66,7 @@
   delay_turns: 4
   axis_x: 0.5
 - id: base:energy_mix
+  abolishable: false
   capital_cost: 1.25   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
@@ -72,6 +76,7 @@
   axis_x: -0.2
   axis_y: -0.3
 - id: base:business_regulation
+  abolishable: false
   unit: index
   min: 0
   max: 10

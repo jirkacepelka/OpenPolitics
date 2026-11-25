@@ -1,6 +1,7 @@
 # ILLUSTRATIVE and FICTIONAL parties. Any resemblance to real parties is unintended; positions are invented for play.
 - id: base:citizens_movement
   platform:
+    base:pension_subsidy: {target: 0.2, weight: 0.2}
     base:competition_policy: {target: 7, weight: 0.4}
     base:anti_corruption: {target: 9, weight: 0.6}
     base:startup_support: {target: 0.9, weight: 0.3}
@@ -25,7 +26,7 @@
     base:social_benefits: {target: 7, weight: 0.2}
     base:wealth_tax: {target: 0, weight: 0.2}
     base:property_tax: {target: 0, weight: 0.2}
-  affinity: {base:low_income: 0.10, base:middle_class: 0.20, base:high_income: 0.30, base:pensioners: 0.20, base:young_urban: -0.10, base:rural_conservatives: 0.20}
+  affinity: {base:low_income: 0.10, base:middle_class: 0.20, base:high_income: 0.30, base:pensioners: 0.20, base:young_urban: -0.10, base:rural_conservatives: 0.20, base:working_class: 0.05, base:upper_middle: 0.25, base:families: 0.1, base:urban: 0.1, base:unemployed: -0.15, base:entrepreneurs: 0.3, base:public_sector: -0.15}
   price: 4
   demands:
     - {id: low_corporate_tax, kind: policy, policy: base:corporate_tax, op: "<=", target: 4, weight: 3, due_turns: 8}
@@ -45,6 +46,7 @@
     - {id: populists, weight: 0.4, platform: {base:pensions: 11, base:social_benefits: 9}}
 - id: base:social_alliance
   platform:
+    base:pension_subsidy: {target: 0.3, weight: 0.2}
     base:union_rights: {target: 7, weight: 0.5}
     base:paid_leave: {target: 6, weight: 0.3}
     base:public_housing: {target: 1.2, weight: 0.3}
@@ -71,7 +73,7 @@
     base:culture_sport: {target: 0.4, weight: 0.2}
     base:environment_regulation: {target: 5, weight: 0.2}
     base:research: {target: 1.5, weight: 0.2}
-  affinity: {base:low_income: 0.30, base:middle_class: 0.05, base:high_income: -0.30, base:pensioners: 0.25, base:young_urban: 0.00, base:rural_conservatives: -0.05}
+  affinity: {base:low_income: 0.30, base:middle_class: 0.05, base:high_income: -0.30, base:pensioners: 0.25, base:young_urban: 0.00, base:rural_conservatives: -0.05, base:working_class: 0.3, base:upper_middle: -0.05, base:families: 0.1, base:urban: 0.0, base:unemployed: 0.15, base:entrepreneurs: -0.2, base:public_sector: 0.2}
   price: 5
   demands:
     - {id: pensions, kind: policy, policy: base:pensions, op: ">=", target: 10, weight: 3, due_turns: 8}
@@ -92,8 +94,8 @@
     - {id: reformers, weight: 0.5, platform: {base:education_spending: 6, base:research: 2}}
 - id: base:civic_right
   platform:
-    base:strike_rules: {target: 7, weight: 0.4}
-    base:working_week_hours: {target: 42, weight: 0.3}
+    base:pension_tax_relief: {target: 0.3, weight: 0.3}
+    base:mandatory_pension_pillar: {target: 1.0, weight: 0.3}
     base:gun_laws: {target: 3, weight: 0.3}
     base:bank_levy: {target: 0, weight: 0.3}
     base:competition_policy: {target: 6, weight: 0.3}
@@ -118,7 +120,7 @@
     base:transaction_tax: {target: 0, weight: 0.2}
     base:migration: {target: 3, weight: 0.2}
     base:infrastructure: {target: 4, weight: 0.2}
-  affinity: {base:low_income: -0.25, base:middle_class: 0.15, base:high_income: 0.35, base:pensioners: 0.00, base:young_urban: 0.05, base:rural_conservatives: 0.10}
+  affinity: {base:low_income: -0.25, base:middle_class: 0.15, base:high_income: 0.35, base:pensioners: 0.00, base:young_urban: 0.05, base:rural_conservatives: 0.10, base:working_class: -0.1, base:upper_middle: 0.3, base:families: 0.1, base:urban: 0.05, base:unemployed: -0.25, base:entrepreneurs: 0.35, base:public_sector: -0.3}
   price: 4
   demands:
     - {id: income_tax_cut, kind: policy, policy: base:income_tax, op: "<=", target: 21, weight: 3, due_turns: 8}
@@ -139,7 +141,6 @@
 - id: base:peoples_union
   platform:
     base:agriculture_subsidies: {target: 1, weight: 0.5}
-    base:religious_education: {target: 5, weight: 0.4}
     base:abortion_access: {target: 3, weight: 0.4}
     base:same_sex_unions: {target: 2, weight: 0.3}
     base:regional_funds: {target: 0.8, weight: 0.3}
@@ -163,7 +164,7 @@
     base:defence: {target: 0.8, weight: 0.2}
     base:energy_mix: {target: 3, weight: 0.2}
     base:childcare: {target: 0.5, weight: 0.2}
-  affinity: {base:low_income: 0.05, base:middle_class: 0.00, base:high_income: -0.10, base:pensioners: 0.30, base:young_urban: -0.25, base:rural_conservatives: 0.30}
+  affinity: {base:low_income: 0.05, base:middle_class: 0.00, base:high_income: -0.10, base:pensioners: 0.30, base:young_urban: -0.25, base:rural_conservatives: 0.30, base:working_class: 0.15, base:upper_middle: -0.05, base:families: 0.3, base:urban: -0.25, base:unemployed: 0.0, base:entrepreneurs: -0.05, base:public_sector: 0.0}
   price: 3
   demands:
     - {id: pensions, kind: policy, policy: base:pensions, op: ">=", target: 10, weight: 3, due_turns: 8}
@@ -184,6 +185,7 @@
     - {id: traditionalists, weight: 0.5, platform: {base:migration: 1}}
 - id: base:workers_left
   platform:
+    base:mandatory_pension_pillar: {target: 0, weight: 0.4}
     base:union_rights: {target: 8, weight: 0.6}
     base:windfall_tax: {target: 0.3, weight: 0.4}
     base:public_housing: {target: 1.5, weight: 0.4}
@@ -212,7 +214,7 @@
     base:property_tax: {target: 1, weight: 0.3}
     base:business_regulation: {target: 7, weight: 0.3}
     base:defence: {target: 0, weight: 0.2}
-  affinity: {base:low_income: 0.35, base:middle_class: -0.10, base:high_income: -0.40, base:pensioners: 0.10, base:young_urban: 0.10, base:rural_conservatives: -0.20}
+  affinity: {base:low_income: 0.35, base:middle_class: -0.10, base:high_income: -0.40, base:pensioners: 0.10, base:young_urban: 0.10, base:rural_conservatives: -0.20, base:working_class: 0.35, base:upper_middle: -0.25, base:families: 0.0, base:urban: -0.05, base:unemployed: 0.35, base:entrepreneurs: -0.35, base:public_sector: 0.15}
   price: 6
   demands:
     - {id: corporate_tax_up, kind: policy, policy: base:corporate_tax, op: ">=", target: 6, weight: 3, due_turns: 8}
@@ -260,7 +262,7 @@
     base:retirement_age: {target: 62, weight: 0.3}
     base:culture_sport: {target: 0.5, weight: 0.2}
     base:electoral_threshold: {target: 4, weight: 0.2}
-  affinity: {base:low_income: 0.10, base:middle_class: -0.05, base:high_income: -0.25, base:pensioners: 0.10, base:young_urban: -0.45, base:rural_conservatives: 0.45}
+  affinity: {base:low_income: 0.10, base:middle_class: -0.05, base:high_income: -0.25, base:pensioners: 0.10, base:young_urban: -0.45, base:rural_conservatives: 0.45, base:working_class: 0.25, base:upper_middle: -0.2, base:families: 0.15, base:urban: -0.35, base:unemployed: 0.1, base:entrepreneurs: -0.1, base:public_sector: -0.1}
   price: 5
   demands:
     - {id: closed_borders, kind: policy, policy: base:migration, op: "<=", target: 1.5, weight: 3, due_turns: 8}
@@ -307,7 +309,7 @@
     base:defence: {target: 0.3, weight: 0.2}
     base:business_regulation: {target: 6, weight: 0.3}
     base:electoral_method: {target: 1, weight: 0.3}
-  affinity: {base:low_income: 0.00, base:middle_class: 0.05, base:high_income: -0.15, base:pensioners: -0.30, base:young_urban: 0.55, base:rural_conservatives: -0.45}
+  affinity: {base:low_income: 0.00, base:middle_class: 0.05, base:high_income: -0.15, base:pensioners: -0.30, base:young_urban: 0.55, base:rural_conservatives: -0.45, base:working_class: -0.15, base:upper_middle: 0.05, base:families: 0.0, base:urban: 0.35, base:unemployed: -0.05, base:entrepreneurs: -0.05, base:public_sector: 0.15}
   price: 5
   demands:
     - {id: environment, kind: policy, policy: base:environment_regulation, op: ">=", target: 6, weight: 3, due_turns: 8}
@@ -358,7 +360,7 @@
     base:culture_sport: {target: 0.5, weight: 0.2}
     base:labour_flexibility: {target: 6, weight: 0.2}
     base:transaction_tax: {target: 0, weight: 0.2}
-  affinity: {base:low_income: -0.10, base:middle_class: 0.15, base:high_income: 0.10, base:pensioners: -0.40, base:young_urban: 0.55, base:rural_conservatives: -0.30}
+  affinity: {base:low_income: -0.10, base:middle_class: 0.15, base:high_income: 0.10, base:pensioners: -0.40, base:young_urban: 0.55, base:rural_conservatives: -0.30, base:working_class: -0.2, base:upper_middle: 0.15, base:families: -0.15, base:urban: 0.4, base:unemployed: -0.1, base:entrepreneurs: 0.2, base:public_sector: -0.05}
   price: 3
   demands:
     - {id: research, kind: policy, policy: base:research, op: ">=", target: 2, weight: 3, due_turns: 8}

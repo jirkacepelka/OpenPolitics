@@ -42,6 +42,14 @@ public sealed class SupportModel
                 _distance[g, p] = Distance(_groups[g], _parties[p], _range);
     }
 
+    /// <summary>Takes the groups' current sizes (the groups themselves and their preferences are the same).</summary>
+    public void UpdateGroups(IReadOnlyList<VoterGroupDef> groups)
+    {
+        var byId = groups.ToDictionary(g => g.Id, StringComparer.Ordinal);
+        for (int i = 0; i < _groups.Count; i++)
+            if (byId.TryGetValue(_groups[i].Id, out var live)) _groups[i] = live;
+    }
+
     /// <summary>Replaces a party's definition (its platform changed) and recomputes how far each group is from it.</summary>
     public void UpdateParty(PartyDef party)
     {

@@ -1,5 +1,7 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:pensions
+  abolishable: false
+  cost_driver: base:pension_burden
   capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 4
@@ -10,6 +12,8 @@
   axis_x: -0.6
   axis_y: 0.2
 - id: base:health_spending
+  abolishable: false
+  cost_driver: base:share_pensioners
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 3
@@ -19,6 +23,8 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.6
 - id: base:education_spending
+  abolishable: false
+  cost_driver: base:student_load
   capital_cost: 1.25   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 2
@@ -29,6 +35,7 @@
   axis_x: -0.3
   axis_y: -0.3
 - id: base:police
+  abolishable: false
   unit: nominal_spending
   min: 0.5
   max: 4
@@ -37,6 +44,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: 1
 - id: base:research
+  abolishable: false
   unit: nominal_spending
   min: 0
   max: 4
@@ -45,6 +53,8 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: -0.4
 - id: base:social_benefits
+  abolishable: false
+  cost_driver: base:poverty_load
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 3
@@ -54,6 +64,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -1
 - id: base:infrastructure
+  abolishable: false
   unit: nominal_spending
   min: 1
   max: 8
@@ -62,6 +73,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.2
 - id: base:administration
+  abolishable: false
   capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: nominal_spending
   min: 3

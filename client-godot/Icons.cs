@@ -9,7 +9,7 @@ public enum IconKind
     Bolt, Eye, Hand, Health, Education, Shield, Flask, Road, Columns, Alert, Scale, ChartUp, Gear, Users, Bank, CoinIn, CoinOut, Gauge,
     Chart, Close, Map, Grid, Check, Plus, Minus, Fit, Undo, SortAz, SortSize, Smile, Back, Search, Calendar,
     Cloud, Sun, Tree, Chimney, Cart, Gavel, Bricks, Contract, Pie, HousePercent, Diamond, Banknote, Bottle, Threshold, Elder, Pram,
-    Inheritance, Sugar, BankLevy, Windfall, Vehicle, ElderCare, Disability, Vocational, SchoolMeals, Scholarship, Rail, Flood, Nuclear, Cyber, Justice, Prison, Border, Startup, Pin, Heart, Gun, Lock, Chat, Venus, Rings, Candle, Cigarette, Wine, Syringe, Pencil, Cross, Umbrella, Fist, Stop, Podium, Clipboard, NoCoin, Quill, Passport, Door, Crane, Dna, Block, Scroll, Ladder, Monitor, Tractor,
+    Inheritance, Sugar, BankLevy, Windfall, Vehicle, ElderCare, Disability, Vocational, SchoolMeals, Scholarship, Rail, Flood, Nuclear, Cyber, Justice, Prison, Border, Startup, Pin, Heart, Gun, Lock, Chat, Venus, Rings, Candle, Cigarette, Wine, Syringe, Pencil, Cross, Umbrella, Fist, Stop, Podium, Clipboard, NoCoin, Quill, Passport, Door, Crane, Dna, Block, Scroll, Ladder, Monitor, Tractor, Piggy, Safe,
 }
 
 /// <summary>
@@ -45,6 +45,7 @@ public static class Icons
         ["startup_support"] = IconKind.Startup,
         ["agriculture_subsidies"] = IconKind.Tractor,
         ["electoral_system"] = IconKind.Grid,
+        ["pension_subsidy"] = IconKind.CoinIn, ["pension_tax_relief"] = IconKind.Piggy, ["mandatory_pension_pillar"] = IconKind.Safe,
         ["regional_funds"] = IconKind.Pin,
         ["foreign_aid"] = IconKind.Heart,
         ["public_housing"] = IconKind.Block,
@@ -365,6 +366,8 @@ public static class Icons
             case IconKind.Scroll: Box(-7, -8, 14, 16); L(-4, -4, 4, -4); L(-4, 0, 4, 0); Dot(3, 5, 2); break;
             case IconKind.Ladder: L(-4, -10, -4, 10); L(4, -10, 4, 10); foreach (float y in new[] { -6f, -1f, 4f, 9f }) L(-4, y, 4, y); break;
             case IconKind.Tractor: Poly(-9, 0, -3, 0, -3, -8, 2, -8, 2, -2, 10, -2, 10, 3); Ring(-5, 5, 4); Ring(7, 6, 2.6f); L(-9, 0, -9, 5); break;
+            case IconKind.Piggy: Ring(-1, 1, 7); Dot(3.5f, -1, 1.1f); L(-3, -6, 1, -6); Poly(-5, 7, -5, 10); Poly(3, 7, 3, 10); Poly(7, 1, 11, 0); break;
+            case IconKind.Safe: Box(-9, -8, 18, 16); Box(-6, -5, 12, 10); Ring(0, 0, 2.5f); L(-5, 8, -5, 10); L(5, 8, 5, 10); break;
             case IconKind.Monitor: Box(-10, -8, 20, 13); L(-4, 10, 4, 10); L(0, 5, 0, 10); L(-6, -3, 6, -3); break;
         }
     }

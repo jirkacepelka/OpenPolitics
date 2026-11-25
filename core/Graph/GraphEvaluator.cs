@@ -4,9 +4,10 @@ namespace OpenPolitics.Core.Graph;
 
 /// <summary>
 /// Net influence on a target. Additive is in value units per year. Relative is a growth rate as a FRACTION per year
-/// (edge strengths of relative edges are written in percent per year and divided by 100 here).
+/// (edge strengths of relative edges are written in percent per year and divided by 100 here). Level is a one-off shift of the target's level as
+/// a FRACTION, due this turn only (decision 0021): the change of the edge's delayed influence times its strength in percent / 100.
 /// </summary>
-public readonly record struct Rate(double Additive, double Relative);
+public readonly record struct Rate(double Additive, double Relative, double Level = 0.0);
 
 /// <summary>One edge's share of a target's change, in the edge's own units (units/year or percent/year).</summary>
 public readonly record struct Contribution(string EdgeId, string FromId, double Amount);
@@ -27,6 +28,9 @@ public sealed class GraphEvaluator
         public DelayLine Line { get; } = line;
         public double Reference { get; } = reference;
         public double Scale { get; } = scale;
+        /// <summary>The delayed influence of the last turn (level edges move the target by its change).</summary>
+        public double Last { get; set; }
+        public bool Started { get; set; }
     }
 
     private readonly List<Runtime> _edges;
@@ -48,6 +52,7 @@ public sealed class GraphEvaluator
     {
         var add = new SortedDictionary<string, double>(StringComparer.Ordinal);
         var rel = new SortedDictionary<string, double>(StringComparer.Ordinal);
+        var lvl = new SortedDictionary<string, double>(StringComparer.Ordinal);
         var contribs = new SortedDictionary<string, List<Contribution>>(StringComparer.Ordinal);
 
         foreach (var e in _edges)
@@ -56,20 +61,30 @@ public sealed class GraphEvaluator
                 : policyParams.TryGetValue(e.Def.From, out var px) ? px
                 : e.Reference; // unknown source: no influence
             double f = EdgeFunctions.Apply(e.Def.Fn, x, e.Reference, e.Scale);
-            double amount = e.Line.Push(f) * e.Def.Strength;
+            double output = e.Line.Push(f);
+            double amount = output * e.Def.Strength;
 
             string to = e.Def.To;
             if (e.Def.Kind == EdgeKind.Additive) add[to] = add.GetValueOrDefault(to) + amount;
-            else rel[to] = rel.GetValueOrDefault(to) + amount / 100.0;
+            else if (e.Def.Kind == EdgeKind.Relative) rel[to] = rel.GetValueOrDefault(to) + amount / 100.0;
+            else
+            {
+                // a level edge shifts the target by the CHANGE of its influence, once: the policy's whole effect arrives as the delay lets it through
+                double delta = e.Started ? output - e.Last : 0.0;
+                e.Last = output; e.Started = true;
+                lvl[to] = lvl.GetValueOrDefault(to) + delta * e.Def.Strength / 100.0;
+                amount = delta * e.Def.Strength;
+            }
             if (!add.ContainsKey(to)) add[to] = 0;
             if (!rel.ContainsKey(to)) rel[to] = 0;
+            if (!lvl.ContainsKey(to)) lvl[to] = 0;
 
             if (!contribs.TryGetValue(to, out var list)) contribs[to] = list = new List<Contribution>();
             list.Add(new Contribution(e.Def.Id, e.Def.From, amount));
         }
 
         var rates = new SortedDictionary<string, Rate>(StringComparer.Ordinal);
-        foreach (var to in add.Keys) rates[to] = new Rate(add[to], rel[to]);
+        foreach (var to in add.Keys) rates[to] = new Rate(add[to], rel[to], lvl[to]);
         return new EdgeEvaluation(rates,
             contribs.ToDictionary(kv => kv.Key, kv => (IReadOnlyList<Contribution>)kv.Value));
     }

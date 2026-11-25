@@ -38,6 +38,7 @@
   delay_turns: 2
   axis_y: -1
 - id: base:euthanasia
+  start_active: false
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: index
   min: 0
@@ -68,26 +69,12 @@
   delay_turns: 2
   axis_y: 0.5
 - id: base:curriculum_reform
+  start_active: false
   unit: index
   min: 0
   max: 10
   default: 5
   delay_turns: 3
-- id: base:religious_education
-  unit: index
-  min: 0
-  max: 10
-  default: 2
-  delay_turns: 1
-  axis_y: 0.7
-- id: base:working_week_hours
-  capital_cost: 1.5   # political capital weight of a change (decision 0013)
-  unit: index
-  min: 35
-  max: 48
-  default: 40
-  delay_turns: 2
-  axis_x: 0.5
 - id: base:paid_leave
   unit: index
   min: 0
@@ -103,14 +90,6 @@
   default: 5
   delay_turns: 2
   axis_x: -0.8
-- id: base:strike_rules
-  capital_cost: 1.5   # political capital weight of a change (decision 0013)
-  unit: index
-  min: 0
-  max: 10
-  default: 5
-  delay_turns: 1
-  axis_x: 0.7
 - id: base:foreign_investment_screening
   unit: index
   min: 0

@@ -56,7 +56,7 @@ public partial class WorldMap : Control
     public void Setup(Session s)
     {
         _s = s;
-        string key = $"{s.Packs.Values.Count}/{s.Packs.Policies.Count}/{s.Packs.Edges.Count}/{s.ScenarioId}";
+        string key = $"{s.Packs.Values.Count}/{s.Packs.Policies.Count}/{s.Packs.Edges.Count}/{s.ScenarioId}/{string.Join(",", s.Game.ActivePolicies)}";
         if (key != _packKey) { _packKey = key; BuildNodes(); _laidOut = new Vector2(-1, -1); }
         QueueRedraw();
     }
@@ -74,12 +74,12 @@ public partial class WorldMap : Control
         foreach (var e in s.Packs.Edges) { degree[e.From] = degree.GetValueOrDefault(e.From) + 1; degree[e.To] = degree.GetValueOrDefault(e.To) + 1; }
         int maxDeg = Math.Max(1, degree.Values.DefaultIfEmpty(1).Max());
         var groupOfPolicy = s.Packs.Policies.ToDictionary(p => p.Id, GroupOf, StringComparer.Ordinal);
-        foreach (var p in s.Packs.Policies.OrderBy(p => p.Id, StringComparer.Ordinal))
+        foreach (var p in s.Packs.Policies.Where(p => s.Game.IsActive(p.Id)).OrderBy(p => p.Id, StringComparer.Ordinal)) // only the laws in force (decision 0021)
         {
             float imp = (float)Math.Sqrt(degree.GetValueOrDefault(p.Id) / (double)maxDeg);
             Add(new Node { Id = p.Id, Policy = true, Group = GroupOf(p), Weight = 0.78f + 0.5f * imp, Icon = Icons.For(p.Id) });
         }
-        foreach (var v in s.Packs.Values.OrderBy(v => v.Id, StringComparer.Ordinal))
+        foreach (var v in s.Packs.Values.Where(v => !v.Hidden).OrderBy(v => v.Id, StringComparer.Ordinal))
         {
             // decision 0015: one bubble per quantity - the debt bubble already shows the debt as a share of GDP, so its ratio twin is not drawn
             if (v.Id == "base:debt_pct" && s.Packs.Values.Any(x => x.Id == "base:debt")) continue;
@@ -303,7 +303,7 @@ public partial class WorldMap : Control
                 DrawEdge(a, b, new Color(e.Strength >= 0 ? AppTheme.Good : AppTheme.Bad, _focusT), Math.Abs(e.Strength));
             }
 
-        var group = LensGroup == null ? null : s.Packs.VoterGroups.FirstOrDefault(g => g.Id == LensGroup);
+        var group = LensGroup == null ? null : s.Groups.FirstOrDefault(g => g.Id == LensGroup);
         var pending = s.Game.PendingPolicies.GroupBy(p => p.PolicyId).ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.Ordinal);
         foreach (var n in _nodes.OrderBy(n => n.Id == focus ? 2 : neighbours.Contains(n.Id) ? 1 : 0))
         {

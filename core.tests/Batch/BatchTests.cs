@@ -34,7 +34,7 @@ public class BatchTests
             var a = s.Choose(g1.State, packs, r1);
             var b = s.Choose(g2.State, packs, r2);
             Assert.Equal(a, b);
-            Assert.InRange(a.Count, 0, 2);
+            Assert.InRange(a.Count, 0, 4); // up to two changes, each preceded by bringing the law into force
             foreach (var action in a) Assert.True(g1.Apply(action).Accepted);
             foreach (var action in b) g2.Apply(action);
             g1.EndTurn(); g2.EndTurn();
@@ -46,7 +46,7 @@ public class BatchTests
     {
         var packs = Base;
         var g = Simulation.NewGame(packs, Scenario, 1);
-        var actions = new ExtremeStrategy().Choose(g.State, packs, new Pcg32(1)).Cast<SetPolicy>().ToList();
+        var actions = new ExtremeStrategy().Choose(g.State, packs, new Pcg32(1)).OfType<SetPolicy>().ToList();
         Assert.Equal(packs.Policies.Count, actions.Count);
         foreach (var a in actions)
         {

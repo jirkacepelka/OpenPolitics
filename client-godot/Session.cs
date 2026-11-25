@@ -48,7 +48,10 @@ public sealed class Session
         History.Record();
     }
 
-    public Figures Figures => Figures.From(Country, GdpHistory, Packs.VoterGroups);
+    /// <summary>The voter groups with their sizes now (decision 0021: a group follows the population).</summary>
+    public IReadOnlyList<VoterGroupDef> Groups => Game.Groups;
+
+    public Figures Figures => Figures.From(Country, GdpHistory, Groups);
 
     public static string DefaultPacksDir()
     {

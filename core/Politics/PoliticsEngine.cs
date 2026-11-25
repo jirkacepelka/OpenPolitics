@@ -24,7 +24,7 @@ internal sealed class PoliticsEngine
     private readonly Pcg32 _rng;
     private readonly Func<string, string, double> _lookup; // current value of (kind, subject): "policy" or "value"
     private readonly double _dt;
-    private readonly IReadOnlyList<VoterGroupDef> _groups;
+    private IReadOnlyList<VoterGroupDef> _groups;
     private readonly LoyaltyParams _loyaltyParams = new();
     private readonly SortedDictionary<string, double> _loyalty = new(Ord);
     private readonly HashSet<string> _warned = new(Ord);
@@ -227,6 +227,13 @@ internal sealed class PoliticsEngine
             def = def with { Method = PoliticsLimits.Methods[Math.Clamp(i, 0, PoliticsLimits.Methods.Length - 1)] };
         }
         return def;
+    }
+
+    /// <summary>The voter groups with their sizes now (decision 0021: a group's size follows the population).</summary>
+    public void SetGroups(IReadOnlyList<VoterGroupDef> groups)
+    {
+        _groups = groups;
+        _support.UpdateGroups(groups);
     }
 
     private IElectoralSystem CurrentSystem(IReadOnlyDictionary<string, (double X, double Y)>? extra = null)

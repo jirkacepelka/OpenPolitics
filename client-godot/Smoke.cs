@@ -57,6 +57,9 @@ public static class Smoke
                 main.StartGame("base:cz_2015", 7, "en", "base:peoples_union");
                 await PartnerUltimatumAndCounter(main, screenshots);
             }
+            // decision 0021: a law that is not in force is brought in from the Laws tab and repealed from its own dialog
+            main.StartGame("base:cz_2015_sandbox", 5, "en");
+            await LawsFlow(main, screenshots);
             // decision 0020: a random start plays like any other, whoever governs and whatever the party's role
             foreach (ulong seed in new ulong[] { 21, 22, 23 })
             {
@@ -181,6 +184,33 @@ public static class Smoke
         var shared = main.Packs!.Policies.Select(p => p.Id).GroupBy(Icons.For).Where(g => g.Count() > 1).Select(g => $"{g.Key}: {string.Join(", ", g)}").ToList();
         if (shared.Count > 0) GD.Print("smoke: note: laws sharing an icon: " + string.Join(" | ", shared));
         if (main.Packs.Policies.Any(p => Icons.For(p.Id) == IconKind.Gauge)) GD.Print("smoke: note: a law has the fallback icon");
+    }
+
+    private static async Task LawsFlow(Main main, string? shots)
+    {
+        var s = main.Session!;
+        var t = s.T;
+        var idle = s.Packs.Policies.Where(p => !s.Game.IsActive(p.Id)).ToList();
+        if (idle.Count == 0) throw new Exception("every law is in force at the start");
+        var laws = main.Screens.OfType<LawsScreen>().First();
+        main.Open(laws);
+        await Frames(main, 4);
+        if (shots != null) Shot(main, shots, "laws");
+        var introduce = FindAll<IconTextButton>(main).Where(b => b.Text.StartsWith(t.T("ui.law.introduce"), StringComparison.Ordinal)).ToList();
+        if (introduce.Count != idle.Count) throw new Exception($"{introduce.Count} bring-in buttons for {idle.Count} laws");
+        int before = s.Game.ActivePolicies.Count;
+        introduce[0].EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (s.Game.ActivePolicies.Count != before + 1) throw new Exception("bringing a law in did not put it in force");
+        var inForce = s.Game.ActivePolicies.Except(s.Packs.Policies.Where(p => p.StartActive).Select(p => p.Id)).First();
+        main.OpenDetail("policy", inForce);
+        await Frames(main, 4);
+        var repeal = FindAll<IconTextButton>(main).FirstOrDefault(b => b.Text.StartsWith(t.T("ui.law.abolish"), StringComparison.Ordinal)) ?? throw new Exception("no repeal button");
+        repeal.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (s.Game.IsActive(inForce)) throw new Exception("repealing a law left it in force");
+        main.CloseDialogs();
+        GD.Print($"smoke: laws in force {before}, brought in and repealed {inForce}");
     }
 
     private static async Task AllianceFlow(Main main, string? shots)

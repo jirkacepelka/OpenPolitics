@@ -88,6 +88,9 @@ drawn in code; the only bundled asset is the Inter font.
 - **Programme tab** (party screen): the party's programme is a choice of laws (it starts with the six the party stresses most, at most 30; changes cost no capital), each with a red minus; "Add program" lists the laws
   that are not in it. **Electoral alliance** card (Politics screen): in the last eight quarters before an election choose one or two parties,
   see what each would win and lose (seats alone and together, voters who stay away) and form a joint list with a joint programme.
+- **Laws and population** (decision 0021): the map shows only the laws in force; the **Laws** tab lists the others with "Bring in"; a law's own dialog has "Repeal".
+  The **Population** tab shows the people (age groups, income classes and what moves them) and the private pension funds. Voter groups are 13 and their
+  sizes follow the population.
 - **Settings** (main menu and in-game menu): language (main menu only), window mode and size, interface size, automatic scaling, reduce motion.
 - **Load game**: the saved games, newest first, with scenario, party, the date in the game and when it was saved.
 - Keyboard: Space = End quarter, M = map, 1-6 = the screens, Esc = close / clear the lens, Ctrl+S = quick save, F11 = full screen.

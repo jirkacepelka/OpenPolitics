@@ -59,12 +59,6 @@
   kind: relative
   strength: 0.6
   delay: {type: lag, turns: 4}
-- id: base:migration_to_labour_force
-  from: base:migration
-  to: base:labour_force
-  kind: relative
-  strength: 1.0
-  delay: {type: lag, turns: 2}
 - id: base:pensions_to_labour_force
   from: base:pensions
   to: base:labour_force
@@ -91,7 +85,7 @@
 - id: base:social_benefits_to_unemployment
   from: base:social_benefits
   to: base:unemployment
-  strength: 1.0
+  strength: 1
   delay: {type: lag, turns: 2}
 - id: base:education_level_to_unemployment
   from: base:education_level
@@ -108,13 +102,3 @@
   to: base:unemployment
   strength: 0.5
   delay: {type: lag, turns: 4}
-- id: base:vat_to_inflation
-  from: base:vat
-  to: base:inflation
-  strength: 0.8
-  delay: {type: lag, turns: 1}
-- id: base:infrastructure_to_inflation
-  from: base:infrastructure
-  to: base:inflation
-  strength: 0.2
-  delay: {type: lag, turns: 2}

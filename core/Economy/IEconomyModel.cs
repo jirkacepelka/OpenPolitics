@@ -8,13 +8,14 @@ namespace OpenPolitics.Core.Economy;
 /// </summary>
 public sealed record IndexSetting(string Mode, double BaseGdp, double BasePrice);
 
-/// <summary>Everything an economy model sees for one step.</summary>
+/// <summary>Everything an economy model sees for one step. PriceHistory: the price level of the last year, oldest first (the last entry is the current level).</summary>
 public sealed record EconomyInput(
     IReadOnlyDictionary<string, double> Values,
     IReadOnlyDictionary<string, Rate> EdgeRates,
     IReadOnlyDictionary<string, double> PolicyParams,
     IReadOnlyDictionary<string, double> Parameters,
-    IReadOnlyDictionary<string, IndexSetting>? Indexation = null);
+    IReadOnlyDictionary<string, IndexSetting>? Indexation = null,
+    IReadOnlyList<double>? PriceHistory = null);
 
 /// <summary>
 /// Steps the values it owns by one turn of <c>dt</c> years. Implementations must be deterministic and must not

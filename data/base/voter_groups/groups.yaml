@@ -1,41 +1,99 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:low_income
   size: 0.25
+  size_value: base:class_poor
   weight: 1.0
   value_weights: {base:unemployment: -1.0, base:inequality: -2.0, base:health: 1.0}
-  policy_prefs: {base:social_benefits: 11, base:vat: 10, base:income_tax: 22, base:minimum_wage: 6, base:housing_support: 1, base:rent_control: 5, base:family_allowances: 1, base:excise_taxes: 0.3, base:inheritance_tax: 0.02, base:bank_levy: 0.01, base:windfall_tax: 0.012, base:elderly_care: 0.04, base:disability_support: 0.03, base:vocational_training: 0.03, base:school_meals: 0.02, base:scholarships: 0.02, base:regional_funds: 0.04, base:public_housing: 0.05, base:working_week_hours: 39.74, base:paid_leave: 4.2, base:union_rights: 5.2, base:strike_rules: 4.8, base:anti_corruption: 4.2}
-  policy_weights: {base:social_benefits: 0.6, base:vat: 0.3, base:income_tax: 0.2, base:minimum_wage: 0.105, base:housing_support: 0.052, base:rent_control: 0.052, base:family_allowances: 0.035, base:excise_taxes: 0.03, base:inheritance_tax: 0.03, base:bank_levy: 0.03, base:windfall_tax: 0.03, base:elderly_care: 0.03, base:disability_support: 0.04, base:vocational_training: 0.04, base:school_meals: 0.04, base:scholarships: 0.02, base:regional_funds: 0.03, base:public_housing: 0.05, base:working_week_hours: 0.05, base:paid_leave: 0.05, base:union_rights: 0.05, base:strike_rules: 0.04, base:anti_corruption: 0.04}
+  policy_prefs: {base:social_benefits: 11, base:vat: 10, base:income_tax: 22, base:minimum_wage: 6, base:housing_support: 1, base:rent_control: 5, base:family_allowances: 1, base:excise_taxes: 0.3, base:inheritance_tax: 0.02, base:bank_levy: 0.01, base:windfall_tax: 0.012, base:elderly_care: 0.04, base:disability_support: 0.03, base:vocational_training: 0.03, base:school_meals: 0.02, base:scholarships: 0.02, base:regional_funds: 0.04, base:public_housing: 0.05, base:paid_leave: 4.2, base:union_rights: 5.2, base:anti_corruption: 4.2}
+  policy_weights: {base:social_benefits: 0.6, base:vat: 0.3, base:income_tax: 0.2, base:minimum_wage: 0.105, base:housing_support: 0.052, base:rent_control: 0.052, base:family_allowances: 0.035, base:excise_taxes: 0.03, base:inheritance_tax: 0.03, base:bank_levy: 0.03, base:windfall_tax: 0.03, base:elderly_care: 0.03, base:disability_support: 0.04, base:vocational_training: 0.04, base:school_meals: 0.04, base:scholarships: 0.02, base:regional_funds: 0.03, base:public_housing: 0.05, base:paid_leave: 0.05, base:union_rights: 0.05, base:anti_corruption: 0.04}
 - id: base:middle_class
   size: 0.35
+  size_value: base:class_middle
   weight: 1.0
   value_weights: {base:gdp: 4.0, base:crime: -1.0, base:inequality: -0.5, base:deficit_pct: -0.1}
   level_weights: {base:gdp: 1.0}
-  policy_prefs: {base:income_tax: 22, base:education_spending: 5.5, base:family_allowances: 1, base:childcare: 0.8, base:property_tax: 0.3, base:culture_sport: 0.6, base:inheritance_tax: 0.02, base:mental_health: 0.02, base:school_meals: 0.02, base:flood_protection: 0.03, base:cybersecurity: 0.02, base:justice_system: 0.04, base:prisons_and_rehabilitation: 0.03, base:press_freedom: 6.2, base:curriculum_reform: 5.2, base:working_week_hours: 39.74, base:paid_leave: 4.2, base:competition_policy: 5.2, base:procurement_transparency: 4.2, base:anti_corruption: 4.2, base:judicial_independence: 6.2}
-  policy_weights: {base:income_tax: 0.5, base:education_spending: 0.3, base:family_allowances: 0.035, base:childcare: 0.052, base:property_tax: 0.035, base:culture_sport: 0.03, base:inheritance_tax: 0.03, base:mental_health: 0.03, base:school_meals: 0.03, base:flood_protection: 0.03, base:cybersecurity: 0.02, base:justice_system: 0.03, base:prisons_and_rehabilitation: 0.02, base:press_freedom: 0.03, base:curriculum_reform: 0.03, base:working_week_hours: 0.04, base:paid_leave: 0.04, base:competition_policy: 0.03, base:procurement_transparency: 0.04, base:anti_corruption: 0.06, base:judicial_independence: 0.03}
+  policy_prefs: {base:income_tax: 22, base:education_spending: 5.5, base:family_allowances: 1, base:childcare: 0.8, base:property_tax: 0.3, base:culture_sport: 0.6, base:inheritance_tax: 0.02, base:mental_health: 0.02, base:school_meals: 0.02, base:flood_protection: 0.03, base:cybersecurity: 0.02, base:justice_system: 0.04, base:prisons_and_rehabilitation: 0.03, base:press_freedom: 6.2, base:curriculum_reform: 5.2, base:paid_leave: 4.2, base:competition_policy: 5.2, base:procurement_transparency: 4.2, base:anti_corruption: 4.2, base:judicial_independence: 6.2}
+  policy_weights: {base:income_tax: 0.5, base:education_spending: 0.3, base:family_allowances: 0.035, base:childcare: 0.052, base:property_tax: 0.035, base:culture_sport: 0.03, base:inheritance_tax: 0.03, base:mental_health: 0.03, base:school_meals: 0.03, base:flood_protection: 0.03, base:cybersecurity: 0.02, base:justice_system: 0.03, base:prisons_and_rehabilitation: 0.02, base:press_freedom: 0.03, base:curriculum_reform: 0.03, base:paid_leave: 0.04, base:competition_policy: 0.03, base:procurement_transparency: 0.04, base:anti_corruption: 0.06, base:judicial_independence: 0.03}
 - id: base:high_income
   size: 0.10
+  size_value: base:class_high
   weight: 1.2
   value_weights: {base:gdp: 5.0, base:deficit_pct: -0.1}
   level_weights: {base:gdp: 1.0}
-  policy_prefs: {base:income_tax: 20, base:corporate_tax: 3, base:wealth_tax: 0, base:property_tax: 0.2, base:labour_flexibility: 7, base:business_regulation: 3, base:transaction_tax: 0, base:inheritance_tax: 0, base:digital_services_tax: 0, base:bank_levy: 0, base:windfall_tax: 0, base:nuclear_programme: 0.06, base:cybersecurity: 0.02, base:startup_support: 0.03, base:data_protection: 4.8, base:working_week_hours: 40.26, base:paid_leave: 3.8, base:union_rights: 4.8, base:strike_rules: 5.2, base:foreign_investment_screening: 2.8, base:competition_policy: 4.8, base:procurement_transparency: 4.2, base:judicial_independence: 6.2, base:zoning_planning: 5.2}
-  policy_weights: {base:income_tax: 0.6, base:corporate_tax: 0.4, base:wealth_tax: 0.105, base:property_tax: 0.035, base:labour_flexibility: 0.052, base:business_regulation: 0.07, base:transaction_tax: 0.05, base:inheritance_tax: 0.07, base:digital_services_tax: 0.04, base:bank_levy: 0.05, base:windfall_tax: 0.04, base:nuclear_programme: 0.03, base:cybersecurity: 0.02, base:startup_support: 0.03, base:data_protection: 0.02, base:working_week_hours: 0.03, base:paid_leave: 0.03, base:union_rights: 0.05, base:strike_rules: 0.04, base:foreign_investment_screening: 0.04, base:competition_policy: 0.03, base:procurement_transparency: 0.02, base:judicial_independence: 0.02, base:zoning_planning: 0.03}
+  policy_prefs: {base:income_tax: 20, base:corporate_tax: 3, base:wealth_tax: 0, base:property_tax: 0.2, base:labour_flexibility: 7, base:business_regulation: 3, base:transaction_tax: 0, base:inheritance_tax: 0, base:digital_services_tax: 0, base:bank_levy: 0, base:windfall_tax: 0, base:nuclear_programme: 0.06, base:cybersecurity: 0.02, base:startup_support: 0.03, base:data_protection: 4.8, base:paid_leave: 3.8, base:union_rights: 4.8, base:foreign_investment_screening: 2.8, base:competition_policy: 4.8, base:procurement_transparency: 4.2, base:judicial_independence: 6.2, base:zoning_planning: 5.2}
+  policy_weights: {base:income_tax: 0.6, base:corporate_tax: 0.4, base:wealth_tax: 0.105, base:property_tax: 0.035, base:labour_flexibility: 0.052, base:business_regulation: 0.07, base:transaction_tax: 0.05, base:inheritance_tax: 0.07, base:digital_services_tax: 0.04, base:bank_levy: 0.05, base:windfall_tax: 0.04, base:nuclear_programme: 0.03, base:cybersecurity: 0.02, base:startup_support: 0.03, base:data_protection: 0.02, base:paid_leave: 0.03, base:union_rights: 0.05, base:foreign_investment_screening: 0.04, base:competition_policy: 0.03, base:procurement_transparency: 0.02, base:judicial_independence: 0.02, base:zoning_planning: 0.03}
 - id: base:pensioners
   size: 0.20
+  size_value: base:adult_share_pensioners
   weight: 1.0
   value_weights: {base:health: 2.0, base:inflation: -1.5, base:crime: -1.0}
   level_weights: {base:health: 1.0}
-  policy_prefs: {base:pensions: 11, base:vat: 11, base:retirement_age: 62, base:surveillance: 5, base:elderly_care: 0.04, base:disability_support: 0.03, base:abortion_access: 4.8, base:same_sex_unions: 3.8, base:euthanasia: 1.2, base:smoking_ban: 4.2, base:alcohol_policy: 4.2, base:vaccination_policy: 5.2, base:curriculum_reform: 4.8, base:religious_education: 2.2}
-  policy_weights: {base:pensions: 1.0, base:vat: 0.2, base:retirement_age: 0.14, base:surveillance: 0.035, base:elderly_care: 0.07, base:disability_support: 0.03, base:abortion_access: 0.03, base:same_sex_unions: 0.02, base:euthanasia: 0.03, base:smoking_ban: 0.02, base:alcohol_policy: 0.02, base:vaccination_policy: 0.04, base:curriculum_reform: 0.02, base:religious_education: 0.03}
+  policy_prefs: {base:pensions: 11, base:vat: 11, base:retirement_age: 62, base:surveillance: 5, base:elderly_care: 0.04, base:disability_support: 0.03, base:abortion_access: 4.8, base:same_sex_unions: 3.8, base:euthanasia: 1.2, base:smoking_ban: 4.2, base:alcohol_policy: 4.2, base:vaccination_policy: 5.2, base:curriculum_reform: 4.8}
+  policy_weights: {base:pensions: 1.0, base:vat: 0.2, base:retirement_age: 0.14, base:surveillance: 0.035, base:elderly_care: 0.07, base:disability_support: 0.03, base:abortion_access: 0.03, base:same_sex_unions: 0.02, base:euthanasia: 0.03, base:smoking_ban: 0.02, base:alcohol_policy: 0.02, base:vaccination_policy: 0.04, base:curriculum_reform: 0.02}
 - id: base:young_urban
   size: 0.15
+  size_value: base:adult_share_young
   weight: 1.0
   value_weights: {base:education_level: 2.0, base:environment: 3.0, base:unemployment: -1.0}
-  policy_prefs: {base:environment_regulation: 6, base:migration: 5, base:drug_policy: 6, base:green_subsidies: 1, base:public_transport: 1, base:university_fees: 0, base:surveillance: 1, base:carbon_tax: 1, base:sugar_tax: 0.008, base:digital_services_tax: 0.008, base:vehicle_tax: 0.01, base:mental_health: 0.02, base:scholarships: 0.02, base:rail_network: 0.06, base:prisons_and_rehabilitation: 0.03, base:border_guard: 0, base:startup_support: 0.03, base:agriculture_subsidies: 0.04, base:foreign_aid: 0.02, base:public_housing: 0.05, base:gun_laws: 4.2, base:data_protection: 5.2, base:press_freedom: 6.2, base:abortion_access: 5.2, base:same_sex_unions: 4.2, base:euthanasia: 1.2, base:smoking_ban: 4.2, base:vaccination_policy: 5.2, base:religious_education: 1.8, base:citizenship_rules: 4.2, base:asylum_policy: 4.2, base:zoning_planning: 5.2, base:gmo_policy: 2.8}
-  policy_weights: {base:environment_regulation: 0.5, base:migration: 0.3, base:drug_policy: 0.07, base:green_subsidies: 0.052, base:public_transport: 0.052, base:university_fees: 0.07, base:surveillance: 0.07, base:carbon_tax: 0.035, base:sugar_tax: 0.03, base:digital_services_tax: 0.02, base:vehicle_tax: 0.03, base:mental_health: 0.04, base:scholarships: 0.04, base:rail_network: 0.03, base:prisons_and_rehabilitation: 0.03, base:border_guard: 0.03, base:startup_support: 0.03, base:agriculture_subsidies: 0.02, base:foreign_aid: 0.03, base:public_housing: 0.03, base:gun_laws: 0.04, base:data_protection: 0.05, base:press_freedom: 0.05, base:abortion_access: 0.05, base:same_sex_unions: 0.05, base:euthanasia: 0.03, base:smoking_ban: 0.03, base:vaccination_policy: 0.02, base:religious_education: 0.05, base:citizenship_rules: 0.04, base:asylum_policy: 0.04, base:zoning_planning: 0.03, base:gmo_policy: 0.04}
+  policy_prefs: {base:environment_regulation: 6, base:migration: 5, base:drug_policy: 6, base:green_subsidies: 1, base:public_transport: 1, base:university_fees: 0, base:surveillance: 1, base:carbon_tax: 1, base:sugar_tax: 0.008, base:digital_services_tax: 0.008, base:vehicle_tax: 0.01, base:mental_health: 0.02, base:scholarships: 0.02, base:rail_network: 0.06, base:prisons_and_rehabilitation: 0.03, base:border_guard: 0, base:startup_support: 0.03, base:agriculture_subsidies: 0.04, base:foreign_aid: 0.02, base:public_housing: 0.05, base:gun_laws: 4.2, base:data_protection: 5.2, base:press_freedom: 6.2, base:abortion_access: 5.2, base:same_sex_unions: 4.2, base:euthanasia: 1.2, base:smoking_ban: 4.2, base:vaccination_policy: 5.2, base:citizenship_rules: 4.2, base:asylum_policy: 4.2, base:zoning_planning: 5.2, base:gmo_policy: 2.8}
+  policy_weights: {base:environment_regulation: 0.5, base:migration: 0.3, base:drug_policy: 0.07, base:green_subsidies: 0.052, base:public_transport: 0.052, base:university_fees: 0.07, base:surveillance: 0.07, base:carbon_tax: 0.035, base:sugar_tax: 0.03, base:digital_services_tax: 0.02, base:vehicle_tax: 0.03, base:mental_health: 0.04, base:scholarships: 0.04, base:rail_network: 0.03, base:prisons_and_rehabilitation: 0.03, base:border_guard: 0.03, base:startup_support: 0.03, base:agriculture_subsidies: 0.02, base:foreign_aid: 0.03, base:public_housing: 0.03, base:gun_laws: 0.04, base:data_protection: 0.05, base:press_freedom: 0.05, base:abortion_access: 0.05, base:same_sex_unions: 0.05, base:euthanasia: 0.03, base:smoking_ban: 0.03, base:vaccination_policy: 0.02, base:citizenship_rules: 0.04, base:asylum_policy: 0.04, base:zoning_planning: 0.03, base:gmo_policy: 0.04}
 - id: base:rural_conservatives
   size: 0.15
+  size_value: base:urban_share
+  size_factor: -1
+  size_offset: 1
   weight: 1.0
   value_weights: {base:crime: -2.0, base:gdp: 2.0}
   level_weights: {base:gdp: 0.5}
-  policy_prefs: {base:migration: 1, base:environment_regulation: 3, base:carbon_tax: 0, base:defence: 0.8, base:surveillance: 5, base:drug_policy: 1, base:rural_development: 1, base:sugar_tax: 0, base:vehicle_tax: 0, base:vocational_training: 0.03, base:rail_network: 0.06, base:flood_protection: 0.03, base:nuclear_programme: 0.06, base:justice_system: 0.04, base:border_guard: 0.03, base:agriculture_subsidies: 0.04, base:regional_funds: 0.04, base:foreign_aid: 0, base:gun_laws: 3.8, base:abortion_access: 4.8, base:same_sex_unions: 3.8, base:euthanasia: 1, base:smoking_ban: 3.8, base:alcohol_policy: 3.8, base:vaccination_policy: 4.8, base:religious_education: 2.2, base:foreign_investment_screening: 3.2, base:anti_corruption: 4.2, base:citizenship_rules: 3.8, base:asylum_policy: 3.8, base:zoning_planning: 4.8, base:gmo_policy: 3.2}
-  policy_weights: {base:migration: 0.6, base:environment_regulation: 0.2, base:carbon_tax: 0.087, base:defence: 0.035, base:surveillance: 0.035, base:drug_policy: 0.07, base:rural_development: 0.052, base:sugar_tax: 0.03, base:vehicle_tax: 0.05, base:vocational_training: 0.03, base:rail_network: 0.04, base:flood_protection: 0.04, base:nuclear_programme: 0.03, base:justice_system: 0.04, base:border_guard: 0.04, base:agriculture_subsidies: 0.06, base:regional_funds: 0.04, base:foreign_aid: 0.04, base:gun_laws: 0.06, base:abortion_access: 0.06, base:same_sex_unions: 0.06, base:euthanasia: 0.04, base:smoking_ban: 0.04, base:alcohol_policy: 0.03, base:vaccination_policy: 0.04, base:religious_education: 0.05, base:foreign_investment_screening: 0.04, base:anti_corruption: 0.04, base:citizenship_rules: 0.05, base:asylum_policy: 0.06, base:zoning_planning: 0.02, base:gmo_policy: 0.03}
+  policy_prefs: {base:migration: 1, base:environment_regulation: 3, base:carbon_tax: 0, base:defence: 0.8, base:surveillance: 5, base:drug_policy: 1, base:rural_development: 1, base:sugar_tax: 0, base:vehicle_tax: 0, base:vocational_training: 0.03, base:rail_network: 0.06, base:flood_protection: 0.03, base:nuclear_programme: 0.06, base:justice_system: 0.04, base:border_guard: 0.03, base:agriculture_subsidies: 0.04, base:regional_funds: 0.04, base:foreign_aid: 0, base:gun_laws: 3.8, base:abortion_access: 4.8, base:same_sex_unions: 3.8, base:euthanasia: 1, base:smoking_ban: 3.8, base:alcohol_policy: 3.8, base:vaccination_policy: 4.8, base:foreign_investment_screening: 3.2, base:anti_corruption: 4.2, base:citizenship_rules: 3.8, base:asylum_policy: 3.8, base:zoning_planning: 4.8, base:gmo_policy: 3.2}
+  policy_weights: {base:migration: 0.6, base:environment_regulation: 0.2, base:carbon_tax: 0.087, base:defence: 0.035, base:surveillance: 0.035, base:drug_policy: 0.07, base:rural_development: 0.052, base:sugar_tax: 0.03, base:vehicle_tax: 0.05, base:vocational_training: 0.03, base:rail_network: 0.04, base:flood_protection: 0.04, base:nuclear_programme: 0.03, base:justice_system: 0.04, base:border_guard: 0.04, base:agriculture_subsidies: 0.06, base:regional_funds: 0.04, base:foreign_aid: 0.04, base:gun_laws: 0.06, base:abortion_access: 0.06, base:same_sex_unions: 0.06, base:euthanasia: 0.04, base:smoking_ban: 0.04, base:alcohol_policy: 0.03, base:vaccination_policy: 0.04, base:foreign_investment_screening: 0.04, base:anti_corruption: 0.04, base:citizenship_rules: 0.05, base:asylum_policy: 0.06, base:zoning_planning: 0.02, base:gmo_policy: 0.03}
+- id: base:working_class
+  size: 0.26
+  size_value: base:class_low
+  weight: 1.0
+  value_weights: {base:unemployment: -1.2, base:inflation: -1.0, base:inequality: -0.8, base:health: 0.6}
+  policy_prefs: {base:minimum_wage: 6, base:income_tax: 22, base:vat: 11, base:social_benefits: 9.5, base:union_rights: 5.2, base:paid_leave: 4.2, base:labour_flexibility: 4, base:rent_control: 4}
+  policy_weights: {base:minimum_wage: 0.15, base:income_tax: 0.3, base:vat: 0.3, base:social_benefits: 0.25, base:union_rights: 0.05, base:paid_leave: 0.05, base:labour_flexibility: 0.1, base:rent_control: 0.05}
+- id: base:upper_middle
+  size: 0.18
+  size_value: base:class_upper
+  weight: 1.0
+  value_weights: {base:gdp: 3.0, base:crime: -1.0, base:inflation: -0.8, base:deficit_pct: -0.1}
+  level_weights: {base:gdp: 0.7}
+  policy_prefs: {base:income_tax: 21, base:corporate_tax: 3.5, base:property_tax: 0.05, base:education_spending: 5.5, base:university_fees: 3, base:competition_policy: 5.2, base:anti_corruption: 4.2, base:business_regulation: 4}
+  policy_weights: {base:income_tax: 0.5, base:corporate_tax: 0.1, base:property_tax: 0.03, base:education_spending: 0.15, base:university_fees: 0.05, base:competition_policy: 0.03, base:anti_corruption: 0.05, base:business_regulation: 0.1}
+- id: base:families
+  size: 0.33
+  size_value: base:adult_share_families
+  weight: 1.0
+  value_weights: {base:education_level: 2.0, base:crime: -1.5, base:health: 1.0, base:unemployment: -1.0}
+  policy_prefs: {base:education_spending: 5.5, base:family_allowances: 0.06, base:childcare: 0.04, base:school_meals: 0.02, base:housing_support: 0.06, base:income_tax: 22, base:paid_leave: 4.3, base:vaccination_policy: 5.3}
+  policy_weights: {base:education_spending: 0.4, base:family_allowances: 0.05, base:childcare: 0.06, base:school_meals: 0.03, base:housing_support: 0.03, base:income_tax: 0.2, base:paid_leave: 0.05, base:vaccination_policy: 0.02}
+- id: base:urban
+  size: 0.74
+  size_value: base:urban_share
+  weight: 1.0
+  value_weights: {base:environment: 2.0, base:education_level: 1.0, base:unemployment: -1.0}
+  policy_prefs: {base:public_transport: 0.06, base:environment_regulation: 5, base:drug_policy: 4, base:press_freedom: 6.2, base:zoning_planning: 5.2, base:rail_network: 0.06}
+  policy_weights: {base:public_transport: 0.05, base:environment_regulation: 0.3, base:drug_policy: 0.05, base:press_freedom: 0.04, base:zoning_planning: 0.03, base:rail_network: 0.04}
+- id: base:unemployed
+  size: 0.035
+  size_value: base:unemployment
+  size_factor: 0.007
+  weight: 1.2
+  value_weights: {base:unemployment: -3.0, base:inequality: -0.5}
+  policy_prefs: {base:social_benefits: 10, base:active_labour_policy: 0.04, base:minimum_wage: 4.5, base:vocational_training: 0.03, base:labour_flexibility: 5.5}
+  policy_weights: {base:social_benefits: 0.6, base:active_labour_policy: 0.1, base:minimum_wage: 0.1, base:vocational_training: 0.05, base:labour_flexibility: 0.05}
+- id: base:entrepreneurs
+  size: 0.08
+  weight: 1.0
+  value_weights: {base:gdp: 3.0, base:inflation: -0.5, base:deficit_pct: -0.2}
+  level_weights: {base:gdp: 1.0}
+  policy_prefs: {base:corporate_tax: 3, base:income_tax: 20, base:vat: 11, base:labour_flexibility: 6, base:business_regulation: 3.5, base:startup_support: 0.03, base:competition_policy: 5.2}
+  policy_weights: {base:corporate_tax: 0.4, base:income_tax: 0.4, base:vat: 0.1, base:labour_flexibility: 0.15, base:business_regulation: 0.3, base:startup_support: 0.04, base:competition_policy: 0.05}
+- id: base:public_sector
+  size: 0.12
+  weight: 1.0
+  value_weights: {base:health: 0.5, base:education_level: 0.5, base:unemployment: -0.5}
+  policy_prefs: {base:administration: 5, base:health_spending: 8, base:education_spending: 5.5, base:union_rights: 5.2, base:income_tax: 23}
+  policy_weights: {base:administration: 0.4, base:health_spending: 0.15, base:education_spending: 0.2, base:union_rights: 0.05, base:income_tax: 0.2}

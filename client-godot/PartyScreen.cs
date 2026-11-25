@@ -308,7 +308,7 @@ public sealed class PartyScreen : Screen
         bool leader = pol.PlayerRole == Role.Leader, partner = pol.PlayerRole == Role.Partner, opposition = pol.PlayerRole == Role.Opposition;
         var grid = new FlowGrid { MinColumn = 320, MaxColumns = 3, Gap = 12 };
 
-        var groups = s.Packs.VoterGroups.OrderBy(g => g.Id, StringComparer.Ordinal).ToList();
+        var groups = s.Groups.OrderBy(g => g.Id, StringComparer.Ordinal).ToList();
         var campaign = Ui.VBox(8);
         var groupBox = new OptionButton { FocusMode = Control.FocusModeEnum.None, ClipText = true, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = SizeFlags.ExpandFill };
         foreach (var g in groups) groupBox.AddItem(t.Name(g.Id));

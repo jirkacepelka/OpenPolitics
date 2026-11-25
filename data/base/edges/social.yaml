@@ -58,7 +58,7 @@
 - id: base:social_benefits_to_crime
   from: base:social_benefits
   to: base:crime
-  strength: -60.0
+  strength: -60
   delay: {type: lag, turns: 4}
 - id: base:environment_regulation_to_environment
   from: base:environment_regulation
@@ -84,7 +84,7 @@
 - id: base:social_benefits_to_inequality
   from: base:social_benefits
   to: base:inequality
-  strength: -1.2
+  strength: -2.4
   delay: {type: lag, turns: 4}
 - id: base:unemployment_to_inequality
   from: base:unemployment
@@ -94,7 +94,7 @@
 - id: base:pensions_to_inequality
   from: base:pensions
   to: base:inequality
-  strength: -0.5
+  strength: -1
   delay: {type: lag, turns: 4}
 - id: base:migration_to_inequality
   from: base:migration

@@ -217,6 +217,8 @@ public partial class TopBar : PanelContainer
         Tab("voters", IconKind.Voters, t.T("ui.client.tab.voters"), () => _main.OpenScreen<VotersScreen>());
         Tab("charts", IconKind.Chart, t.T("ui.client.charts"), () => _main.OpenScreen<ChartsScreen>());
         Tab("budget", IconKind.Coin, t.T("ui.tab.budget"), () => _main.OpenScreen<BudgetScreen>());
+        Tab("laws", IconKind.Policies, t.T("ui.client.tab.laws"), () => _main.OpenScreen<LawsScreen>());
+        Tab("population", IconKind.Family, t.T("ui.client.tab.population"), () => _main.OpenScreen<PopulationScreen>());
         if (s.HasPolitics)
         {
             Tab("politics", IconKind.Politics, t.T("ui.client.tab.politics"), () => _main.OpenScreen<PoliticsScreen>());

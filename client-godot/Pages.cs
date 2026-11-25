@@ -18,7 +18,7 @@ public sealed class VotersScreen : Screen
     {
         var t = s.T;
         d.Body.AddChild(Ui.L(t.T("ui.client.voters_hint"), Tx.Body, AppTheme.Ink2, true));
-        var groups = s.Packs.VoterGroups.OrderByDescending(g => g.Size).ThenBy(g => g.Id, StringComparer.Ordinal).ToList();
+        var groups = s.Groups.OrderByDescending(g => g.Size).ThenBy(g => g.Id, StringComparer.Ordinal).ToList();
         d.Body.AddChild(new StackBar(groups.Select((g, i) => (t.Name(g.Id), g.Size, Ui.PaletteColor(i))).ToList()));
         var moods = Charts.Available(s).Where(c => c.Id is "groups" or "mood" or "group_support").OrderBy(c => c.Id == "groups" ? 0 : c.Id == "mood" ? 1 : 2).ToList();
         if (moods.Count > 0 && s.History.Turns.Count > 1) d.Body.AddChild(new ChartPanel(s, "voters", moods, Layout.Short ? 150 : 200));
@@ -149,8 +149,8 @@ public sealed class BudgetScreen : Screen
         var trend = new[] { "revenue", "deficit", "debt", "interest_paid" }.Select(id => Charts.Available(s).FirstOrDefault(c => c.Id == id)).OfType<ChartSpec>().ToList();
         if (trend.Count > 0 && s.History.Turns.Count > 1) d.Body.AddChild(new ChartPanel(s, "budget", trend, Layout.Short ? 150 : 190));
 
-        var spend = s.Packs.Policies.Where(p => WorldMap.GroupOf(p) == 1).OrderByDescending(p => s.Country.Policies.GetValueOrDefault(p.Id) * p.CostPerUnit).ToList();
-        var taxes = s.Packs.Policies.Where(p => WorldMap.GroupOf(p) == 0).OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();
+        var spend = s.Packs.Policies.Where(p => s.Game.IsActive(p.Id) && WorldMap.GroupOf(p) == 1).OrderByDescending(p => s.Country.Policies.GetValueOrDefault(p.Id) * p.CostPerUnit).ToList();
+        var taxes = s.Packs.Policies.Where(p => s.Game.IsActive(p.Id) && WorldMap.GroupOf(p) == 0).OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal).ToList();
         Control List(string title, List<PolicyDef> list, Func<PolicyDef, double> size)
         {
             var box = Ui.VBox(2);

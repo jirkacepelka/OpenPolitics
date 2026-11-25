@@ -180,7 +180,7 @@ public static class Ui
 
     /// <summary>How much voters like a value going up (positive), down (negative) or not at all (0).</summary>
     public static double VoterLike(Session s, string valueId) =>
-        s.Packs.VoterGroups.Sum(g => g.Size * g.Weight * (g.ValueWeights.GetValueOrDefault(valueId) + (g.LevelWeights?.GetValueOrDefault(valueId) ?? 0)));
+        s.Groups.Sum(g => g.Size * g.Weight * (g.ValueWeights.GetValueOrDefault(valueId) + (g.LevelWeights?.GetValueOrDefault(valueId) ?? 0)));
 
     /// <summary>
     /// How good an indicator is now compared with the start of the game, 0..1 (0.5 = unchanged, or nobody cares), from the direction
@@ -212,7 +212,7 @@ public static class Ui
     public static double Popularity(Session s, OpenPolitics.Core.Packs.PolicyDef p, double? value = null)
     {
         double sum = 0, w = 0;
-        foreach (var g in s.Packs.VoterGroups)
+        foreach (var g in s.Groups)
         {
             if (!g.PolicyWeights.ContainsKey(p.Id)) continue;
             sum += g.Size * Opinion(s, g, p, value); w += g.Size;

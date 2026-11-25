@@ -1,0 +1,31 @@
+# ILLUSTRATIVE data: private pensions (decision 0021). People save privately on their own; the state can add a contribution, a tax relief or a compulsory share.
+- id: base:pension_subsidy
+  capital_cost: 1.25
+  unit: nominal_spending
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = state contribution as percent of GDP, paid into the pension funds
+  axis_x: 0.2
+  start_active: false
+- id: base:pension_tax_relief
+  capital_cost: 1.0
+  unit: nominal_spending
+  min: 0
+  max: 0.6
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = revenue given up as percent of GDP
+  axis_x: 0.4
+  start_active: false
+- id: base:mandatory_pension_pillar
+  capital_cost: 3.0
+  unit: nominal_spending
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 6
+  cost_per_unit: 1      # parameter = social contributions diverted into the funds, percent of GDP (the state still pays today's pensions)
+  axis_x: 0.5
+  start_active: false

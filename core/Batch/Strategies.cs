@@ -30,6 +30,7 @@ public sealed class RandomStrategy : IStrategy
         for (int i = 0; i < n; i++)
         {
             var p = packs.Policies[rng.NextInt(packs.Policies.Count)];
+            if (!Strategies.InForce(state, p.Id)) actions.Add(new IntroducePolicy(p.Id)); // a law that is not in force has to be brought in first
             actions.Add(new SetPolicy(p.Id, p.Min + rng.NextDouble() * (p.Max - p.Min)));
         }
         return actions;
@@ -48,6 +49,7 @@ public sealed class ExtremeStrategy : IStrategy
         for (int i = 0; i < packs.Policies.Count; i++)
         {
             var p = packs.Policies[i];
+            if (!Strategies.InForce(state, p.Id)) actions.Add(new IntroducePolicy(p.Id));
             actions.Add(new SetPolicy(p.Id, (state.Turn / 8 + i) % 2 == 0 ? p.Max : p.Min));
         }
         return actions;
@@ -56,6 +58,10 @@ public sealed class ExtremeStrategy : IStrategy
 
 public static class Strategies
 {
+    /// <summary>Whether a law is in force in the state (a pack or a state without the information counts as in force).</summary>
+    public static bool InForce(GameState state, string policyId) =>
+        state.Countries.Values.FirstOrDefault()?.ActivePolicies is not { } active || active.Contains(policyId);
+
     public static IStrategy? ByName(string name) => name switch
     {
         "passive" => new PassiveStrategy(),

@@ -186,7 +186,7 @@ public partial class Sidebar : PanelContainer
         var t = s.T;
         if (FindChild("Title", true, false) is Label title) title.Text = t.T("ui.rail.popularity").ToUpperInvariant();
         for (int k = 0; k < 3; k++) if (FindChild("Sort" + k, true, false) is SquareTab st) { st.Active = SortMode == k; st.TooltipText = t.T("ui.rail.sort." + k); st.QueueRedraw(); }
-        double mood = Moods.Overall(s.Packs.VoterGroups, s.Country.Satisfaction);
+        double mood = Moods.Overall(s.Groups, s.Country.Satisfaction);
         bool support = ShowsSupport(s);
         var ps = s.Politics?.Party;
         string party = s.Politics != null ? t.Name(s.Politics.PlayerParty) : "";
@@ -227,7 +227,7 @@ public partial class Sidebar : PanelContainer
         }
 
         Ui.Clear(_rows);
-        var groups = s.Packs.VoterGroups.AsEnumerable();
+        var groups = s.Groups.AsEnumerable();
         groups = SortMode switch
         {
             0 => groups.OrderBy(g => Localizer.Fold(t.Name(g.Id)), StringComparer.Ordinal),
@@ -246,7 +246,7 @@ public partial class Sidebar : PanelContainer
         }
         everyone.Pressed += () => _main.SetLens(null);
         _rows.AddChild(everyone);
-        double maxShare = s.Packs.VoterGroups.Select(g => g.Size).DefaultIfEmpty(1).Max();
+        double maxShare = s.Groups.Select(g => g.Size).DefaultIfEmpty(1).Max();
         foreach (var g in groups)
         {
             double sat = s.Country.Satisfaction.GetValueOrDefault(g.Id);

@@ -1,5 +1,6 @@
 # ILLUSTRATIVE data: approximate numbers for a Czechia-like country around 2015, not statistics.
 - id: base:income_tax
+  abolishable: false
   capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 8
@@ -10,6 +11,7 @@
   base_share: 0.6   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -1
 - id: base:vat
+  abolishable: false
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 4
@@ -20,6 +22,7 @@
   base_share: 0.57   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.4
 - id: base:corporate_tax
+  abolishable: false
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0
@@ -30,6 +33,7 @@
   base_share: 0.21   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.8
 - id: base:property_tax
+  start_active: false
   unit: tax_rate
   min: 0
   max: 3
@@ -39,6 +43,7 @@
   base_share: 2.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.6
 - id: base:carbon_tax
+  start_active: false
   unit: tax_rate
   min: 0
   max: 3
@@ -49,6 +54,7 @@
   axis_x: -0.3
   axis_y: -0.3
 - id: base:wealth_tax
+  start_active: false
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0
@@ -59,6 +65,7 @@
   base_share: 3.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -1
 - id: base:transaction_tax
+  start_active: false
   capital_cost: 0.75   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0
@@ -69,6 +76,7 @@
   base_share: 4.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.6
 - id: base:excise_taxes
+  start_active: false
   capital_cost: 1   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0

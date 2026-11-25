@@ -1,5 +1,6 @@
 # ILLUSTRATIVE data: wave-5 taxes. They start at 0: nothing extra is levied until you choose to.
 - id: base:inheritance_tax
+  start_active: false
   capital_cost: 1   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0
@@ -10,6 +11,7 @@
   base_share: 0.8   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.7
 - id: base:sugar_tax
+  start_active: false
   unit: tax_rate
   min: 0
   max: 0.4
@@ -20,6 +22,7 @@
   axis_x: -0.1
   axis_y: 0.2
 - id: base:digital_services_tax
+  start_active: false
   unit: tax_rate
   min: 0
   max: 0.4
@@ -29,6 +32,7 @@
   base_share: 0.1   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.5
 - id: base:bank_levy
+  start_active: false
   unit: tax_rate
   min: 0
   max: 0.5
@@ -38,6 +42,7 @@
   base_share: 0.1   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.7
 - id: base:windfall_tax
+  start_active: false
   capital_cost: 1   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0
@@ -48,6 +53,7 @@
   base_share: 0.1   # share of GDP the tax is levied on; rate shown = revenue% / base_share
   axis_x: -0.8
 - id: base:vehicle_tax
+  start_active: false
   unit: tax_rate
   min: 0
   max: 0.5

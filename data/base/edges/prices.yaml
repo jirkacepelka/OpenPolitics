@@ -1,0 +1,67 @@
+# ILLUSTRATIVE data: one-off shifts of the price level (decision 0021). A tax or a rule raises prices once; inflation shows it for a year and settles.
+- id: base:vat_to_price_level
+  from: base:vat
+  to: base:price_level
+  kind: level
+  strength: 30
+  delay: {type: lag, turns: 2}
+- id: base:carbon_tax_to_price_level
+  from: base:carbon_tax
+  to: base:price_level
+  kind: level
+  strength: 6
+  delay: {type: lag, turns: 4}
+- id: base:excise_taxes_to_price_level
+  from: base:excise_taxes
+  to: base:price_level
+  kind: level
+  strength: 4.5
+  delay: {type: lag, turns: 2}
+- id: base:sugar_tax_to_price_level
+  from: base:sugar_tax
+  to: base:price_level
+  kind: level
+  strength: 0.5
+  delay: {type: lag, turns: 2}
+- id: base:vehicle_tax_to_price_level
+  from: base:vehicle_tax
+  to: base:price_level
+  kind: level
+  strength: 0.6
+  delay: {type: lag, turns: 2}
+- id: base:bank_levy_to_price_level
+  from: base:bank_levy
+  to: base:price_level
+  kind: level
+  strength: 0.4
+  delay: {type: lag, turns: 4}
+- id: base:minimum_wage_to_price_level
+  from: base:minimum_wage
+  to: base:price_level
+  kind: level
+  strength: 1.5
+  delay: {type: lag, turns: 4}
+- id: base:energy_mix_to_price_level
+  from: base:energy_mix
+  to: base:price_level
+  kind: level
+  strength: 3
+  delay: {type: lag, turns: 8}
+- id: base:nuclear_programme_to_price_level
+  from: base:nuclear_programme
+  to: base:price_level
+  kind: level
+  strength: -2
+  delay: {type: lag, turns: 12}
+- id: base:agriculture_subsidies_to_price_level
+  from: base:agriculture_subsidies
+  to: base:price_level
+  kind: level
+  strength: -0.5
+  delay: {type: lag, turns: 4}
+- id: base:competition_policy_to_price_level
+  from: base:competition_policy
+  to: base:price_level
+  kind: level
+  strength: -3
+  delay: {type: lag, turns: 8}

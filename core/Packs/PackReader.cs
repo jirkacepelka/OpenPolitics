@@ -326,13 +326,14 @@ public static class PackReader
         double reference = f.Num("reference", initial);
         double defScale = Math.Abs(reference) * 0.1;
         double scale = f.Num("scale", defScale > 0 ? defScale : 1.0);
-        return new ValueDef(id, f.Str("unit", ""), initial, reference, scale, f.OptStr("owner"), file);
+        return new ValueDef(id, f.Str("unit", ""), initial, reference, scale, f.OptStr("owner"), file, f.Bool("hidden", false), f.OptNum("floor"));
     }
 
     private static PolicyDef? ReadPolicy(Fields f, string file) =>
         new(f.Str("id"), f.Str("unit", ""), f.Num("min"), f.Num("max"), f.Num("default"),
             f.OptStr("cost_value"), f.Num("cost_per_unit", 0), f.Int("delay_turns", 0), f.OptStr("revenue_base"), file,
-            f.Num("axis_x", 0), f.Num("axis_y", 0), f.Num("base_share", 0), f.Num("capital_cost", 1));
+            f.Num("axis_x", 0), f.Num("axis_y", 0), f.Num("base_share", 0), f.Num("capital_cost", 1),
+            f.Bool("start_active", true), f.Bool("abolishable", true), f.OptNum("intro_value"), f.OptStr("cost_driver"));
 
     private static EdgeDef? ReadEdge(Fields f, string file)
     {
@@ -340,7 +341,8 @@ public static class PackReader
         string kindText = f.Str("kind", "additive");
         EdgeKind kind = EdgeKind.Additive;
         if (kindText == "relative") kind = EdgeKind.Relative;
-        else if (kindText != "additive") f.Error(f.Get("kind") ?? new YamlScalarNode(kindText), $"Field 'kind' must be 'additive' or 'relative', not '{kindText}'.");
+        else if (kindText == "level") kind = EdgeKind.Level;
+        else if (kindText != "additive") f.Error(f.Get("kind") ?? new YamlScalarNode(kindText), $"Field 'kind' must be 'additive', 'relative' or 'level', not '{kindText}'.");
         var fnMap = f.Map("fn");
         var fn = new FnDef("linear", 1, 1, 0, 0);
         if (fnMap != null)
@@ -380,7 +382,8 @@ public static class PackReader
 
     private static VoterGroupDef? ReadVoterGroup(Fields f, string file) =>
         new(f.Str("id"), f.Num("size", 1), f.Num("weight", 1), f.NumMap("value_weights"),
-            f.NumMap("policy_prefs"), f.NumMap("policy_weights"), file, f.NumMap("level_weights"));
+            f.NumMap("policy_prefs"), f.NumMap("policy_weights"), file, f.NumMap("level_weights"),
+            f.OptStr("size_value"), f.Num("size_factor", 1), f.Num("size_offset", 0));
 
     private static EventDef? ReadEvent(Fields f, string file)
     {

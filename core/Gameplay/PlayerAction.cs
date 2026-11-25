@@ -10,6 +10,12 @@ public abstract record PoliticsAction : PlayerAction;
 /// <summary>Set a policy to a value in its own unit. Takes effect after the policy's delay.</summary>
 public sealed record SetPolicy(string PolicyId, double Value) : PlayerAction;
 
+/// <summary>Bring a law that is not in force into force (decision 0021): it starts at its introduction setting after its delay; costs political capital.</summary>
+public sealed record IntroducePolicy(string PolicyId) : PlayerAction;
+
+/// <summary>Repeal a law in force (decision 0021): its setting goes back to the neutral default after its delay and it leaves the map; costs political capital.</summary>
+public sealed record AbolishPolicy(string PolicyId) : PlayerAction;
+
 /// <summary>Choose how a spending policy follows the economy: "gdp" (share of GDP, default), "inflation" (fixed real amount) or "none" (fixed nominal amount).</summary>
 public sealed record SetIndexation(string PolicyId, string Mode) : PlayerAction;
 

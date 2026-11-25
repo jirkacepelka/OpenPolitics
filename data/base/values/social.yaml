@@ -11,6 +11,7 @@
   unit: per_100k
   initial: 2800.0
   scale: 300.0
+  floor: 280
 - id: base:environment
   unit: index
   initial: 55.0
@@ -19,3 +20,4 @@
   unit: gini
   initial: 26.0
   scale: 3.0
+  floor: 8

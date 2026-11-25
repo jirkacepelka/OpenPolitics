@@ -129,6 +129,26 @@ public static class PolicyDialog
             if (double.IsNaN(target)) target = latest;
             string? blocked = Detail.Blocked(s);
             int g = WorldMap.GroupOf(p);
+            double capitalNow = s.Politics?.Party?.PoliticalCapital ?? double.MaxValue;
+
+            // A law that is not in force (decision 0021): what it is, where it would start and what bringing it in costs.
+            if (!s.Game.IsActive(id))
+            {
+                if (t.Description(id) is { } idle) d.Body.AddChild(Ui.L(idle, Tx.Body, AppTheme.Ink, true));
+                var info = Ui.VBox(6);
+                info.AddChild(Detail.Stat(t.T("ui.pd.category"), t.T("ui.client.group." + g)));
+                info.AddChild(Detail.Stat(t.T("ui.law.starts_at"), Ui.Fix(Fmt.Policy(p, s.Game.IntroductionValue(id), t))));
+                info.AddChild(Detail.Stat(t.T("ui.pd.time"), t.T("ui.pd.quarters", p.DelayTurns)));
+                d.Body.AddChild(info);
+                d.Body.AddChild(Ui.L(t.T("ui.law.not_in_force_hint"), Tx.Small, AppTheme.Ink3, true));
+                double introCost = s.Game.IntroductionCost(id);
+                var intro = d.AddAction(t.T("ui.law.introduce") + (introCost > 0 ? " · " + Ui.Num(introCost, "0") : ""), IconKind.Plus,
+                    () => { if (s.Do(new IntroducePolicy(id), t.T("ui.law.introduced", t.Name(id)))) { target = double.NaN; d.Close(); } },
+                    blocked != null || introCost > capitalNow + 1e-9, "");
+                intro.TooltipText = t.T("ui.law.introduce_hint");
+                d.Refit();
+                return;
+            }
 
             // Top: description and bars | stat block.
             var left = Ui.VBox(14);
@@ -242,7 +262,16 @@ public static class PolicyDialog
             cancel.TooltipText = t.T("ui.pd.cancel_hint");
             cancel.ThemeTypeVariation = "ButtonGhost";
             d.Actions.MoveChild(cancel, 0);
-            var spacer = Ui.Spacer(); d.Actions.AddChild(spacer); d.Actions.MoveChild(spacer, 1);
+            if (p.Abolishable)
+            {
+                double repealCost = s.Game.RepealCost(id);
+                var abolish = d.AddAction(t.T("ui.law.abolish") + (repealCost > 0 ? " · " + Ui.Num(repealCost, "0") : ""), IconKind.Close,
+                    () => { if (s.Do(new AbolishPolicy(id), t.T("ui.law.abolished", t.Name(id)))) { target = double.NaN; d.Close(); } },
+                    blocked != null || repealCost > capitalNow + 1e-9, "ButtonDanger");
+                abolish.TooltipText = t.T("ui.law.abolish_hint");
+                d.Actions.MoveChild(abolish, 1);
+            }
+            var spacer = Ui.Spacer(); d.Actions.AddChild(spacer); d.Actions.MoveChild(spacer, p.Abolishable ? 2 : 1);
 
             void Update(double v)
             {
@@ -331,7 +360,7 @@ public static class PolicyDialog
             box.AddChild(Detail.EffectRow(Icons.For(e.To), t.Name(e.To), fill, e.Strength >= 0 ? "▲" : "▼", () => main.OpenDetail("value", e.To),
                 t.T(e.Strength >= 0 ? "ui.pd.raises" : "ui.pd.lowers", t.Name(e.To))));
         }
-        foreach (var g in s.Packs.VoterGroups.Where(g => g.PolicyWeights.ContainsKey(p.Id)).OrderByDescending(g => Math.Abs(Ui.Opinion(s, g, p))))
+        foreach (var g in s.Groups.Where(g => g.PolicyWeights.ContainsKey(p.Id)).OrderByDescending(g => Math.Abs(Ui.Opinion(s, g, p))))
         {
             double op = Ui.Opinion(s, g, p);
             box.AddChild(Detail.EffectRow(Icons.For(g.Id), t.Name(g.Id), op, "(" + Ui.Signed(op * 100, "0") + ")", () => main.OpenDetail("group", g.Id), t.T("ui.pd.opinion_hint", t.Name(g.Id)), true));
@@ -448,7 +477,7 @@ public static class GroupDialog
     public static Dialog Open(Main main, Session s, string id)
     {
         var t = s.T;
-        var g = s.Packs.VoterGroups.First(x => x.Id == id);
+        var g = s.Groups.First(x => x.Id == id);
         var d = main.NewDialog(t.Name(id), Icons.For(id), 960);
         d.Key = "group:" + id;
         void Build()

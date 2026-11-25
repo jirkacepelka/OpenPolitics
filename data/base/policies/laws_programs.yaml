@@ -1,5 +1,7 @@
 # ILLUSTRATIVE data: wave-5 programmes. They start at 0: nothing extra is spent until you choose to.
 - id: base:elderly_care
+  start_active: false
+  cost_driver: base:share_pensioners
   unit: nominal_spending
   min: 0
   max: 2
@@ -8,6 +10,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.5
 - id: base:disability_support
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -16,6 +19,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.6
 - id: base:mental_health
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1
@@ -25,6 +29,7 @@
   axis_x: -0.2
   axis_y: -0.2
 - id: base:vocational_training
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -33,6 +38,8 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.1
 - id: base:school_meals
+  start_active: false
+  cost_driver: base:child_load
   unit: nominal_spending
   min: 0
   max: 1
@@ -41,6 +48,8 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.5
 - id: base:scholarships
+  start_active: false
+  cost_driver: base:student_load
   unit: nominal_spending
   min: 0
   max: 1
@@ -49,6 +58,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.3
 - id: base:rail_network
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 3
@@ -57,6 +67,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.2
 - id: base:flood_protection
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -64,6 +75,7 @@
   delay_turns: 4
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
 - id: base:nuclear_programme
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 3
@@ -73,6 +85,7 @@
   axis_x: 0.1
   axis_y: 0.2
 - id: base:cybersecurity
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1
@@ -81,6 +94,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: 0.4
 - id: base:justice_system
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 2
@@ -89,6 +103,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: 0.3
 - id: base:prisons_and_rehabilitation
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -98,6 +113,7 @@
   axis_x: -0.2
   axis_y: -0.3
 - id: base:border_guard
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -106,6 +122,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: 0.8
 - id: base:startup_support
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1.5
@@ -114,6 +131,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: 0.5
 - id: base:agriculture_subsidies
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 2
@@ -123,6 +141,7 @@
   axis_x: -0.3
   axis_y: 0.3
 - id: base:regional_funds
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 2
@@ -131,6 +150,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_x: -0.3
 - id: base:foreign_aid
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 1
@@ -139,6 +159,7 @@
   cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
   axis_y: -0.5
 - id: base:public_housing
+  start_active: false
   unit: nominal_spending
   min: 0
   max: 2.5

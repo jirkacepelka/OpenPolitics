@@ -1,5 +1,6 @@
 # ILLUSTRATIVE data: the rules of the election are policies too. They take effect at the next election.
 - id: base:electoral_threshold
+  abolishable: false
   capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: percent
   min: 0
@@ -7,6 +8,7 @@
   default: 5
   delay_turns: 4
 - id: base:electoral_method
+  abolishable: false
   capital_cost: 2   # political capital weight of a change (decision 0013)
   unit: electoral_method   # 0 = D'Hondt, 1 = Sainte-Lague, 2 = Hare quota (rounded to the nearest whole number)
   min: 0
@@ -14,6 +16,7 @@
   default: 0
   delay_turns: 4
 - id: base:electoral_system
+  abolishable: false
   capital_cost: 1.5   # a regime change: about 17 points for a step, so some quarters of saving (decision 0017)
   unit: electoral_system   # 0 = proportional, 1 = single-member districts (first past the post), 2 = single-member districts with a runoff
   min: 0

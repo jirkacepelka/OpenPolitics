@@ -35,6 +35,13 @@
   reference: 2.0
   scale: 1.0
   owner: macro_v1
+- id: base:core_inflation
+  unit: percent
+  initial: 2.0
+  reference: 2.0
+  scale: 1.0
+  owner: macro_v1
+  hidden: true
 - id: base:debt
   unit: CZK
   initial: 1840000000000.0

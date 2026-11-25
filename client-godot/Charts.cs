@@ -49,6 +49,11 @@ public static class Charts
             .Select((g, i) => (History.GroupKey(g.Id), s.T.Name(g.Id), PaletteColor(i))).ToList()),
         new("group_support", t => t.T("ui.chart.support_by_group"), "0.0", 100, s => s.Packs.VoterGroups.OrderBy(g => g.Id, StringComparer.Ordinal)
             .Select((g, i) => (History.SupportKey(g.Id), s.T.Name(g.Id), PaletteColor(i))).ToList()),
+        new("population", t => t.T("ui.chart.population"), "0.00", 1e-6, s => One(History.ValueKey("base:population"), s.T.Name("base:population"), InkLine)),
+        new("ages", t => t.T("ui.chart.ages"), "0.0", 100, s => new[] { "base:share_children", "base:share_young", "base:share_working", "base:share_pensioners" }
+            .Select((id, i) => (History.ValueKey(id), s.T.Name(id), PaletteColor(i))).ToList()),
+        new("classes", t => t.T("ui.chart.classes"), "0.0", 100, s => new[] { "base:class_poor", "base:class_low", "base:class_middle", "base:class_upper", "base:class_high" }
+            .Select((id, i) => (History.ValueKey(id), s.T.Name(id), PaletteColor(4 + i))).ToList()),
         Value("health", "base:health", "0.0", InkLine),
         Value("education", "base:education_level", "0.0", InkLine),
         Value("crime", "base:crime", "0", InkLine),
@@ -64,7 +69,7 @@ public static class Charts
         ["unemployment"] = "economy", ["inflation"] = "economy", ["price_level"] = "economy", ["interest_rate"] = "economy",
         ["revenue"] = "budget", ["deficit"] = "budget", ["debt"] = "budget", ["interest_paid"] = "budget",
         ["mood"] = "society", ["groups"] = "society", ["health"] = "society", ["education"] = "society", ["crime"] = "society",
-        ["environment"] = "society", ["inequality"] = "society", ["polls"] = "politics", ["loyalty"] = "politics", ["group_support"] = "politics",
+        ["environment"] = "society", ["inequality"] = "society", ["population"] = "society", ["ages"] = "society", ["classes"] = "society", ["polls"] = "politics", ["loyalty"] = "politics", ["group_support"] = "politics",
     };
 
     /// <summary>Which of the four groups a chart belongs to (the chart dialog's first row).</summary>

@@ -221,6 +221,8 @@ public partial class Main : Control
         Screens.Add(new VotersScreen());
         Screens.Add(new ChartsScreen());
         Screens.Add(new BudgetScreen());
+        Screens.Add(new LawsScreen());
+        Screens.Add(new PopulationScreen());
         if (s.HasPolitics) { Screens.Add(new PoliticsScreen()); Screens.Add(new PartyScreen()); }
         Screens.Add(new NewsScreen());
 

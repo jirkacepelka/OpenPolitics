@@ -72,11 +72,6 @@
   to: base:environment
   strength: 2
   delay: {type: lag, turns: 4}
-- id: base:green_subsidies_to_inflation
-  from: base:green_subsidies
-  to: base:inflation
-  strength: 0.2
-  delay: {type: lag, turns: 2}
 - id: base:green_subsidies_to_productivity
   from: base:green_subsidies
   to: base:productivity
@@ -127,11 +122,6 @@
   to: base:environment
   strength: 1.5
   delay: {type: lag, turns: 4}
-- id: base:carbon_tax_to_inflation
-  from: base:carbon_tax
-  to: base:inflation
-  strength: 0.6
-  delay: {type: lag, turns: 2}
 - id: base:carbon_tax_to_productivity
   from: base:carbon_tax
   to: base:productivity
@@ -160,11 +150,6 @@
   to: base:health
   strength: 0.6
   delay: {type: lag, turns: 8}
-- id: base:excise_taxes_to_inflation
-  from: base:excise_taxes
-  to: base:inflation
-  strength: 0.4
-  delay: {type: lag, turns: 2}
 - id: base:minimum_wage_to_unemployment
   from: base:minimum_wage
   to: base:unemployment
@@ -173,13 +158,8 @@
 - id: base:minimum_wage_to_inequality
   from: base:minimum_wage
   to: base:inequality
-  strength: -0.5
+  strength: -1
   delay: {type: lag, turns: 4}
-- id: base:minimum_wage_to_inflation
-  from: base:minimum_wage
-  to: base:inflation
-  strength: 0.2
-  delay: {type: lag, turns: 2}
 - id: base:labour_flexibility_to_unemployment
   from: base:labour_flexibility
   to: base:unemployment
@@ -210,7 +190,7 @@
 - id: base:drug_policy_to_crime
   from: base:drug_policy
   to: base:crime
-  strength: 25
+  strength: 50
   delay: {type: lag, turns: 4}
 - id: base:drug_policy_to_health
   from: base:drug_policy
@@ -220,18 +200,12 @@
 - id: base:university_fees_to_education_level
   from: base:university_fees
   to: base:education_level
-  strength: -0.6
+  strength: -1.2
   delay: {type: lag, turns: 8}
 - id: base:university_fees_to_inequality
   from: base:university_fees
   to: base:inequality
   strength: 0.3
-  delay: {type: lag, turns: 8}
-- id: base:retirement_age_to_labour_force
-  from: base:retirement_age
-  to: base:labour_force
-  kind: relative
-  strength: 0.4
   delay: {type: lag, turns: 8}
 - id: base:retirement_age_to_unemployment
   from: base:retirement_age
@@ -248,11 +222,6 @@
   to: base:environment
   strength: 1
   delay: {type: lag, turns: 4}
-- id: base:energy_mix_to_inflation
-  from: base:energy_mix
-  to: base:inflation
-  strength: 0.3
-  delay: {type: lag, turns: 4}
 - id: base:energy_mix_to_productivity
   from: base:energy_mix
   to: base:productivity
@@ -263,7 +232,7 @@
   from: base:business_regulation
   to: base:productivity
   kind: relative
-  strength: -0.4
+  strength: -0.8
   delay: {type: lag, turns: 8}
 - id: base:business_regulation_to_capital
   from: base:business_regulation

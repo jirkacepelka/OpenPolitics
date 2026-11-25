@@ -21,7 +21,13 @@ public sealed class MacroModelV1 : IEconomyModel
         public const string Productivity = "base:productivity";
         public const string LabourForce = "base:labour_force";
         public const string Unemployment = "base:unemployment";
+        /// <summary>Inflation as people feel it: the price level against a year ago (decision 0021). <see cref="CoreInflation"/> is the underlying rate the model steers.</summary>
         public const string Inflation = "base:inflation";
+        public const string CoreInflation = "base:core_inflation";
+        /// <summary>Growth of the working-age population in percent a year, published by the demography model.</summary>
+        public const string LabourSupplyGrowth = "base:labour_supply_growth";
+        /// <summary>Net saving of the private pension funds in CZK a year, published by the pension model.</summary>
+        public const string PensionSaving = "base:pension_saving";
         public const string Debt = "base:debt";
         public const string InterestRate = "base:interest_rate";
         public const string Revenue = "base:revenue";
@@ -56,6 +62,7 @@ public sealed class MacroModelV1 : IEconomyModel
         ["premium_max"] = 15.0,                 // max debt risk premium, percentage points
         ["premium_ratio_half"] = 1.5,           // debt/GDP at which the premium is about 76% of max
         ["debt_crowding"] = 0.05,               // saving rate lost per unit of debt/GDP above 0.6 (crowding out)
+        ["pension_saving_share"] = 0.6,         // share of the pension funds' net saving that becomes capital
     };
 
     /// <summary>Valid inclusive range of every parameter; the validator checks country parameters against it.</summary>
@@ -68,15 +75,18 @@ public sealed class MacroModelV1 : IEconomyModel
             ["base_interest"] = (-5, 30), ["inflation_target"] = (-5, 50), ["inflation_reversion"] = (0, 10),
             ["kappa"] = (0, 10), ["fiscal_inflation"] = (0, 10), ["saving_rate"] = (0, 1),
             ["tax_sensitivity"] = (0, 5), ["interest_sensitivity"] = (0, 10), ["revenue_ratio_ref"] = (0, 2),
-            ["premium_max"] = (0, 100), ["premium_ratio_half"] = (0.01, 100), ["debt_crowding"] = (0, 5),
+            ["premium_max"] = (0, 100), ["premium_ratio_half"] = (0.01, 100), ["debt_crowding"] = (0, 5), ["pension_saving_share"] = (0, 1),
         };
 
-    private const double MinA = 1e-9;
+    private const double MinA = 1e-9, LoadElasticity = 0.45;
     private readonly IReadOnlyList<PolicyDef> _policies;
+    private readonly IReadOnlyDictionary<string, double> _driverRef;
 
-    public MacroModelV1(IEnumerable<PolicyDef> policies)
+    public MacroModelV1(IEnumerable<PolicyDef> policies, IEnumerable<ValueDef>? values = null)
     {
         _policies = policies.OrderBy(p => p.Id, StringComparer.Ordinal).ToList();
+        // a spending policy that follows a population (decision 0021) costs in proportion to how far that population has moved from the start
+        _driverRef = (values ?? Array.Empty<ValueDef>()).ToDictionary(v => v.Id, v => v.Initial, StringComparer.Ordinal);
     }
 
     public string Id => "macro_v1";
@@ -84,7 +94,7 @@ public sealed class MacroModelV1 : IEconomyModel
     public IReadOnlyList<string> OwnedValueIds { get; } = new[]
     {
         Ids.Gdp, Ids.Capital, Ids.Productivity, Ids.LabourForce, Ids.Unemployment,
-        Ids.Inflation, Ids.Debt, Ids.InterestRate, Ids.Revenue, Ids.Spending,
+        Ids.Inflation, Ids.CoreInflation, Ids.Debt, Ids.InterestRate, Ids.Revenue, Ids.Spending,
         Ids.PriceLevel, Ids.GdpNominal, Ids.RealGrowth, Ids.DeficitPct, Ids.DebtPct,
     };
 
@@ -110,6 +120,7 @@ public sealed class MacroModelV1 : IEconomyModel
 
         double a = Math.Max(V(Ids.Productivity), MinA), k = Math.Max(V(Ids.Capital), 1.0), lf = Math.Max(V(Ids.LabourForce), 1.0);
         double u = Math.Clamp(V(Ids.Unemployment), 0, 99), pi = V(Ids.Inflation), debt = V(Ids.Debt), rate = V(Ids.InterestRate);
+        double piCore = input.Values.TryGetValue(Ids.CoreInflation, out var pc) && double.IsFinite(pc) ? pc : pi; // the underlying rate the model steers
 
         double yOld = Production(a, k, lf * (1 - u / 100), alpha);
         double gdpBefore = V(Ids.Gdp) > 0 ? V(Ids.Gdp) : yOld;
@@ -117,20 +128,20 @@ public sealed class MacroModelV1 : IEconomyModel
 
         // Productivity and labour force.
         var ra = R(Ids.Productivity);
-        double a2 = Math.Max(a * (1 + dt * (gA + ra.Relative)) + dt * ra.Additive, MinA);
+        double a2 = Math.Max((a * (1 + dt * (gA + ra.Relative)) + dt * ra.Additive) * (1 + ra.Level), MinA);
         var rl = R(Ids.LabourForce);
-        double lf2 = Math.Max(lf * (1 + dt * (gL + rl.Relative)) + dt * rl.Additive, 1.0);
+        double lf2 = Math.Max((lf * (1 + dt * (gL + V(Ids.LabourSupplyGrowth) / 100.0 + rl.Relative)) + dt * rl.Additive) * (1 + rl.Level), 1.0);
 
         // Capital: saving falls with tax burden and with real interest above the reference.
         double revRatio = yOld > 0 ? V(Ids.Revenue) / yOld : P("revenue_ratio_ref");
         double s = Saving(P, revRatio, rate, pi, yOld > 0 ? debt / yOld : 0.0).Rate;
         var rk = R(Ids.Capital);
-        double k2 = Math.Max(k + dt * (s * yOld - P("delta") * k + rk.Additive + k * rk.Relative), 1.0);
+        double k2 = Math.Max((k + dt * (s * yOld - P("delta") * k + P("pension_saving_share") * V(Ids.PensionSaving) + rk.Additive + k * rk.Relative)) * (1 + rk.Level), 1.0);
 
         // Unemployment: Okun (faster than potential growth lowers it) plus reversion to the natural rate.
         double yPrelim = Production(a2, k2, lf2 * (1 - u / 100), alpha);
         double gY = yOld > 0 ? (yPrelim / yOld - 1) / dt : 0.0;
-        double gPot = gA / (1 - alpha) + gL;
+        double gPot = gA / (1 - alpha) + gL + V(Ids.LabourSupplyGrowth) / 100.0; // potential growth follows the working-age population
         var ru = R(Ids.Unemployment);
         double du = -P("okun_beta") * 100 * (gY - gPot) - P("unemployment_reversion") * (u - uNat) + ru.Additive + u * ru.Relative;
         double u2 = Math.Clamp(u + dt * du, 0, 99);
@@ -151,16 +162,22 @@ public sealed class MacroModelV1 : IEconomyModel
                 revenue += pv / 100.0 * (p.RevenueBaseValueId == Ids.Gdp ? y2 : V(p.RevenueBaseValueId));
             if (p.CostPerUnit != 0)
             {
-                double share = pv * p.CostPerUnit / 100.0;
+                double load = 1.0;
+                if (p.CostDriver != null && _driverRef.TryGetValue(p.CostDriver, out var refLoad) && refLoad > 0 && V(p.CostDriver) > 0) load = DetMath.Pow(V(p.CostDriver) / refLoad, LoadElasticity); // benefits per head follow prices more than wages, so the bill grows slower than the head count
+                double share = pv * p.CostPerUnit * load / 100.0;
                 if (input.Indexation != null && input.Indexation.TryGetValue(p.Id, out var ix) && ix.BaseGdp > 0)
                     spending += ix.Mode == "inflation" ? share * ix.BaseGdp : share * ix.BaseGdp * (ix.BasePrice / price);
-                else spending += pv * p.CostPerUnit * y2 / 100.0; // exact original expression keeps golden snapshots bit-stable
+                else spending += pv * p.CostPerUnit * load * y2 / 100.0; // exact original expression keeps golden snapshots bit-stable
             }
         }
         var rr = R(Ids.Revenue);
         revenue = revenue * (1 + dt * rr.Relative) + dt * rr.Additive;
         var rs = R(Ids.Spending);
         spending = spending * (1 + dt * rs.Relative) + dt * rs.Additive;
+        // Past a debt the markets will not carry, the state is forced to consolidate (an automatic brake, 0 below 100 % of GDP, 30 % of spending at 300 %):
+        // an aging country that does nothing gets into trouble, but not into a spiral that no policy could stop.
+        double debtRatio = y2 > 0 ? debt / y2 : 0.0;
+        spending *= 1.0 - Math.Clamp((debtRatio - 1.0) / 2.0, 0.0, 0.3);
         double primaryDeficit = spending - revenue;
 
         // Debt service: real interest = base rate plus a convex risk premium that grows with debt/GDP.
@@ -172,10 +189,15 @@ public sealed class MacroModelV1 : IEconomyModel
 
         // Inflation: mean reversion, output gap, fiscal impulse (total deficit, so debt service counts).
         var rp = R(Ids.Inflation);
-        double dpi = -P("inflation_reversion") * (pi - piTarget) + P("kappa") * gap * 100
-            + P("fiscal_inflation") * deficitPct + rp.Additive + pi * rp.Relative;
-        double pi2 = pi + dt * dpi;
-        double price2 = Math.Max(price * (1 + dt * pi2 / 100), 1e-6);
+        double dpi = -P("inflation_reversion") * (piCore - piTarget) + P("kappa") * gap * 100
+            + P("fiscal_inflation") * deficitPct + rp.Additive + piCore * rp.Relative;
+        double piCore2 = piCore + dt * dpi;
+        // The price level follows the underlying inflation and jumps once when a policy shifts it (a tax, a regulation). Inflation as people
+        // feel it is the price level against a year ago: a jump shows for a year and then drops out, the underlying rate carries on.
+        double levelShift = R(Ids.PriceLevel).Level;
+        double price2 = Math.Max(price * (1 + dt * piCore2 / 100) * (1 + levelShift), 1e-6);
+        double priceAgo = input.PriceHistory is { Count: > 0 } hist ? hist[0] : 0.0;
+        double pi2 = priceAgo > 0 ? (price2 / priceAgo - 1) * 100 : piCore2 + levelShift / dt * 100;
 
         // Debt and interest rate.
         var rd = R(Ids.Debt);
@@ -191,6 +213,7 @@ public sealed class MacroModelV1 : IEconomyModel
             [Ids.LabourForce] = Safe(lf2, lf),
             [Ids.Unemployment] = Safe(u2, u),
             [Ids.Inflation] = Safe(pi2, pi),
+            [Ids.CoreInflation] = Safe(piCore2, piCore),
             [Ids.Debt] = Safe(debt2, debt),
             [Ids.InterestRate] = Safe(rate2, rate),
             [Ids.Revenue] = Safe(revenue, V(Ids.Revenue)),

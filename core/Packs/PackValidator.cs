@@ -58,6 +58,8 @@ public static class PackValidator
                 Err("E007", "policy", p.Id, $"Policy '{p.Id}' has unit tax_rate and needs revenue_base and a positive base_share.");
             if (p.RevenueBaseValueId != null) Ref("policy", p.Id, $"Policy '{p.Id}' revenue_base", p.RevenueBaseValueId, valueIds, "value");
             if (p.CostValueId != null) Ref("policy", p.Id, $"Policy '{p.Id}' cost_value", p.CostValueId, valueIds, "value");
+            if (p.CostDriver != null) Ref("policy", p.Id, $"Policy '{p.Id}' cost_driver", p.CostDriver, valueIds, "value");
+            if (p.IntroValue is { } iv && (iv < p.Min || iv > p.Max)) Err("E007", "policy", p.Id, $"Policy '{p.Id}' intro_value {iv} is outside [{p.Min}, {p.Max}].");
         }
         foreach (var e in set.Edges)
         {
@@ -71,6 +73,7 @@ public static class PackValidator
         foreach (var g in set.VoterGroups)
         {
             if (!(g.Size >= 0) || !(g.Weight >= 0)) Err("E007", "voter_group", g.Id, $"Voter group '{g.Id}' size and weight must not be negative.");
+            if (g.SizeValue != null) Ref("voter_group", g.Id, $"Voter group '{g.Id}' size_value", g.SizeValue, valueIds, "value");
             foreach (var k in g.ValueWeights.Keys) Ref("voter_group", g.Id, $"Voter group '{g.Id}' value_weights", k, valueIds, "value");
             foreach (var k in g.LevelWeights?.Keys ?? Enumerable.Empty<string>()) Ref("voter_group", g.Id, $"Voter group '{g.Id}' level_weights", k, valueIds, "value");
             foreach (var k in g.PolicyPrefs.Keys) Ref("voter_group", g.Id, $"Voter group '{g.Id}' policy_prefs", k, policyIds, "policy");

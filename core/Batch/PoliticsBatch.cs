@@ -186,6 +186,11 @@ public static class PoliticsBatch
 
         public void Set(Game game, string policyId, double value)
         {
+            if (!game.IsActive(policyId) && game.Apply(new IntroducePolicy(policyId)) is { Accepted: false } no)
+            {
+                if (no.ErrorKey is "error.policy_cost" or "error.not_enough_capital") Refused++;
+                return;
+            }
             var r = game.Apply(new SetPolicy(policyId, value));
             if (r.Accepted) Accepted++;
             else if (r.ErrorKey is "error.policy_cost" or "error.not_enough_capital") Refused++;

@@ -13,61 +13,46 @@
 - id: base:sugar_tax_to_health
   from: base:sugar_tax
   to: base:health
-  strength: 0.5
+  strength: 1.25
   delay: {type: lag, turns: 8}
-- id: base:sugar_tax_to_inflation
-  from: base:sugar_tax
-  to: base:inflation
-  strength: 0.15
-  delay: {type: lag, turns: 2}
 - id: base:digital_services_tax_to_productivity
   from: base:digital_services_tax
   to: base:productivity
   kind: relative
-  strength: -0.15
+  strength: -0.36
   delay: {type: lag, turns: 8}
 - id: base:digital_services_tax_to_inequality
   from: base:digital_services_tax
   to: base:inequality
-  strength: -0.1
+  strength: -1.6
   delay: {type: lag, turns: 4}
 - id: base:bank_levy_to_capital
   from: base:bank_levy
   to: base:capital
   kind: relative
-  strength: -0.2
+  strength: -0.8
   delay: {type: lag, turns: 4}
-- id: base:bank_levy_to_inflation
-  from: base:bank_levy
-  to: base:inflation
-  strength: 0.1
-  delay: {type: lag, turns: 2}
 - id: base:bank_levy_to_inequality
   from: base:bank_levy
   to: base:inequality
-  strength: -0.1
+  strength: -0.25
   delay: {type: lag, turns: 4}
 - id: base:windfall_tax_to_capital
   from: base:windfall_tax
   to: base:capital
   kind: relative
-  strength: -0.25
+  strength: -0.625
   delay: {type: lag, turns: 4}
 - id: base:windfall_tax_to_inequality
   from: base:windfall_tax
   to: base:inequality
-  strength: -0.2
+  strength: -0.5
   delay: {type: lag, turns: 4}
 - id: base:vehicle_tax_to_environment
   from: base:vehicle_tax
   to: base:environment
-  strength: 0.4
+  strength: 1
   delay: {type: lag, turns: 4}
-- id: base:vehicle_tax_to_inflation
-  from: base:vehicle_tax
-  to: base:inflation
-  strength: 0.15
-  delay: {type: lag, turns: 2}
 - id: base:elderly_care_to_health
   from: base:elderly_care
   to: base:health
@@ -117,17 +102,17 @@
 - id: base:school_meals_to_health
   from: base:school_meals
   to: base:health
-  strength: 0.4
+  strength: 1.2
   delay: {type: lag, turns: 8}
 - id: base:school_meals_to_education_level
   from: base:school_meals
   to: base:education_level
-  strength: 0.3
+  strength: 0.9
   delay: {type: lag, turns: 8}
 - id: base:school_meals_to_inequality
   from: base:school_meals
   to: base:inequality
-  strength: -0.2
+  strength: -0.6
   delay: {type: lag, turns: 4}
 - id: base:scholarships_to_education_level
   from: base:scholarships
@@ -159,23 +144,18 @@
 - id: base:flood_protection_to_environment
   from: base:flood_protection
   to: base:environment
-  strength: 0.3
+  strength: 0.9
   delay: {type: lag, turns: 8}
 - id: base:flood_protection_to_capital
   from: base:flood_protection
   to: base:capital
   kind: relative
-  strength: 0.1
+  strength: 0.3
   delay: {type: lag, turns: 8}
 - id: base:nuclear_programme_to_environment
   from: base:nuclear_programme
   to: base:environment
   strength: 0.8
-  delay: {type: lag, turns: 8}
-- id: base:nuclear_programme_to_inflation
-  from: base:nuclear_programme
-  to: base:inflation
-  strength: -0.2
   delay: {type: lag, turns: 8}
 - id: base:nuclear_programme_to_productivity
   from: base:nuclear_programme
@@ -237,11 +217,6 @@
   kind: relative
   strength: 0.3
   delay: {type: lag, turns: 4}
-- id: base:agriculture_subsidies_to_inflation
-  from: base:agriculture_subsidies
-  to: base:inflation
-  strength: -0.1
-  delay: {type: lag, turns: 4}
 - id: base:agriculture_subsidies_to_environment
   from: base:agriculture_subsidies
   to: base:environment
@@ -292,24 +267,24 @@
 - id: base:data_protection_to_crime
   from: base:data_protection
   to: base:crime
-  strength: 15
+  strength: 37.5
   delay: {type: lag, turns: 4}
 - id: base:data_protection_to_productivity
   from: base:data_protection
   to: base:productivity
   kind: relative
-  strength: -0.1
+  strength: -0.25
   delay: {type: lag, turns: 8}
 - id: base:press_freedom_to_productivity
   from: base:press_freedom
   to: base:productivity
   kind: relative
-  strength: 0.1
+  strength: 1.2
   delay: {type: lag, turns: 8}
 - id: base:press_freedom_to_inequality
   from: base:press_freedom
   to: base:inequality
-  strength: -0.1
+  strength: -0.8
   delay: {type: lag, turns: 8}
 - id: base:abortion_access_to_health
   from: base:abortion_access
@@ -329,54 +304,33 @@
 - id: base:smoking_ban_to_health
   from: base:smoking_ban
   to: base:health
-  strength: 0.7
+  strength: 1.75
   delay: {type: lag, turns: 8}
 - id: base:alcohol_policy_to_health
   from: base:alcohol_policy
   to: base:health
-  strength: 0.4
+  strength: 1
   delay: {type: lag, turns: 8}
 - id: base:alcohol_policy_to_crime
   from: base:alcohol_policy
   to: base:crime
-  strength: -20
+  strength: -50
   delay: {type: lag, turns: 4}
 - id: base:vaccination_policy_to_health
   from: base:vaccination_policy
   to: base:health
-  strength: 0.9
+  strength: 2.25
   delay: {type: lag, turns: 8}
 - id: base:curriculum_reform_to_education_level
   from: base:curriculum_reform
   to: base:education_level
-  strength: 0.5
+  strength: 2
   delay: {type: lag, turns: 8}
 - id: base:curriculum_reform_to_productivity
   from: base:curriculum_reform
   to: base:productivity
   kind: relative
-  strength: 0.2
-  delay: {type: lag, turns: 8}
-- id: base:religious_education_to_education_level
-  from: base:religious_education
-  to: base:education_level
-  strength: -0.1
-  delay: {type: lag, turns: 8}
-- id: base:working_week_hours_to_unemployment
-  from: base:working_week_hours
-  to: base:unemployment
-  strength: 0.4
-  delay: {type: lag, turns: 4}
-- id: base:working_week_hours_to_productivity
-  from: base:working_week_hours
-  to: base:productivity
-  kind: relative
-  strength: -0.2
-  delay: {type: lag, turns: 8}
-- id: base:working_week_hours_to_health
-  from: base:working_week_hours
-  to: base:health
-  strength: -0.4
+  strength: 0.8
   delay: {type: lag, turns: 8}
 - id: base:paid_leave_to_health
   from: base:paid_leave
@@ -391,40 +345,29 @@
 - id: base:union_rights_to_inequality
   from: base:union_rights
   to: base:inequality
-  strength: -0.5
+  strength: -1.5
   delay: {type: lag, turns: 8}
 - id: base:union_rights_to_unemployment
   from: base:union_rights
   to: base:unemployment
-  strength: 0.2
+  strength: 0.6
   delay: {type: lag, turns: 4}
 - id: base:union_rights_to_productivity
   from: base:union_rights
   to: base:productivity
   kind: relative
-  strength: -0.2
-  delay: {type: lag, turns: 8}
-- id: base:strike_rules_to_productivity
-  from: base:strike_rules
-  to: base:productivity
-  kind: relative
-  strength: 0.15
-  delay: {type: lag, turns: 8}
-- id: base:strike_rules_to_inequality
-  from: base:strike_rules
-  to: base:inequality
-  strength: 0.2
+  strength: -0.6
   delay: {type: lag, turns: 8}
 - id: base:foreign_investment_screening_to_capital
   from: base:foreign_investment_screening
   to: base:capital
   kind: relative
-  strength: -0.3
+  strength: -0.75
   delay: {type: lag, turns: 4}
 - id: base:foreign_investment_screening_to_crime
   from: base:foreign_investment_screening
   to: base:crime
-  strength: -10
+  strength: -25
   delay: {type: lag, turns: 8}
 - id: base:competition_policy_to_productivity
   from: base:competition_policy
@@ -432,11 +375,6 @@
   kind: relative
   strength: 0.5
   delay: {type: lag, turns: 8}
-- id: base:competition_policy_to_inflation
-  from: base:competition_policy
-  to: base:inflation
-  strength: -0.2
-  delay: {type: lag, turns: 4}
 - id: base:competition_policy_to_capital
   from: base:competition_policy
   to: base:capital
@@ -447,18 +385,18 @@
   from: base:procurement_transparency
   to: base:productivity
   kind: relative
-  strength: 0.3
+  strength: 0.9
   delay: {type: lag, turns: 8}
 - id: base:procurement_transparency_to_capital
   from: base:procurement_transparency
   to: base:capital
   kind: relative
-  strength: 0.1
+  strength: 0.3
   delay: {type: lag, turns: 8}
 - id: base:procurement_transparency_to_inequality
   from: base:procurement_transparency
   to: base:inequality
-  strength: -0.1
+  strength: -0.3
   delay: {type: lag, turns: 8}
 - id: base:anti_corruption_to_productivity
   from: base:anti_corruption
@@ -481,19 +419,13 @@
   from: base:judicial_independence
   to: base:productivity
   kind: relative
-  strength: 0.15
+  strength: 0.9
   delay: {type: lag, turns: 8}
 - id: base:judicial_independence_to_crime
   from: base:judicial_independence
   to: base:crime
-  strength: -10
+  strength: -60
   delay: {type: lag, turns: 8}
-- id: base:citizenship_rules_to_labour_force
-  from: base:citizenship_rules
-  to: base:labour_force
-  kind: relative
-  strength: 0.3
-  delay: {type: lag, turns: 4}
 - id: base:citizenship_rules_to_crime
   from: base:citizenship_rules
   to: base:crime
@@ -508,12 +440,6 @@
   from: base:asylum_policy
   to: base:crime
   strength: 15
-  delay: {type: lag, turns: 4}
-- id: base:asylum_policy_to_labour_force
-  from: base:asylum_policy
-  to: base:labour_force
-  kind: relative
-  strength: 0.2
   delay: {type: lag, turns: 4}
 - id: base:zoning_planning_to_capital
   from: base:zoning_planning
@@ -535,10 +461,10 @@
   from: base:gmo_policy
   to: base:productivity
   kind: relative
-  strength: 0.2
+  strength: 0.7
   delay: {type: lag, turns: 8}
 - id: base:gmo_policy_to_environment
   from: base:gmo_policy
   to: base:environment
-  strength: -0.2
+  strength: -0.7
   delay: {type: lag, turns: 8}

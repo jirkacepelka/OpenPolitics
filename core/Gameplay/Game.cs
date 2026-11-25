@@ -40,6 +40,10 @@ public sealed class Game
     private readonly SortedDictionary<string, IndexSetting> _indexation = new(Ord);
 
     private readonly bool _randomStart;
+    /// <summary>The laws in force (decision 0021). A law that is not in force is held at its neutral default; the map shows only the ones in force.</summary>
+    private readonly SortedSet<string> _active = new(Ord);
+    /// <summary>The price level of the last year, oldest first: inflation as people feel it is the change against its first entry.</summary>
+    private readonly List<double> _priceHistory = new();
 
     internal Game(PackSet packs, string scenarioId, ulong seed, string? playerParty = null, bool randomStart = false)
     {
@@ -57,9 +61,17 @@ public sealed class Game
         foreach (var p in packs.Policies)
             _policies[p.Id] = _scenario.StartPolicies.TryGetValue(p.Id, out var sp) ? sp : p.Default;
         foreach (var g in packs.VoterGroups) _satisfaction[g.Id] = 0.0;
+        foreach (var p in packs.Policies)
+            if (p.StartActive || _scenario.StartPolicies.ContainsKey(p.Id)) _active.Add(p.Id);
+        {
+            // backcast a year of prices at the starting inflation, so the first year-on-year figure is the starting inflation
+            int n = Math.Max(1, _scenario.TurnsPerYear);
+            double p0 = _values.GetValueOrDefault(MacroModelV1.Ids.PriceLevel, 100.0), pi0 = _values.GetValueOrDefault(MacroModelV1.Ids.Inflation, 2.0);
+            for (int i = 0; i < n; i++) _priceHistory.Add(p0 / DetMath.Pow(1 + pi0 / 100.0, (n - 1 - i) * _dt));
+        }
 
         foreach (var owner in packs.Values.Where(v => v.Owner != null).Select(v => v.Owner!).Distinct(Ord).OrderBy(o => o, Ord))
-            _models.Add(EconomyModels.Create(owner, packs.Policies));
+            _models.Add(EconomyModels.Create(owner, packs.Policies, packs.Values));
         _valueDefs = packs.Values.ToDictionary(v => v.Id);
 
         _graph = new GraphEvaluator(packs.Edges, packs.Values, packs.Policies);
@@ -82,6 +94,7 @@ public sealed class Game
                 (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
                 _scenario.TurnsPerYear, playerParty, randomStart);
         _politics?.UseLatestPolicy(LatestPolicy);
+        _politics?.SetGroups(Groups);
     }
 
     /// <summary>The value a policy will have once its queued changes are in (the last queued one, else the current one).</summary>
@@ -96,8 +109,66 @@ public sealed class Game
             new SortedDictionary<string, double>(_values, Ord),
             new SortedDictionary<string, double>(_policies, Ord),
             new SortedDictionary<string, double>(_satisfaction, Ord),
-            _politics?.Snapshot()),
+            _politics?.Snapshot(), _active.ToList()),
     });
+
+    /// <summary>The voter groups with their sizes now: a group follows the value it is tied to (the pensioners follow the number of pensioners).</summary>
+    public IReadOnlyList<VoterGroupDef> Groups =>
+        _packs.VoterGroups.Select(g => g.SizeValue == null ? g : g with { Size = g.SizeNow(_values) }).ToList();
+
+    /// <summary>The laws in force now.</summary>
+    public IReadOnlyCollection<string> ActivePolicies => _active.ToList();
+
+    public bool IsActive(string policyId) => _active.Contains(policyId);
+
+    /// <summary>The introduction setting of a law: the one it starts at when brought into force (its own, else the default, else a fifth of the range above it).</summary>
+    public double IntroductionValue(string policyId)
+    {
+        var p = _policyDefs[policyId];
+        return p.IntroValue ?? (p.Default > p.Min + 1e-9 ? p.Default : p.Min + 0.2 * (p.Max - p.Min));
+    }
+
+    /// <summary>Capital for bringing a law into force: twice its weight, plus the move to its introduction setting.</summary>
+    public double IntroductionCost(string policyId) =>
+        _politics == null || !_policyDefs.TryGetValue(policyId, out var p) ? 0.0
+        : Math.Max(2.0, Math.Round(2 * p.CapitalCost)) + PolicyCost.For(p, _policies[policyId], IntroductionValue(policyId));
+
+    /// <summary>Capital for repealing a law: its weight, plus the move back to the default.</summary>
+    public double RepealCost(string policyId) =>
+        _politics == null || !_policyDefs.TryGetValue(policyId, out var p) ? 0.0
+        : Math.Max(1.0, Math.Round(p.CapitalCost)) + PolicyCost.For(p, LatestPolicy(policyId), p.Default);
+
+    private ActionResult ApplyIntroduce(IntroducePolicy a)
+    {
+        if (_politics?.PolicyBlock() is { } blocked) return new ActionResult(false, blocked, null);
+        if (!_policyDefs.TryGetValue(a.PolicyId, out var policy)) return new ActionResult(false, "error.unknown_policy", a.PolicyId);
+        if (_active.Contains(a.PolicyId)) return new ActionResult(false, "error.already_active", a.PolicyId);
+        double cost = IntroductionCost(a.PolicyId);
+        if (_politics != null && !_politics.TrySpendCapital(cost))
+            return new ActionResult(false, "error.policy_cost", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{cost:0}|{Math.Floor(_politics.Capital + 1e-9):0}"));
+        _active.Add(a.PolicyId);
+        double to = IntroductionValue(a.PolicyId);
+        if (Math.Abs(to - LatestPolicy(a.PolicyId)) > 1e-12) _pending.Add(new PendingPolicy(a.PolicyId, to, _turn + policy.DelayTurns));
+        _log.Add((_turn, a));
+        return ActionResult.Ok;
+    }
+
+    private ActionResult ApplyAbolish(AbolishPolicy a)
+    {
+        if (_politics?.PolicyBlock() is { } blocked) return new ActionResult(false, blocked, null);
+        if (!_policyDefs.TryGetValue(a.PolicyId, out var policy)) return new ActionResult(false, "error.unknown_policy", a.PolicyId);
+        if (!_active.Contains(a.PolicyId)) return new ActionResult(false, "error.not_active", a.PolicyId);
+        if (!policy.Abolishable) return new ActionResult(false, "error.not_abolishable", a.PolicyId);
+        double cost = RepealCost(a.PolicyId);
+        if (_politics != null && !_politics.TrySpendCapital(cost))
+            return new ActionResult(false, "error.policy_cost", string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{cost:0}|{Math.Floor(_politics.Capital + 1e-9):0}"));
+        _active.Remove(a.PolicyId);
+        _pending.RemoveAll(p => p.PolicyId == a.PolicyId);
+        if (Math.Abs(_policies[a.PolicyId] - policy.Default) > 1e-12) _pending.Add(new PendingPolicy(a.PolicyId, policy.Default, _turn + policy.DelayTurns));
+        _indexation.Remove(a.PolicyId);
+        _log.Add((_turn, a));
+        return ActionResult.Ok;
+    }
 
     public ActionResult Apply(PlayerAction action)
     {
@@ -109,11 +180,14 @@ public sealed class Game
             return result;
         }
         if (action is SetIndexation ix) return ApplyIndexation(ix);
+        if (action is IntroducePolicy intro) return ApplyIntroduce(intro);
+        if (action is AbolishPolicy repeal) return ApplyAbolish(repeal);
         if (action is not SetPolicy set)
             return new ActionResult(false, "error.unknown_action", action.GetType().Name);
         if (_politics?.PolicyBlock() is { } blocked) return new ActionResult(false, blocked, null);
         if (!_policyDefs.TryGetValue(set.PolicyId, out var policy))
             return new ActionResult(false, "error.unknown_policy", set.PolicyId);
+        if (!_active.Contains(set.PolicyId)) return new ActionResult(false, "error.policy_inactive", set.PolicyId);
         if (!double.IsFinite(set.Value) || set.Value < policy.Min || set.Value > policy.Max)
             return new ActionResult(false, "error.value_out_of_range", $"{set.PolicyId} must be in [{policy.Min}, {policy.Max}]");
         if (_politics != null)
@@ -227,11 +301,11 @@ public sealed class Game
         if (!_policyDefs.TryGetValue(policyId, out var policy) || !double.IsFinite(value) || value < policy.Min || value > policy.Max)
             return null;
         double from = LatestPolicy(policyId);
-        var effects = new SortedDictionary<string, (double Add, double Rel)>(Ord);
+        var effects = new SortedDictionary<string, (double Add, double Rel, double Lvl)>(Ord);
         foreach (var (_, to, kind, amount) in _graph.Preview(policyId, from, value))
         {
-            var (a, r) = effects.GetValueOrDefault(to);
-            effects[to] = kind == EdgeKind.Additive ? (a + amount, r) : (a, r + amount);
+            var (a, r, l) = effects.GetValueOrDefault(to);
+            effects[to] = kind == EdgeKind.Additive ? (a + amount, r, l) : kind == EdgeKind.Relative ? (a, r + amount, l) : (a, r, l + amount);
         }
         double range = Math.Max(policy.Max - policy.Min, 1e-12);
         var groups = new List<GroupEffect>();
@@ -244,7 +318,7 @@ public sealed class Game
         double budget = delta * policy.CostPerUnit - (policy.RevenueBaseValueId != null ? delta : 0.0);
         double cost = PolicyChangeCost(policyId, value);
         return new PolicyPreview(policyId, from, value,
-            effects.Select(kv => new ValueEffect(kv.Key, kv.Value.Add, kv.Value.Rel)).ToList(), groups, budget,
+            effects.Select(kv => new ValueEffect(kv.Key, kv.Value.Add, kv.Value.Rel, kv.Value.Lvl)).ToList(), groups, budget,
             cost, _politics == null || _politics.Capital + 1e-9 >= cost, necessity);
     }
 
@@ -288,7 +362,7 @@ public sealed class Game
         var owned = new HashSet<string>(Ord);
         foreach (var model in _models)
         {
-            var next = model.Step(new EconomyInput(before, eval.Rates, _policies, _country.Parameters, _indexation), _dt);
+            var next = model.Step(new EconomyInput(before, eval.Rates, _policies, _country.Parameters, _indexation, _priceHistory.ToList()), _dt);
             foreach (var id in model.OwnedValueIds)
                 if (after.ContainsKey(id) && next.TryGetValue(id, out var nv)) { after[id] = nv; owned.Add(id); }
         }
@@ -308,6 +382,10 @@ public sealed class Game
                 warnings.Add($"Value '{id}' was not finite after the step and was kept at its previous value.");
             }
 
+        // a quantity that cannot go below its physical floor (crime, inequality) stays there however many laws push it down
+        foreach (var id in after.Keys.ToList())
+            if (_valueDefs[id].Floor is { } floor && after[id] < floor) after[id] = floor;
+
         // 6. Events. Their effects change values before the voters look, so shocks are felt.
         var fired = RollEvents(after);
 
@@ -326,8 +404,10 @@ public sealed class Game
 
         // 9. Commit and report.
         foreach (var (id, v) in after) _values[id] = v;
+        if (after.TryGetValue(MacroModelV1.Ids.PriceLevel, out var priceNow) && _priceHistory.Count > 0) { _priceHistory.RemoveAt(0); _priceHistory.Add(priceNow); }
         _turn++;
 
+        _politics?.SetGroups(Groups);
         // Politics runs on the committed state: today's poll, loyalty, the election countdown, formation.
         var politicalEvents = _politics?.Step(_turn, _satisfaction) ?? new List<PoliticalEvent>();
         // proposals settled this turn (decision 0014) come first, so the governor already sees them in the queued settings
@@ -337,7 +417,7 @@ public sealed class Game
             if (to == from) continue;
             politicalEvents.Add(new GovernmentMeasure(_turn, policyId, from, to));
             _politics!.RecordMeasure(_turn, policyId, from, to, stanceTaken: answered);
-            _pending.Add(new PendingPolicy(policyId, to, _turn + _policyDefs[policyId].DelayTurns));
+            { _active.Add(policyId); _pending.Add(new PendingPolicy(policyId, to, _turn + _policyDefs[policyId].DelayTurns)); }
         }
         if (_politics?.GovernorMove(_turn, LatestPolicy) is { } move)
         {
@@ -348,7 +428,7 @@ public sealed class Game
             {
                 politicalEvents.Add(new GovernmentMeasure(_turn, move.PolicyId, from, move.Value));
                 _politics.RecordMeasure(_turn, move.PolicyId, from, move.Value);
-                _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns));
+                { _active.Add(move.PolicyId); _pending.Add(new PendingPolicy(move.PolicyId, move.Value, _turn + _policyDefs[move.PolicyId].DelayTurns)); }
             }
         }
         foreach (var (policyId, to) in _politics?.TakeApprovedProposals() ?? Array.Empty<(string, double)>())
@@ -358,7 +438,7 @@ public sealed class Game
             if (to == from) continue;
             politicalEvents.Add(new GovernmentMeasure(_turn, policyId, from, to));
             _politics!.RecordMeasure(_turn, policyId, from, to);
-            _pending.Add(new PendingPolicy(policyId, to, _turn + def.DelayTurns));
+            { _active.Add(policyId); _pending.Add(new PendingPolicy(policyId, to, _turn + def.DelayTurns)); }
         }
         var changes = before.Keys.Select(id => new ValueChange(id, before[id], after[id],
             eval.Contributions.TryGetValue(id, out var c) ? c : Array.Empty<Contribution>())).ToList();
