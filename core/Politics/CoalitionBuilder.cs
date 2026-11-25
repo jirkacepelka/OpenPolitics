@@ -129,6 +129,17 @@ public static class CoalitionBuilder
     /// <see cref="Negotiation.MaxPortfoliosPerPartner"/>), picked in rounds from the biggest partner down, each taking the portfolio it values most
     /// that is still free. The leader keeps the rest. Ministries come on top of the price in policy demands, which still has to be paid.
     /// </summary>
+    /// <summary>The ministries a government's partners hold, as the AI formateur would hand them out (a government that was not formed in talks).</summary>
+    public static IReadOnlyList<PortfolioGrant> Ministries(string leader, IReadOnlyList<string> partners, IReadOnlyDictionary<string, PartyDef> parties,
+        IReadOnlyList<PortfolioDef> portfolios, IReadOnlyDictionary<string, int> seats)
+    {
+        var grants = new List<PortfolioGrant>();
+        if (partners.Count == 0 || portfolios.Count == 0) return grants;
+        var talks = new Talks((_, _) => 1.0, (_, _) => false, portfolios);
+        OfferMinistries(leader, partners.ToList(), parties, talks, seats, Negotiation.MaxPartnerPortfolios(portfolios.Count), grants);
+        return grants;
+    }
+
     private static void OfferMinistries(string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, Talks talks,
         IReadOnlyDictionary<string, int> seats, int maxGrants, List<PortfolioGrant> grants)
     {

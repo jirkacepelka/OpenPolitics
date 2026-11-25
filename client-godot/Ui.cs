@@ -463,7 +463,15 @@ public partial class FlowGrid : Container
 
     public FlowGrid() { SizeFlagsHorizontal = SizeFlags.ExpandFill; }
 
-    private int Cols(float width) => Math.Clamp((int)((width + Gap) / (MinColumn + Gap)), 1, MaxColumns);
+    /// <summary>The narrowest a column may be: MinColumn, or what its widest single-column child needs (a card is never squeezed over its neighbour).</summary>
+    private float ColumnMin()
+    {
+        float m = MinColumn;
+        foreach (var n in GetChildren()) if (n is Control c && c.Visible && !c.HasMeta("span")) m = Math.Max(m, c.GetCombinedMinimumSize().X);
+        return m;
+    }
+
+    private int Cols(float width) { float min = ColumnMin(); return Math.Clamp((int)((width + Gap) / (min + Gap)), 1, MaxColumns); }
     private static int Span(Control c, int cols) => Math.Clamp(c.HasMeta("span") ? (int)c.GetMeta("span") : 1, 1, cols);
 
     private List<List<Control>> Rows(int cols)

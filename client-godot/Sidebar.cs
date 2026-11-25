@@ -44,7 +44,7 @@ public partial class GroupRow : Control
         var track = new Color(1, 1, 1, 0.10f);
         if (Narrow)
         {
-            Icons.Draw(this, _icon, new Vector2(Size.X / 2, Size.Y / 2 - 5), 16, new Color(1, 1, 1, Selected ? 1 : 0.8f));
+            Icons.Draw(this, _icon, new Vector2(Size.X / 2, Size.Y / 2 - 5), 16, Selected ? Colors.White : new Color("d4d3d8"));
             float bw = Size.X - 22, by = Size.Y / 2 + 8;
             DrawStyleBox(AppTheme.Box(track, 2), new Rect2(11, by, bw, 3));
             DrawStyleBox(AppTheme.Box(fill, 2), new Rect2(11, by, Math.Max(3, bw * (float)Math.Clamp(good, 0, 1)), 3));

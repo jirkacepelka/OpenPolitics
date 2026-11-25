@@ -397,6 +397,16 @@ public partial class WorldMap : Control
         DrawColoredPolygon(new[] { tip + dir * 3, tip - dir * (w * 3f + 4) + side, tip - dir * (w * 3f + 4) - side }, col);
     }
 
+    /// <summary>
+    /// A faded icon stays opaque: its colour is mixed toward the disc it sits on. Drawn with alpha, the strokes of an icon overlap at corners and
+    /// joints and the overlaps show as darker squares.
+    /// </summary>
+    private static Color OpaqueInk(Color ink, Color fill, float alpha)
+    {
+        alpha = Math.Clamp(alpha, 0f, 1f);
+        return ink.Lerp(AppTheme.MapBg.Lerp(fill, alpha), 1f - alpha); // what the ink would look like at that alpha over the faded disc
+    }
+
     private void DrawNode(Node n, float alpha, VoterGroupDef? group, Dictionary<string, double> pending, float focus)
     {
         var s = _s!;
@@ -417,7 +427,7 @@ public partial class WorldMap : Control
             DrawCircle(p, r, new Color(AppTheme.ChromeTint.Lerp(new Color("ffffff"), 0.15f), alpha));
             DrawArc(p, ringR, 0, Mathf.Tau, 72, new Color(AppTheme.Chrome, 0.16f * alpha), ring, true);
             if (frac > 0.004) DrawArc(p, ringR, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (float)frac, 72, new Color(arcColor, alpha), ring, true);
-            Icons.Draw(this, n.Icon, p, r * 0.92f, new Color(AppTheme.Chrome.Darkened(0.1f), alpha));
+            Icons.Draw(this, n.Icon, p, r * 0.92f, OpaqueInk(AppTheme.Chrome.Darkened(0.1f), AppTheme.ChromeTint.Lerp(new Color("ffffff"), 0.15f), alpha));
             if (pending.TryGetValue(n.Id, out var target) && Math.Abs(target - v) > 1e-9)
             {
                 double tf = def.Max > def.Min ? (target - def.Min) / (def.Max - def.Min) : 0;
@@ -445,7 +455,7 @@ public partial class WorldMap : Control
                 float frac = (float)Math.Clamp(0.12 + 0.88 * good, 0.12, 1);
                 DrawArc(p, ringR, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * frac, 72, new Color(AppTheme.Traffic(good), alpha), ring, true);
             }
-            Icons.Draw(this, n.Icon, p, r * 0.92f, new Color(AppTheme.Ink2, alpha));
+            Icons.Draw(this, n.Icon, p, r * 0.92f, OpaqueInk(AppTheme.Ink2, new Color("ffffff"), alpha));
         }
     }
 

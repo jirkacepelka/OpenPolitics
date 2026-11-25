@@ -109,4 +109,18 @@ public class RandomStartTests
         }
         Assert.True(governing > quarters * 0.85, $"{governing}/{quarters} quarters with a sitting government");
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EveryPartnerOfTheStartingGovernmentHoldsAMinistry(bool random)
+    {
+        var g = Simulation.NewGame(Packs, "base:cz_2015", 4, null, random);
+        var gov = g.State.Countries.Values.Single().Politics!.Government!;
+        var holders = gov.PortfolioHolders;
+        foreach (var partner in gov.Parties.Where(p => p != gov.Leader))
+            Assert.Contains(partner, holders.Values);
+        Assert.True(holders.Count <= g.Portfolios.Count * 2 / 3);
+        Assert.All(holders.Keys, id => Assert.Contains(g.Portfolios, p => p.Id == id));
+    }
 }

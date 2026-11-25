@@ -23,6 +23,7 @@ public static class Smoke
             if (RequestedSize is { } want) GD.Print($"smoke: window {want}, logical {main.Size}, class {Layout.Width}/{Layout.Height}");
             if (screenshots != null) System.IO.Directory.CreateDirectory(screenshots);
             await StartScreenPartyPicker(main, screenshots);
+            if (screenshots != null) await IconSheet(main, screenshots);
             foreach (var scenario in main.Packs!.Scenarios.OrderBy(s => s.Id, StringComparer.Ordinal))
                 foreach (var language in new[] { "en", "cs" })
                 {
@@ -161,6 +162,25 @@ public static class Smoke
             GD.Print("smoke: main menu, settings, new game and load ok");
         }
         finally { if (System.IO.File.Exists(file)) System.IO.File.Delete(file); }
+    }
+
+    /// <summary>Every pictogram on one sheet (a quick look for duplicates and badly drawn ones), and every law and indicator's icon must be its own.</summary>
+    private static async Task IconSheet(Main main, string shots)
+    {
+        main.ShowStart();
+        var bg = new ColorRect { Color = AppTheme.Surface };
+        bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        var grid = new GridContainer { Columns = 14 };
+        grid.AddThemeConstantOverride("h_separation", 10); grid.AddThemeConstantOverride("v_separation", 10);
+        foreach (var kind in Enum.GetValues<IconKind>()) grid.AddChild(new PictoDisc(kind, 40));
+        bg.AddChild(Ui.Margin(grid, 16));
+        main.AddChild(bg);
+        await Frames(main, 3);
+        Shot(main, shots, "icons");
+        bg.QueueFree();
+        var shared = main.Packs!.Policies.Select(p => p.Id).GroupBy(Icons.For).Where(g => g.Count() > 1).Select(g => $"{g.Key}: {string.Join(", ", g)}").ToList();
+        if (shared.Count > 0) GD.Print("smoke: note: laws sharing an icon: " + string.Join(" | ", shared));
+        if (main.Packs.Policies.Any(p => Icons.For(p.Id) == IconKind.Gauge)) GD.Print("smoke: note: a law has the fallback icon");
     }
 
     private static async Task AllianceFlow(Main main, string? shots)
@@ -382,6 +402,12 @@ public static class Smoke
                 main.Open(main.Screens[i]);
                 await Frames(main, 4);
                 Shot(main, shots, $"{prefix}-{i}-{main.Screens[i].GetType().Name}");
+                if (main.Screens[i] is PoliticsScreen)
+                {
+                    foreach (var sc in FindAll<ScrollContainer>(main)) sc.ScrollVertical = 380; // the lower cards: cabinet, coalition
+                    await Frames(main, 3);
+                    Shot(main, shots, $"{prefix}-politics-lower");
+                }
             }
             if (s.HasPolitics && main.Screens.OfType<PartyScreen>().FirstOrDefault() is { } party)
             {

@@ -30,6 +30,31 @@ public sealed class PoliticsScreen : Screen
     private Session? _s; private Dialog? _d; private Main? _main;
     private readonly HashSet<string> _alPick = new(StringComparer.Ordinal);
 
+    /// <summary>Who holds which ministry: the leader keeps what the partners were not given (decision 0016, 0018).</summary>
+    private static Control? Cabinet(Session s, CountryPolitics pol)
+    {
+        var t = s.T;
+        var ministries = s.Game.Portfolios;
+        if (pol.Phase != Phase.Governing || pol.Government is not { } gov || ministries.Count == 0) return null;
+        var box = Ui.VBox(6);
+        var held = gov.PortfolioHolders;
+        foreach (var m in ministries)
+        {
+            string holder = held.GetValueOrDefault(m.Id) ?? gov.Leader;
+            var row = Ui.HBox(8);
+            var name = Ui.L(t.Name(m.Id), Tx.Label, AppTheme.Ink, false);
+            name.ClipText = true; name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; name.SizeFlagsHorizontal = SizeFlags.ExpandFill; name.CustomMinimumSize = new Vector2(60, 0);
+            row.AddChild(name);
+            var who = Ui.PartyName(s, holder, null, Tx.Label);
+            row.AddChild(who);
+            row.TooltipText = t.Name(m.Id) + ": " + string.Join(", ", m.Policies.Select(t.Name).OrderBy(x => x, StringComparer.Ordinal));
+            row.MouseFilter = MouseFilterEnum.Pass;
+            box.AddChild(row);
+        }
+        box.AddChild(Ui.L(t.T("ui.cabinet.hint"), Tx.Small, AppTheme.Ink3, true));
+        return Card(t.T("ui.cabinet.title"), box);
+    }
+
     /// <summary>
     /// Joint lists before an election (decision 0019): the lists that will run (members, how well their programmes agree, what each member's voters
     /// think of the joint programme) and, within the window, a way to propose one: choose up to two parties, see what each would win and lose, form it.
@@ -184,8 +209,8 @@ public sealed class PoliticsScreen : Screen
             row.AddChild(seats);
             polls.AddChild(PartyButton(main, id, row));
         }
-        if (threshold > 0) polls.AddChild(Ui.L(t.T("ui.pp.threshold", Ui.Num(threshold * 100, "0.#")), Tx.Small));
-        else if (kind != "proportional") polls.AddChild(Ui.L(t.T("ui.pp.districts", t.T("ui.system." + (kind == "fptp" ? 1 : 2))), Tx.Small));
+        if (threshold > 0) polls.AddChild(Ui.L(t.T("ui.pp.threshold", Ui.Num(threshold * 100, "0.#")), Tx.Small, null, true));
+        else if (kind != "proportional") polls.AddChild(Ui.L(t.T("ui.pp.districts", t.T("ui.system." + (kind == "fptp" ? 1 : 2))), Tx.Small, null, true));
         if (Charts.All.FirstOrDefault(c => c.Id == "polls") is { } pspec)
         {
             var b = Ui.Btn(t.T("ui.map.open_chart"), () => main.OpenChart(pspec), "ButtonSecondary", IconKind.Chart);
@@ -202,6 +227,7 @@ public sealed class PoliticsScreen : Screen
         // Coalition
         var coal = Coalition(s, pol, main);
         if (coal != null) { coal.SetMeta("span", 2); grid.AddChild(coal); }
+        if (Cabinet(s, pol) is { } cabinet) grid.AddChild(cabinet);
         d.Body.AddChild(grid);
         if (AllianceCard(s, pol) is { } alliances) d.Body.AddChild(alliances);
         if (pol.Phase == Phase.Governing && pol.PlayerRole == Role.Leader) { _rsCard = Reshuffle(s, pol); d.Body.AddChild(_rsCard); }

@@ -145,6 +145,14 @@ internal sealed class PoliticsEngine
         _votes = _poll;
         _turnsToElection = _scenario.TurnsToElection;
         _lastDeficit = lookup("value", "base:deficit_pct");
+        if (_government.PortfolioHolders.Count == 0 && _government.Parties.Count > 1 && _portfolios.Count > 0)
+        {
+            // a government that was not formed in talks still shares the cabinet: partners hold ministries in proportion to their seats
+            var holders = new SortedDictionary<string, string>(Ord);
+            foreach (var g in CoalitionBuilder.Ministries(_government.Leader, _government.Parties.Where(p => p != _government.Leader).ToList(), _parties, _portfolios, _seats))
+                holders[g.PortfolioId] = g.PartyId;
+            _government = _government with { Portfolios = holders };
+        }
         SetBaseline(_government.Parties);
         ResetLoyalty();
     }

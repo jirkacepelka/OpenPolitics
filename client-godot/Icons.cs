@@ -9,6 +9,7 @@ public enum IconKind
     Bolt, Eye, Hand, Health, Education, Shield, Flask, Road, Columns, Alert, Scale, ChartUp, Gear, Users, Bank, CoinIn, CoinOut, Gauge,
     Chart, Close, Map, Grid, Check, Plus, Minus, Fit, Undo, SortAz, SortSize, Smile, Back, Search, Calendar,
     Cloud, Sun, Tree, Chimney, Cart, Gavel, Bricks, Contract, Pie, HousePercent, Diamond, Banknote, Bottle, Threshold, Elder, Pram,
+    Inheritance, Sugar, BankLevy, Windfall, Vehicle, ElderCare, Disability, Vocational, SchoolMeals, Scholarship, Rail, Flood, Nuclear, Cyber, Justice, Prison, Border, Startup, Pin, Heart, Gun, Lock, Chat, Venus, Rings, Candle, Cigarette, Wine, Syringe, Pencil, Cross, Umbrella, Fist, Stop, Podium, Clipboard, NoCoin, Quill, Passport, Door, Crane, Dna, Block, Scroll, Ladder, Monitor, Tractor,
 }
 
 /// <summary>
@@ -18,9 +19,68 @@ public enum IconKind
 public static class Icons
 {
     /// <summary>The pictogram for a policy, indicator or voter group id (by keyword, so new content gets a sensible icon).</summary>
+    private static readonly Dictionary<string, IconKind> Exact = new()
+    {
+        ["inheritance_tax"] = IconKind.Inheritance,
+        ["sugar_tax"] = IconKind.Sugar,
+        ["bank_levy"] = IconKind.BankLevy,
+        ["windfall_tax"] = IconKind.Windfall,
+        ["vehicle_tax"] = IconKind.Vehicle,
+        ["digital_services_tax"] = IconKind.Monitor,
+        ["elderly_care"] = IconKind.ElderCare,
+        ["disability_support"] = IconKind.Disability,
+        ["mental_health"] = IconKind.Smile,
+        ["vocational_training"] = IconKind.Vocational,
+        ["school_meals"] = IconKind.SchoolMeals,
+        ["scholarships"] = IconKind.Scholarship,
+        ["university_fees"] = IconKind.Scroll,
+        ["religious_education"] = IconKind.Cross,
+        ["rail_network"] = IconKind.Rail,
+        ["flood_protection"] = IconKind.Flood,
+        ["nuclear_programme"] = IconKind.Nuclear,
+        ["cybersecurity"] = IconKind.Cyber,
+        ["justice_system"] = IconKind.Justice,
+        ["prisons_and_rehabilitation"] = IconKind.Prison,
+        ["border_guard"] = IconKind.Border,
+        ["startup_support"] = IconKind.Startup,
+        ["agriculture_subsidies"] = IconKind.Tractor,
+        ["electoral_system"] = IconKind.Grid,
+        ["regional_funds"] = IconKind.Pin,
+        ["foreign_aid"] = IconKind.Heart,
+        ["public_housing"] = IconKind.Block,
+        ["active_labour_policy"] = IconKind.Ladder,
+        ["gun_laws"] = IconKind.Gun,
+        ["data_protection"] = IconKind.Lock,
+        ["press_freedom"] = IconKind.Chat,
+        ["abortion_access"] = IconKind.Venus,
+        ["same_sex_unions"] = IconKind.Rings,
+        ["euthanasia"] = IconKind.Candle,
+        ["smoking_ban"] = IconKind.Cigarette,
+        ["alcohol_policy"] = IconKind.Wine,
+        ["vaccination_policy"] = IconKind.Syringe,
+        ["curriculum_reform"] = IconKind.Pencil,
+        ["working_week_hours"] = IconKind.Calendar,
+        ["paid_leave"] = IconKind.Umbrella,
+        ["union_rights"] = IconKind.Fist,
+        ["strike_rules"] = IconKind.Stop,
+        ["foreign_investment_screening"] = IconKind.Search,
+        ["competition_policy"] = IconKind.Podium,
+        ["procurement_transparency"] = IconKind.Clipboard,
+        ["anti_corruption"] = IconKind.NoCoin,
+        ["judicial_independence"] = IconKind.Quill,
+        ["citizenship_rules"] = IconKind.Passport,
+        ["asylum_policy"] = IconKind.Door,
+        ["zoning_planning"] = IconKind.Crane,
+        ["gmo_policy"] = IconKind.Dna,
+        ["deficit_pct"] = IconKind.Gauge,
+        ["interest_rate"] = IconKind.Threshold,
+        ["culture_sport"] = IconKind.Star,
+    };
+
     public static IconKind For(string id)
     {
         string k = id.Contains(':') ? id[(id.IndexOf(':') + 1)..] : id;
+        if (Exact.TryGetValue(k, out var one)) return one;
         (string Key, IconKind Icon)[] map =
         {
             ("carbon", IconKind.Cloud), ("green_subsidies", IconKind.Sun), ("environment_regulation", IconKind.Chimney), ("environment", IconKind.Tree),
@@ -224,6 +284,88 @@ public static class Icons
             case IconKind.Elder: Ring(-1, -8, 2.8f); Poly(-1, -4, 0, 3, -3, 10); L(0, 3, 3, 10); L(-1, -2, 5, 1); L(5, 1, 6, 10); break;
             case IconKind.Pram: Arc(0, 0, 8, Mathf.Pi, Mathf.Pi * 1.5f); L(-8, 0, 8, 0); L(0, -8, 0, 0); Poly(-8, 0, -5, 5, 5, 5, 8, 0); Dot(-4, 8, 1.8f); Dot(4, 8, 1.8f); L(8, 0, 11, -6); break;
             case IconKind.Calendar: Box(-9, -7, 18, 16); L(-9, -2, 9, -2); L(-4, -10, -4, -5); L(4, -10, 4, -5); break;
+            case IconKind.Inheritance: Poly(-5, -10, -5, -5, 0, 0, -5, 5, -5, 10); Poly(5, -10, 5, -5, 0, 0, 5, 5, 5, 10); L(-8, -10, 8, -10); L(-8, 10, 8, 10); break;
+            case IconKind.Sugar: Poly(-9, -3, 0, -8, 9, -3, 0, 2, -9, -3); Poly(-9, -3, -9, 6, 0, 11, 9, 6, 9, -3); L(0, 2, 0, 11); break;
+            case IconKind.BankLevy: Poly(-11, -3, -3, -8, 5, -3, -11, -3); L(-11, 8, 5, 8); L(-8, 0, -8, 5); L(-3, 0, -3, 5); L(2, 0, 2, 5); L(9, -8, 9, 4); Poly(6, 1, 9, 5, 12, 1); break;
+            case IconKind.Windfall: Ring(-3, 4, 6.5f); L(-3, 1, -3, 7); L(-6, 4, 0, 4); c.DrawColoredPolygon(new[] { P(8, -11), P(3, -4), P(7, -4), P(5, 2), P(11, -6), P(7, -6) }, color); break;
+            case IconKind.Vehicle: Poly(-11, 3, -11, -2, -7, -2, -5, -7, 5, -7, 7, -2, 11, -2, 11, 3, -11, 3); Dot(-6, 6, 2.2f); Dot(6, 6, 2.2f); L(-3, -2, 3, -2); break;
+            case IconKind.ElderCare: Arc(0, -5, 5, Mathf.Pi, Mathf.Tau); L(5, -5, 5, 10); L(-5, -5, -5, -2); Dot(-5, 3, 1.4f); break;
+            case IconKind.Disability: Dot(-1, -8, 2); Poly(-1, -5, -1, 2, 6, 2, 8, 9); L(-1, -1, 5, -1); Ring(-2, 5, 5.5f); break;
+            case IconKind.Vocational: L(-9, 9, 3, -3); Arc(6, -6, 4.5f, Mathf.Pi * 0.6f, Mathf.Pi * 2.4f); break;
+            case IconKind.SchoolMeals: L(-7, -10, -7, -3); L(-4, -10, -4, -3); L(-1, -10, -1, -3); Poly(-7, -3, -7, 0, -1, 0, -1, -3); L(-4, 0, -4, 10); Ring(6, -6, 3.5f); L(6, -2.5f, 6, 10); break;
+            case IconKind.Scholarship: Ring(0, -2, 6); Poly(-4, 3, -6, 10, 0, 7, 6, 10, 4, 3); Dot(0, -2, 1.5f); break;
+            case IconKind.Rail: Poly(-6, -9, 6, -9, 8, 5, -8, 5, -6, -9); L(-6, -2, 6, -2); Dot(-4, 1.5f, 1.2f); Dot(4, 1.5f, 1.2f); L(-8, 10, -4, 5); L(8, 10, 4, 5); L(-5, 8, 5, 8); break;
+            case IconKind.Flood: Poly(-11, 2, -7, -1, -3, 2, 1, -1, 5, 2, 9, -1, 11, 1); Poly(-11, 8, -7, 5, -3, 8, 1, 5, 5, 8, 9, 5, 11, 7); Poly(0, -11, -3.5f, -6, -3.5f, -4.5f, 0, -2, 3.5f, -4.5f, 3.5f, -6, 0, -11); break;
+            case IconKind.Nuclear:
+                Dot(0, 0, 1.8f);
+                for (int k = 0; k < 3; k++)
+                {
+                    var pts = new Vector2[33];
+                    for (int i = 0; i <= 32; i++) { float a = i * Mathf.Tau / 32; pts[i] = center + new Vector2(Mathf.Cos(a) * 10, Mathf.Sin(a) * 4).Rotated(k * Mathf.Pi / 3) * u; }
+                    c.DrawPolyline(pts, color, w, true);
+                }
+                break;
+            case IconKind.Cyber: Box(-6, -6, 12, 12); Box(-2.5f, -2.5f, 5, 5); foreach (float x in new[] { -3f, 0f, 3f }) { L(x, -6, x, -10); L(x, 6, x, 10); L(-6, x, -10, x); L(6, x, 10, x); } break;
+            case IconKind.Justice: Poly(-10, -6, -10, 8, 0, 10, 10, 8, 10, -6, 0, -4, -10, -6); L(0, -4, 0, 10); L(-7, -2, -3, -1.5f); L(-7, 2, -3, 2.5f); L(3, -1.5f, 7, -2); L(3, 2.5f, 7, 2); break;
+            case IconKind.Prison: Box(-9, -9, 18, 18); foreach (float x in new[] { -4.5f, 0f, 4.5f }) L(x, -9, x, 9); break;
+            case IconKind.Border: Poly(-11, -5, 11, -5, 11, 0, -11, 0, -11, -5); L(-6, -5, -8, 0); L(-1, -5, -3, 0); L(4, -5, 2, 0); L(9, -5, 7, 0); L(-9, 0, -9, 10); L(9, 0, 9, 10); break;
+            case IconKind.Startup: Poly(0, -11, 4, -4, 4, 4, -4, 4, -4, -4, 0, -11); Ring(0, -2, 1.8f); Poly(-4, 0, -8, 6, -4, 4); Poly(4, 0, 8, 6, 4, 4); L(-1.5f, 7, 0, 11); L(1.5f, 7, 0, 11); break;
+            case IconKind.Pin: Ring(0, -4, 6); L(-5, 0, 0, 10); L(5, 0, 0, 10); Dot(0, -4, 2); break;
+            case IconKind.Heart: Arc(-4.5f, -3, 5, Mathf.Pi * 0.8f, Mathf.Tau); Arc(4.5f, -3, 5, Mathf.Pi, Mathf.Pi * 2.2f); L(-9.2f, 0.5f, 0, 10); L(9.2f, 0.5f, 0, 10); break;
+            case IconKind.Gun: Poly(-11, -6, 7, -6, 7, -1, 0, -1, -2, 2, -4, 9, -9, 9, -7, -1, -11, -1, -11, -6); break;
+            case IconKind.Lock: Box(-7, -1, 14, 11); Arc(0, -3, 5, Mathf.Pi, Mathf.Tau); L(-5, -3, -5, -1); L(5, -3, 5, -1); Dot(0, 4, 1.5f); break;
+            case IconKind.Chat: Poly(-10, -8, 10, -8, 10, 4, 2, 4, -4, 9, -4, 4, -10, 4, -10, -8); L(-6, -3, 6, -3); L(-6, 0, 2, 0); break;
+            case IconKind.Venus: Ring(0, -4, 5.5f); L(0, 1.5f, 0, 10); L(-3.5f, 6, 3.5f, 6); break;
+            case IconKind.Rings: Ring(-3.5f, 0, 6); Ring(3.5f, 0, 6); break;
+            case IconKind.Candle: Box(-3.5f, -2, 7, 12); Poly(0, -11, -2.5f, -6, 0, -3.5f, 2.5f, -6, 0, -11); break;
+            case IconKind.Cigarette: Poly(-11, 2, 5, 2, 5, 7, -11, 7, -11, 2); L(-5, 2, -5, 7); Poly(8, 2, 11, 2, 11, 7, 8, 7, 8, 2); Poly(7, -1, 9, -4, 7, -7, 9, -10); break;
+            case IconKind.Wine: Poly(-5, -10, 5, -10, 4, -3, 0, 1, -4, -3, -5, -10); L(0, 1, 0, 9); L(-4, 10, 4, 10); L(-4.5f, -6, 4.5f, -6); break;
+            case IconKind.Syringe:
+                c.DrawSetTransform(center, -Mathf.Pi / 4, Vector2.One);
+                c.DrawRect(new Rect2(new Vector2(-6, -3) * u, new Vector2(11, 6) * u), color, false, w);
+                c.DrawLine(new Vector2(-11, 0) * u, new Vector2(-6, 0) * u, color, w, true);
+                c.DrawLine(new Vector2(5, 0) * u, new Vector2(11, 0) * u, color, w, true);
+                c.DrawLine(new Vector2(-6, -5) * u, new Vector2(-6, 5) * u, color, w, true);
+                c.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+                break;
+            case IconKind.Pencil:
+                c.DrawSetTransform(center, -Mathf.Pi / 4, Vector2.One);
+                c.DrawRect(new Rect2(new Vector2(-10, -2.5f) * u, new Vector2(14, 5) * u), color, false, w);
+                c.DrawPolyline(new[] { new Vector2(4, -2.5f) * u, new Vector2(10, 0) * u, new Vector2(4, 2.5f) * u }, color, w, true);
+                c.DrawLine(new Vector2(-6, -2.5f) * u, new Vector2(-6, 2.5f) * u, color, w, true);
+                c.DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+                break;
+            case IconKind.Cross: L(0, -10, 0, 10); L(-6, -4, 6, -4); break;
+            case IconKind.Umbrella: Arc(0, -1, 10, Mathf.Pi, Mathf.Tau); L(0, -1, 0, 8); Arc(2.5f, 8, 2.5f, 0, Mathf.Pi); break;
+            case IconKind.Fist: Poly(-6, -3, -6, -6, 6, -6, 6, -3); Box(-6, -3, 12, 10); L(-2, -3, -2, 2); L(2, -3, 2, 2); Poly(-6, 1, -9, 1, -9, 5, -6, 5); break;
+            case IconKind.Stop:
+            {
+                var pts = new Vector2[9];
+                for (int i = 0; i < 9; i++) { float a = Mathf.Pi / 8 + i * Mathf.Tau / 8; pts[i] = P(Mathf.Cos(a) * 10.5f, Mathf.Sin(a) * 10.5f); }
+                c.DrawPolyline(pts, color, w, true);
+                L(-5, 0, 5, 0);
+                break;
+            }
+            case IconKind.Podium: Box(-11, 1, 7, 9); Box(-4, -4, 8, 14); Box(4, 3, 7, 7); Dot(0, -8, 1.6f); break;
+            case IconKind.Clipboard: Box(-7, -8, 14, 18); Box(-3, -10, 6, 4); Poly(-4, 0, -2, 2, 3, -3); L(-4, 5, 4, 5); break;
+            case IconKind.NoCoin: Ring(0, 0, 9.5f); Ring(0, 0, 4); L(-6.7f, -6.7f, 6.7f, 6.7f); break;
+            case IconKind.Quill: Poly(10, -10, 3, -9, -4, -2, -6, 4, -1, 2, 5, -3, 10, -10); L(-6, 4, -10, 10); break;
+            case IconKind.Passport: Box(-7, -10, 14, 20); Ring(0, -2, 3.5f); L(-4, 4, 4, 4); L(-4, 7, 4, 7); break;
+            case IconKind.Door: Poly(-6, 10, -6, -10, 6, -10, 6, 10); L(-9, 10, 9, 10); Dot(3, 1, 1.3f); break;
+            case IconKind.Crane: L(-6, 10, -6, -9); L(-6, -9, 10, -9); L(8, -9, 8, -3); Box(6, -3, 4, 3); L(-9, 10, -3, 10); L(-6, -5, 2, -9); break;
+            case IconKind.Dna:
+            {
+                var a1 = new Vector2[25]; var a2 = new Vector2[25];
+                for (int i = 0; i <= 24; i++) { float y = -10 + 20f * i / 24, x = Mathf.Sin(i * Mathf.Tau / 24) * 5; a1[i] = P(x, y); a2[i] = P(-x, y); }
+                c.DrawPolyline(a1, color, w, true); c.DrawPolyline(a2, color, w, true);
+                foreach (int i in new[] { 3, 9, 15, 21 }) c.DrawLine(a1[i], a2[i], color, w * 0.7f, true);
+                break;
+            }
+            case IconKind.Block: Box(-6, -10, 12, 20); foreach (float y in new[] { -6f, -1f, 4f }) { Fill(-3.5f, y, 2.5f, 2.5f); Fill(1, y, 2.5f, 2.5f); } L(-8, 10, 8, 10); break;
+            case IconKind.Scroll: Box(-7, -8, 14, 16); L(-4, -4, 4, -4); L(-4, 0, 4, 0); Dot(3, 5, 2); break;
+            case IconKind.Ladder: L(-4, -10, -4, 10); L(4, -10, 4, 10); foreach (float y in new[] { -6f, -1f, 4f, 9f }) L(-4, y, 4, y); break;
+            case IconKind.Tractor: Poly(-9, 0, -3, 0, -3, -8, 2, -8, 2, -2, 10, -2, 10, 3); Ring(-5, 5, 4); Ring(7, 6, 2.6f); L(-9, 0, -9, 5); break;
+            case IconKind.Monitor: Box(-10, -8, 20, 13); L(-4, 10, 4, 10); L(0, 5, 0, 10); L(-6, -3, 6, -3); break;
         }
     }
 }
