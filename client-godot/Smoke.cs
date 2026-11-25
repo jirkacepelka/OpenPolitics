@@ -56,6 +56,14 @@ public static class Smoke
                 main.StartGame("base:cz_2015", 7, "en", "base:peoples_union");
                 await PartnerUltimatumAndCounter(main, screenshots);
             }
+            // decision 0020: a random start plays like any other, whoever governs and whatever the party's role
+            foreach (ulong seed in new ulong[] { 21, 22, 23 })
+            {
+                main.StartGame("base:cz_2015", seed, "en", null, randomStart: true);
+                for (int q = 0; q < 6; q++) main.Session!.EndQuarter();
+                await Frames(main, 2);
+                GD.Print($"smoke: random start seed {seed}: {main.Session!.Politics!.Leader} leads, {main.Session.Politics.PlayerRole}");
+            }
             GD.Print("SMOKE OK");
         }
         catch (Exception e)

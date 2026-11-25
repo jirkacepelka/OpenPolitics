@@ -10,8 +10,8 @@ public static class Simulation
     /// <c>player_party</c>); its starting role (leader, partner or opposition) follows from the scenario's government.
     /// Throws <see cref="ArgumentException"/> for an unknown party or a party in a scenario without politics.
     /// </summary>
-    public static Game NewGame(PackSet packs, string scenarioId, ulong seed, string? playerParty = null) =>
-        new(packs, scenarioId, seed, playerParty);
+    public static Game NewGame(PackSet packs, string scenarioId, ulong seed, string? playerParty = null, bool randomStart = false) =>
+        new(packs, scenarioId, seed, playerParty, randomStart);
 
     /// <summary>Replays the saved actions on a fresh game. Throws <see cref="SaveMismatchException"/> if the packs differ.</summary>
     public static Game Load(PackSet packs, SaveData save)
@@ -28,7 +28,7 @@ public static class Simulation
                 throw new SaveMismatchException($"Pack '{id}' is loaded but was not part of the saved game.");
 
         Game game;
-        try { game = new Game(packs, save.ScenarioId, save.Seed, save.PlayerParty); }
+        try { game = new Game(packs, save.ScenarioId, save.Seed, save.PlayerParty, save.RandomStart); }
         catch (ArgumentException e) { throw new SaveMismatchException(e.Message); }
         int i = 0;
         void ApplyTurnActions(int turn)

@@ -39,8 +39,11 @@ public sealed class Game
     private readonly PoliticsEngine? _politics;
     private readonly SortedDictionary<string, IndexSetting> _indexation = new(Ord);
 
-    internal Game(PackSet packs, string scenarioId, ulong seed, string? playerParty = null)
+    private readonly bool _randomStart;
+
+    internal Game(PackSet packs, string scenarioId, ulong seed, string? playerParty = null, bool randomStart = false)
     {
+        _randomStart = randomStart;
         _packs = packs;
         _scenario = packs.GetScenario(scenarioId);
         _country = packs.Countries.FirstOrDefault(c => c.Id == _scenario.CountryId)
@@ -77,7 +80,7 @@ public sealed class Game
         if (politics)
             _politics = new PoliticsEngine(packs, _scenario, _country, seed, _satisfaction,
                 (kind, id) => kind == "policy" ? _policies.GetValueOrDefault(id) : _values.GetValueOrDefault(id),
-                _scenario.TurnsPerYear, playerParty);
+                _scenario.TurnsPerYear, playerParty, randomStart);
         _politics?.UseLatestPolicy(LatestPolicy);
     }
 
@@ -252,7 +255,7 @@ public sealed class Game
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();
 
     /// <summary>The save always names the player's party (null without politics), so a replay never depends on the scenario's default.</summary>
-    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn, _politics?.Player);
+    public SaveData Save() => new(_scenario.Id, _seed, _packs.PackHashes, _log.ToList(), _turn, _politics?.Player, _randomStart);
 
     /// <summary>The share of the vote a party needs for seats right now: the threshold policy if the pack has one, else the country's rule (null without politics).</summary>
     /// <summary>Where each party stands on the economic (X) and social (Y) axes, -1..1 (empty without politics).</summary>

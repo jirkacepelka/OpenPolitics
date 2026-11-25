@@ -83,7 +83,7 @@ public sealed record AgreementDef(string Party, string Demand);
 public sealed record ScenarioPoliticsDef(
     string PlayerParty, IReadOnlyDictionary<string, double> Support,
     IReadOnlyList<string> Government, string? Leader, int TurnsToElection,
-    IReadOnlyList<AgreementDef>? Agreements = null);
+    IReadOnlyList<AgreementDef>? Agreements = null, double StartNoise = 0);
 
 /// <summary>Parameters are model parameters (e.g. alpha, delta) for the country's economy model.</summary>
 public sealed record CountryDef(

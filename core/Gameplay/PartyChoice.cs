@@ -13,15 +13,15 @@ public sealed record PartyOption(string PartyId, double Support, int Seats, Role
 public static class PartyChoice
 {
     /// <summary>Every party of a political scenario, largest first (empty for a scenario without politics).</summary>
-    public static IReadOnlyList<PartyOption> Options(PackSet packs, string scenarioId)
+    public static IReadOnlyList<PartyOption> Options(PackSet packs, string scenarioId, ulong seed = 1, bool randomStart = false)
     {
         var scenario = packs.GetScenario(scenarioId);
         if (scenario.Politics is not { } sp) return Array.Empty<PartyOption>();
-        var game = Simulation.NewGame(packs, scenarioId, 1);
+        var game = Simulation.NewGame(packs, scenarioId, seed, null, randomStart);
         var pol = game.State.Countries.Values.Single().Politics;
         if (pol == null) return Array.Empty<PartyOption>();
         var compass = game.Compass;
-        string? leader = sp.Leader ?? pol.Leader;
+        string? leader = randomStart && sp.StartNoise > 0 ? pol.Leader : sp.Leader ?? pol.Leader;
         return packs.Parties
             .Select(p => new PartyOption(p.Id, pol.Support.GetValueOrDefault(p.Id), pol.Seats.GetValueOrDefault(p.Id),
                 p.Id == leader ? Role.Leader : pol.GovernmentParties.Contains(p.Id) ? Role.Partner : Role.Opposition,

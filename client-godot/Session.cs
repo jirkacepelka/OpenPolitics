@@ -37,12 +37,12 @@ public sealed class Session
     /// <summary>Raised after a quarter ends, once the screens have been told (the start-of-quarter briefing hangs on this).</summary>
     public event Action? QuarterEnded;
 
-    public Session(PackSet packs, string scenarioId, ulong seed, string language, string? party = null)
+    public Session(PackSet packs, string scenarioId, ulong seed, string language, string? party = null, bool randomStart = false)
     {
         Packs = packs; ScenarioId = scenarioId; Seed = seed; Language = language;
         T = new Localizer(packs, language) { NominalGdpSource = () => Country.Values.GetValueOrDefault(OpenPolitics.Core.Economy.MacroModelV1.Ids.GdpNominal) };
         Texts = new Texts(packs, T);
-        Game = Simulation.NewGame(packs, scenarioId, seed, party);
+        Game = Simulation.NewGame(packs, scenarioId, seed, party, randomStart);
         StartGdp = Country.Values.GetValueOrDefault("base:gdp");
         History = new History(Game, packs);
         History.Record();

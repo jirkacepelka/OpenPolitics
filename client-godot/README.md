@@ -82,9 +82,10 @@ drawn in code; the only bundled asset is the Inter font.
 - **Main menu**: Continue (the newest save, only when there is one), New game, Load game, Settings, Quit; the map's discs fill the rest of the window.
 - **New game**: three columns (a drop-down and one scrolling column in a small window). Left: the scenarios and the description of the chosen
   one. Middle: one row per party, largest first - colour, name, starting role (government, coalition, opposition), poll, seats and its place
-  on the compass. Right: the chosen party in full (poll, seats, compass and its words, what the role means), the random seed and Start.
+  on the compass. Right: the chosen party in full (poll, seats, compass and its words, what the role means), the random seed and Start. The seed
+  decides the starting poll and who governs (decision 0020), so the table changes when the seed does.
   Esc goes back to the menu. The welcome briefing depends on the role.
-- **Programme tab** (party screen): the party's programme is a choice of laws ("26 of 30"), each with a red minus; "Add program" lists the laws
+- **Programme tab** (party screen): the party's programme is a choice of laws (it starts with the six the party stresses most, at most 30; changes cost no capital), each with a red minus; "Add program" lists the laws
   that are not in it. **Electoral alliance** card (Politics screen): in the last eight quarters before an election choose one or two parties,
   see what each would win and lose (seats alone and together, voters who stay away) and form a joint list with a joint programme.
 - **Settings** (main menu and in-game menu): language (main menu only), window mode and size, interface size, automatic scaling, reduce motion.

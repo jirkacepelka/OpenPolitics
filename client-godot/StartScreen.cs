@@ -148,11 +148,11 @@ public static class StartScreen
         seedRow.AddChild(Ui.L(t.T("ui.client.seed"), Tx.Small, AppTheme.Ink3));
         seedRow.AddChild(Ui.Spacer());
         seedRow.AddChild(seed);
-        seedRow.AddChild(Ui.Btn("", () => seed.Text = Random.Shared.Next(1, 999999).ToString(), "ButtonSecondary", IconKind.Arrows, t.T("ui.start.reroll"), false, 34));
+        seedRow.AddChild(Ui.Btn("", () => { seed.Text = Random.Shared.Next(1, 999999).ToString(); NewStart(); }, "ButtonSecondary", IconKind.Arrows, t.T("ui.start.reroll"), false, 34));
         var start = Ui.Btn(t.T("ui.client.start"), () =>
         {
-            ulong value = ulong.TryParse(seed.Text, out var v) && v > 0 ? v : 1;
-            main.StartGame(scenarios[chosen].Id, value, language, scenarios[chosen].Politics != null ? party : null);
+            ulong value = SeedValue();
+            main.StartGame(scenarios[chosen].Id, value, language, scenarios[chosen].Politics != null ? party : null, randomStart: true);
         }, "ButtonPlay", IconKind.Play, null, false, 50);
         start.AddThemeFontOverride("font", AppTheme.Bold); start.AddThemeFontSizeOverride("font_size", 16);
         start.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -193,7 +193,11 @@ public static class StartScreen
             scenarioBox.AddChild(Ui.Panel(Ui.L(t.Description(sc.Id) ?? t.T(sc.Politics != null ? "ui.start.politics_desc" : "ui.start.sandbox_desc"), Tx.Small, AppTheme.Ink2, true), "Inset"));
         }
 
-        IReadOnlyList<PartyOption> Options() => PartyChoice.Options(packs, scenarios[chosen].Id);
+        // the seed decides the starting poll and government (decision 0020), so the party table follows it
+        ulong SeedValue() => ulong.TryParse(seed.Text, out var v) && v > 0 ? v : 1;
+        IReadOnlyList<PartyOption> Options() => PartyChoice.Options(packs, scenarios[chosen].Id, SeedValue(), true);
+        void NewStart() { RefreshParties(); RefreshDetail(); }
+        seed.TextChanged += _ => NewStart();
         float ZoomOf(IReadOnlyList<PartyOption> options)
         {
             float far = options.Count == 0 ? 0 : (float)options.Max(o => Math.Max(Math.Abs(o.X), Math.Abs(o.Y)));

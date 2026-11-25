@@ -441,7 +441,7 @@ public static class PackReader
             }
             return new ScenarioPoliticsDef(
                 g.Str("player_party"), g.NumMap("support"), g.StrList("government"), g.OptStr("leader"), g.Int("turns_to_election", 12),
-                agreements);
+                agreements, g.Num("start_noise", 0));
         });
         return new ScenarioDef(id, country, startYear, tpy, startValues, startPolicies, file, politics);
     }

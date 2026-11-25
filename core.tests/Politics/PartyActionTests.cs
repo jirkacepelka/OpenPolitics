@@ -100,7 +100,7 @@ public class PartyActionTests
         var g = As("a");
         Assert.True(g.Apply(new ShiftPlatform("base:tax", 30)).Accepted);
         Assert.Equal(1.0, St(g).Credibility);
-        Assert.Equal(5.0, St(g).PoliticalCapital);
+        Assert.Equal(6.0 - PartyRules.ShiftCost, St(g).PoliticalCapital);
         for (int i = 0; i < 6; i++) g.Apply(new ShiftPlatform("base:tax", 60));
         Assert.InRange(St(g).Credibility, 0.0, 1.0);
         Assert.True(double.IsFinite(St(g).Platform["base:tax"]));

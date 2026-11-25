@@ -96,7 +96,7 @@ internal sealed class PoliticsEngine
 
     public PoliticsEngine(PackSet packs, ScenarioDef scenario, CountryDef country, ulong seed,
         IReadOnlyDictionary<string, double> satisfaction, Func<string, string, double> lookup, double turnsPerYear,
-        string? playerParty = null)
+        string? playerParty = null, bool randomStart = false)
     {
         _scenario = scenario.Politics!;
         _player = playerParty ?? _scenario.PlayerParty;
@@ -123,9 +123,18 @@ internal sealed class PoliticsEngine
         foreach (var id in _parties.Keys) if (id != Player) _relations[id] = DefaultRelation;
         foreach (var g in _groups) { _momentum[g.Id] = 0.0; _pressure[g.Id] = 0.0; }
         foreach (var id in _parties.Keys) _attribution[id] = AttributionTarget(id);
-        _support = new SupportModel(packs.Parties, packs.VoterGroups, packs.Policies);
-        _support.Calibrate(_scenario.Support, Input(satisfaction));
+        // the player's programme starts lean: the laws the party stresses most (the rest of its platform is for the player to add)
+        if (_parties[Player].Platform.Count > PartyRules.StartProgramme)
+        {
+            var lean = _parties[Player].Platform.OrderByDescending(kv => kv.Value.Weight).ThenBy(kv => kv.Key, Ord).Take(PartyRules.StartProgramme)
+                .ToDictionary(kv => kv.Key, kv => kv.Value, Ord);
+            _parties[Player] = _parties[Player] with { Platform = new SortedDictionary<string, PlatformPosition>(lean, Ord) };
+        }
         _electoralDef = packs.ElectoralSystems.First(e => e.Id == _rules.ElectoralSystem);
+        var startSupport = _scenario.Support;
+        if (randomStart && _scenario.StartNoise > 0) startSupport = RandomStart(seed);
+        _support = new SupportModel(_parties.Values.ToList(), packs.VoterGroups, packs.Policies);
+        _support.Calibrate(startSupport, Input(satisfaction));
         _rng = new Pcg32(seed, 99);
         _announceRng = new Pcg32(seed, 103); // its own stream: announcing never shifts the draws of the rest of politics
         _poll = _support.Compute(Input(satisfaction), null);
@@ -138,6 +147,48 @@ internal sealed class PoliticsEngine
         _lastDeficit = lookup("value", "base:deficit_pct");
         SetBaseline(_government.Parties);
         ResetLoyalty();
+    }
+
+    /// <summary>
+    /// A start that differs from game to game (decision 0020): every party's poll share is the scenario's times exp(noise x z), z roughly normal from
+    /// its own stream (rescaled to the same total), and the government is formed from the seats those shares give instead of being fixed: every
+    /// seated party works out the coalition it could lead, and one of them is drawn, the better and larger ones more often.
+    /// </summary>
+    private IReadOnlyDictionary<string, double> RandomStart(ulong seed)
+    {
+        var rng = new Pcg32(seed, 211);
+        var shares = new SortedDictionary<string, double>(Ord);
+        foreach (var (id, s) in _scenario.Support.OrderBy(k => k.Key, Ord))
+        {
+            double z = 0;
+            for (int k = 0; k < 12; k++) z += rng.NextDouble();
+            shares[id] = s * DetMath.Exp(_scenario.StartNoise * (z - 6.0));
+        }
+        double scale = _scenario.Support.Values.Sum() / shares.Values.Sum();
+        foreach (var id in shares.Keys.ToList()) shares[id] *= scale;
+
+        _seats = CurrentSystem().Allocate(shares);
+        var proposals = _seats.Where(kv => kv.Value > 0).Select(kv => kv.Key).OrderBy(id => id, Ord)
+            .Select(id => BuildFor(id)).Where(p => p != null).Select(p => p!).ToList();
+        if (proposals.Count == 0) return shares;
+        var scores = proposals.Select(p => CoalitionBuilder.MarketScore(p, _parties, _seats, _ranges)).ToList();
+        double best = scores.Max();
+        var weights = proposals.Select((p, i) => _seats[p.Formateur] * DetMath.Exp(8.0 * (scores[i] - best))).ToList();
+        double pick = rng.NextDouble() * weights.Sum();
+        int chosen = 0;
+        for (; chosen < weights.Count - 1; chosen++) { pick -= weights[chosen]; if (pick <= 0) break; }
+        var proposal = proposals[chosen];
+        var commitments = new List<Commitment>();
+        foreach (var a in proposal.Agreements)
+        {
+            var d = Negotiation.Effective(_parties[a.PartyId].Demands.First(x => x.Id == a.DemandId), a);
+            commitments.Add(new Commitment(a.PartyId, d, _lookup(d.Kind, d.Subject), d.DueTurns));
+        }
+        var parties = new[] { proposal.Formateur }.Concat(proposal.Partners).Distinct(Ord).OrderBy(x => x, Ord).ToList();
+        var holders = new SortedDictionary<string, string>(Ord);
+        foreach (var g in proposal.PortfolioList) holders[g.PortfolioId] = g.PartyId;
+        _government = new Government(proposal.Formateur, parties, commitments, 0, holders);
+        return shares;
     }
 
     /// <summary>

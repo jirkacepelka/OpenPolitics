@@ -183,11 +183,11 @@ public partial class Main : Control
     }
 
     /// <param name="party">The player's party in a political scenario (null = the scenario's own).</param>
-    public void StartGame(string scenarioId, ulong seed, string language, string? party = null)
+    public void StartGame(string scenarioId, ulong seed, string language, string? party = null, bool randomStart = false)
     {
         _language = language;
         Ui.Czech = language == "cs";
-        Session = new Session(Packs!, scenarioId, seed, language, party);
+        Session = new Session(Packs!, scenarioId, seed, language, party, randomStart);
         _newsSeen = 0;
         _lastMessage = "";
         BuildGameUi();
@@ -199,7 +199,7 @@ public partial class Main : Control
         try
         {
             var save = SaveData.FromYaml(System.IO.File.ReadAllText(file));
-            Session = new Session(Packs!, save.ScenarioId, save.Seed, _language);
+            Session = new Session(Packs!, save.ScenarioId, save.Seed, _language, null, save.RandomStart);
             if (!Session.Load(file)) { ShowStart(); return; }
             _newsSeen = Session.News.Count;
             BuildGameUi();

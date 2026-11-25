@@ -16,7 +16,7 @@ public sealed record SaveData(
     IReadOnlyDictionary<string, string> PackHashes,
     IReadOnlyList<(int Turn, PlayerAction Action)> Actions,
     int Turn,
-    string? PlayerParty = null)
+    string? PlayerParty = null, bool RandomStart = false)
 {
     private sealed class Dto
     {
@@ -24,6 +24,7 @@ public sealed record SaveData(
         public string Seed { get; set; } = "0";
         public int Turn { get; set; }
         public string? PlayerParty { get; set; }
+        public bool RandomStart { get; set; }
         public SortedDictionary<string, string> PackHashes { get; set; } = new(StringComparer.Ordinal);
         public List<ActionDto> Actions { get; set; } = new();
     }
@@ -61,6 +62,7 @@ public sealed record SaveData(
             Seed = Seed.ToString(CultureInfo.InvariantCulture),
             Turn = Turn,
             PlayerParty = PlayerParty,
+            RandomStart = RandomStart,
             PackHashes = new SortedDictionary<string, string>(PackHashes.ToDictionary(k => k.Key, k => k.Value), StringComparer.Ordinal),
         };
         foreach (var (turn, action) in Actions)
@@ -196,6 +198,6 @@ public sealed record SaveData(
         }
         return new SaveData(dto.Scenario, ulong.Parse(dto.Seed, CultureInfo.InvariantCulture),
             new Dictionary<string, string>(dto.PackHashes), actions, dto.Turn,
-            string.IsNullOrEmpty(dto.PlayerParty) ? null : dto.PlayerParty);
+            string.IsNullOrEmpty(dto.PlayerParty) ? null : dto.PlayerParty, dto.RandomStart);
     }
 }

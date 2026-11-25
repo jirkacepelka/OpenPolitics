@@ -14,14 +14,14 @@ public class PrioritiesAndPromisesTests
         New(Load(Three, "a", government: new[] { "a" }, turnsToElection: turnsToElection, mutate: GameFixture.FreePolicies));
 
     [Fact]
-    public void SettingAPriorityMovesTheWeightByAtMostTwoTenthsAndCostsOneCapital()
+    public void SettingAPriorityMovesTheWeightByAtMostTwoTenthsAndCostsNoCapital()
     {
         var g = Governing();
         double before = Pol(g).Party!.PoliticalCapital;
         Assert.Equal(1.0, Pol(g).Party!.Priorities!["base:tax"]);
         Assert.True(g.Apply(new SetPriority("base:tax", 0.1)).Accepted);
         Assert.Equal(0.8, Pol(g).Party!.Priorities!["base:tax"], 9);
-        Assert.Equal(before - 1.0, Pol(g).Party!.PoliticalCapital, 9);
+        Assert.Equal(before - PartyRules.PriorityCost, Pol(g).Party!.PoliticalCapital, 9); // changes to the programme are free
     }
 
     [Fact]

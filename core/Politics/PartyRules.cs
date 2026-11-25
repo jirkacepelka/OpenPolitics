@@ -15,8 +15,10 @@ public static class PartyRules
     // platform
     /// <summary>The programme holds at least <see cref="PlatformMin"/> and at most <see cref="PlatformMax"/> laws; a law added starts with weight <see cref="AddWeight"/>.</summary>
     public const int PlatformMin = 2, PlatformMax = 30;
-    public const double AddCost = 1, AddWeight = 0.4, RemoveCost = 2, RemoveCredibility = 0.1;
-    public const double ShiftCost = 1, ShiftMaxOfRange = 0.1, ShiftCredibility = 0.5, PriorityCost = 1, PriorityStep = 0.2, PriorityCredibility = 0.1;
+    public const double AddCost = 0, AddWeight = 0.4, RemoveCost = 0, RemoveCredibility = 0.1;
+    /// <summary>The player's programme starts with this many laws (the party's most stressed); the rest of the platform is its to add.</summary>
+    public const int StartProgramme = 6;
+    public const double ShiftCost = 0, ShiftMaxOfRange = 0.1, ShiftCredibility = 0.5, PriorityCost = 0, PriorityStep = 0.2, PriorityCredibility = 0.1;
     // promises
     public const double PromiseCost = 2, PromiseMomentum = 0.03, PromiseKeptCredibility = 0.1, PromiseBrokenCredibility = 0.2;
     // campaigning and opposition work

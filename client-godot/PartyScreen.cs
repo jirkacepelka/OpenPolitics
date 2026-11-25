@@ -150,7 +150,7 @@ public sealed class PartyScreen : Screen
                 slider.TargetChanged += v => { _platformTargets[id] = v; label.Text = Ui.Fix(Fmt.Policy(def, v, t)); };
                 row.AddChild(slider);
                 row.AddChild(label);
-                row.AddChild(Ui.Costed(t.T("ui.client.shift"), 1, () => { if (s.Do(new ShiftPlatform(id, slider.Target), t.T("ui.party.platform_ok", t.Name(id)))) _platformTargets.Remove(id); }, null, false, "ButtonSecondary"));
+                row.AddChild(Ui.Costed(t.T("ui.client.shift"), (int)PartyRules.ShiftCost, () => { if (s.Do(new ShiftPlatform(id, slider.Target), t.T("ui.party.platform_ok", t.Name(id)))) _platformTargets.Remove(id); }, null, false, "ButtonSecondary"));
                 // priority stepper
                 double weight = ps.Priorities?.GetValueOrDefault(id, 1.0) ?? 1.0;
                 var prio = Ui.HBox(0);
