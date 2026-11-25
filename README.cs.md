@@ -1,51 +1,38 @@
 # OpenPolitics
 
-Open source politická simulace inspirovaná hrou Democracy 4, rozšířená o koaliční vládnutí,
-vnitrostranickou politiku a opozici. Vedete stranu v reálné zemi (nejdřív Česko, pak USA;
-start kolem roku 2015), hledáte většinu a udržujete si partnery.
+Open source politická simulace ve stylu Democracy 4, s koaličním vládnutím. Vedete stranu v reálné zemi (nejdřív Česko,
+start v roce 2015), získáváte většinu, držíte partnery a čtvrtletí po čtvrtletí řídíte ekonomiku.
 
-**Stav:** raný vývoj. Rozpracované jsou milníky M0 (základ) a M1 (simulační jádro).
-Anglická verze: [README.md](README.md).
+Strany a politici jsou **fiktivní**, čísla **ilustrativní**, nejsou to statistiky ani předpovědi.
+Anglická verze: [README.md](README.md). Stav: raný vývoj.
 
-## Návrh ve zkratce
+## Hraní
 
-Deterministické simulační jádro v C# (`core/`) čte deklarativní datové balíčky (`data/`) a nabízí
-úzké API. Klienti (později Godot 4 .NET, nyní headless nástroj v příkazové řádce) jen čtou stav
-a posílají akce hráče. Neexistuje žádný univerzální strop HDP: hodnoty jsou ve skutečných jednotkách,
-vlivy mění tempo změny a limity vznikají z modelu (kapitál, práce, produktivita, rozpočet, inflace, dluh).
+Stáhněte si sestavení pro svůj systém z [posledního vydání](../../releases/latest), rozbalte a spusťte. Nic se neinstaluje.
+Sestavení nejsou podepsaná, takže Windows a macOS při prvním spuštění varují; postup je v poznámkách k vydání.
 
-## Sestavení a spuštění
+## Ze zdrojů
 
-Vyžaduje .NET SDK 10 (viz `global.json`).
+Potřebuje .NET SDK 10 a pro grafického klienta Godot 4.7.2 .NET.
 
 ```bash
-dotnet build
-dotnet test
-dotnet run --project tools/OpenPolitics.Cli -- --version
+dotnet test                                                          # testy
+dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang cs   # textový klient
+GODOT=/cesta/ke/godot scripts/play.sh                                # grafický klient
+GODOT=/cesta/ke/godot scripts/export.sh linux                        # sestavení (linux, windows nebo macos)
 ```
 
-## Hra (textový klient)
+Tag jako `v0.1.0` sestaví a zveřejní balíčky pro Linux, Windows a macOS.
 
-```bash
-dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang cs
-```
+## Jak je to postavené
 
-Řídíte ilustrativní zemi podobnou Česku v pískovišti: měníte daně a výdaje (`set 1 26`), Enterem posunete čas o čtvrtletí
-a příkazy `why nezaměstnanost`, `info dph`, `voters`, `values` a `?` zjistíte, co se děje. `save SOUBOR` / `load SOUBOR`
-uloží a obnoví hru. Politika (volby, koalice) přijde v milníku M2, grafický klient v Godotu v M3.
-
-## Data jsou ilustrativní
-
-Všechny balíčky obsahují přibližná, **ilustrativní** čísla reálných zemí a **fiktivní** strany a politiky.
-Nejsou to statistiky ani předpovědi.
+- `core/`: deterministické simulační jádro v C#, bez Godotu. Čte datové balíčky a nabízí malé API.
+- `data/`: datové balíčky (YAML): ukazatele, opatření, skupiny voličů, strany, volební systémy, scénáře, texty cs/en.
+  Mody jsou jen data, viz [docs/modding](docs/modding/format.md).
+- `client-godot/`: klient v Godotu. `tools/`: příkazová řádka, validátor a vyvažovací dávky.
+- Rozhodnutí o návrhu jsou v [docs/decisions](docs/decisions).
 
 ## Licence
 
-Kód: MIT ([LICENSE](LICENSE)). Datové balíčky: CC BY-SA 4.0 ([data/LICENSE](data/LICENSE)).
+Kód: MIT ([LICENSE](LICENSE)). Data: CC BY-SA 4.0 ([data/LICENSE](data/LICENSE)). Písmo Inter je pod SIL OFL.
 Nepoužíváme texty, data, grafiku ani názvy z Democracy 4, Hearts of Iron IV ani Millennium Dawn.
-
-## Stažení
-
-Hotové sestavení pro Linux, Windows a macOS je u každého [vydání](../../releases) (rozbalit a spustit, nic se neinstaluje; sestavení
-nejsou podepsaná, viz poznámky k vydání). Vlastní sestavení: `GODOT=/cesta/ke/godot scripts/export.sh linux|windows|macos [verze]`
-(potřebuje Godot 4.7.2 .NET s exportními šablonami). Tag `vX.Y.Z` sestaví a zveřejní všechny tři (`.github/workflows/release.yml`).

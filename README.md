@@ -1,60 +1,38 @@
 # OpenPolitics
 
-An open source political simulation inspired by Democracy 4, extended with coalition
-government, intra-party politics and opposition. You lead a party in a real country
-(first Czechia, then the USA; start year around 2015), look for a majority and keep your
-partners on board.
+An open source political simulation in the spirit of Democracy 4, with coalition government. You lead a party in a real
+country (first Czechia, starting in 2015), win a majority, keep your partners on board and run the economy quarter by quarter.
 
-**Status:** early development. Milestones M0 (foundation) and M1 (simulation core) are in progress.
-Czech version: [README.cs.md](README.cs.md).
+Parties and politicians are **fictional**, the numbers are **illustrative**, not statistics or predictions.
+Czech version: [README.cs.md](README.cs.md). Status: early development.
 
-## Design in one paragraph
+## Play
 
-A deterministic C# simulation core (`core/`) reads declarative data packs (`data/`) and exposes a
-narrow API. Clients (a Godot 4 .NET UI later, a headless CLI now) only ask the core for state and
-send it player actions. There is no universal GDP ceiling: values use real units, influences change
-rates, and limits come from the model (capital, labour, productivity, budget, inflation, debt).
+Download the build for your system from the [latest release](../../releases/latest), unzip and run. Nothing to install.
+The builds are not code-signed, so Windows and macOS warn on first start; the release notes say how to get past it.
 
-## Download
+## Run from source
 
-Ready-to-play builds for Linux, Windows and macOS are attached to every [release](../../releases) (unzip and run, no install; the
-builds are not code-signed, see the release notes). To make one yourself: `GODOT=/path/to/godot scripts/export.sh linux|windows|macos [version]`
-(needs the Godot 4.7.2 .NET editor with its export templates). Pushing a tag `vX.Y.Z` builds and publishes all three (`.github/workflows/release.yml`).
-
-## Build and run
-
-Requires the .NET SDK 10 (see `global.json`).
+Needs the .NET SDK 10 and, for the graphical client, the Godot 4.7.2 .NET editor.
 
 ```bash
-dotnet build
-dotnet test
-dotnet run --project tools/OpenPolitics.Cli -- --version
+dotnet test                                                          # tests
+dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang en   # text client
+GODOT=/path/to/godot scripts/play.sh                                 # graphical client
+GODOT=/path/to/godot scripts/export.sh linux                         # release build (linux, windows or macos)
 ```
 
-## Play (text client)
+Pushing a tag such as `v0.1.0` builds and publishes the Linux, Windows and macOS packages.
 
-```bash
-dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang en
-```
+## How it is built
 
-You run an illustrative Czechia-like country in the sandbox scenario: change taxes and spending (`set 1 26`), press
-Enter to advance a quarter, and use `why unemployment`, `info vat`, `voters`, `values` and `?` to understand what is
-going on. `save FILE` / `load FILE` keep a game. Use `--lang cs` for Czech. Politics (elections, coalitions) arrive in
-milestone M2; a graphical Godot client in M3.
-
-## Data is illustrative
-
-All data packs use approximate, **illustrative** numbers for real countries and **fictional** parties
-and politicians. They are not statistics and not predictions.
+- `core/`: deterministic C# simulation, no Godot types. Reads data packs and exposes a small API.
+- `data/`: data packs (YAML): indicators, policies, voter groups, parties, electoral systems, scenarios, cs/en texts.
+  Mods are data only, see [docs/modding](docs/modding/format.md).
+- `client-godot/`: the Godot client. `tools/`: command-line client, validator and balance batches.
+- Design decisions are in [docs/decisions](docs/decisions).
 
 ## License
 
-Code: MIT ([LICENSE](LICENSE)). Data packs: CC BY-SA 4.0 ([data/LICENSE](data/LICENSE)).
+Code: MIT ([LICENSE](LICENSE)). Data: CC BY-SA 4.0 ([data/LICENSE](data/LICENSE)). The Inter font is under the SIL OFL.
 No text, data, art or names from Democracy 4, Hearts of Iron IV or Millennium Dawn are used.
-
-## Playing
-
-- Text client: `dotnet run --project tools/OpenPolitics.Cli -- play --packs data/base --lang en` (Czechia 2015, coalition government; `?` for help).
-- Godot client: see [client-godot/README.md](client-godot/README.md) (Godot 4.7 .NET, shares the core and the texts in the packs).
-- Spending can follow GDP, inflation or nothing: `index N gdp|inflation|none`.
-- Headless balancing: `batch --politics --strategy ignorer|keeper|random|extreme|activist` (see `docs/decisions/`).
