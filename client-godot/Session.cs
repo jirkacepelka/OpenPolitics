@@ -193,4 +193,8 @@ public sealed class Session
         System.IO.Directory.Exists(SaveDir)
             ? System.IO.Directory.GetFiles(SaveDir, "*.save.yaml").OrderBy(f => f, StringComparer.Ordinal)
             : Array.Empty<string>();
+
+    /// <summary>The saved games, the most recently written first (the load list and "Continue").</summary>
+    public static List<string> SavesNewestFirst() =>
+        SaveDirFiles().OrderByDescending(f => System.IO.File.GetLastWriteTimeUtc(f)).ThenBy(f => f, StringComparer.Ordinal).ToList();
 }

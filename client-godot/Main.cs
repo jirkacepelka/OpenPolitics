@@ -42,7 +42,8 @@ public partial class Main : Control
     {
         Theme = AppTheme.Instance;
         GetTree().Root.Theme = AppTheme.Instance;
-        _language = OS.GetLocale().StartsWith("cs", StringComparison.OrdinalIgnoreCase) ? "cs" : "en";
+        DisplaySettings.Load();
+        _language = DisplaySettings.StartLanguage();
         Ui.Czech = _language == "cs";
         var loaded = Session.LoadDefaultPacks(out var packsWhere);
         if (!loaded.Ok)
@@ -52,7 +53,6 @@ public partial class Main : Control
         }
         Packs = loaded.Packs;
         var args = OS.GetCmdlineUserArgs();
-        DisplaySettings.Load();
         var scaleArg = Array.IndexOf(args, "--ui-scale");
         if (scaleArg >= 0 && scaleArg + 1 < args.Length && float.TryParse(args[scaleArg + 1], System.Globalization.CultureInfo.InvariantCulture, out var forced))
             DisplaySettings.SetScale(GetWindow(), forced, save: false);
@@ -98,21 +98,24 @@ public partial class Main : Control
     {
         if (_inGame && Session != null)
         {
-            var current = Current; var detail = _detail;
+            var current = Current; var detail = _detail; bool settings = _settings != null;
             BuildGameUi();
             if (current != null) Open(current);
             if (detail is { } d) OpenDetail(d.Kind, d.Id);
+            if (settings) ShowSettings(); // changing the interface size can flip the layout class under the open dialog
         }
-        else if (!_inGame && Packs != null && GetChildCount() > 0 && _startShown) ShowStart();
+        else if (!_inGame && Packs != null && GetChildCount() > 0 && _startView != StartView.None) ShowStartView(reopenSettings: _settings != null);
     }
 
-    private bool _startShown;
+    private enum StartView { None, Menu, NewGame }
+    private StartView _startView;
+    private Dialog? _settings;
 
     private void Reset()
     {
         foreach (var c in GetChildren()) { RemoveChild(c); c.QueueFree(); }
         Screens.Clear();
-        Map = null; Current = null; _top = null; _sidebar = null; _drawer = null; _detail = null; _detailDialog = null; _screenDialog = null; _lensChip = null;
+        Map = null; Current = null; _top = null; _sidebar = null; _drawer = null; _detail = null; _detailDialog = null; _screenDialog = null; _lensChip = null; _settings = null;
         var bg = new ColorRect { Color = AppTheme.MapBg, MouseFilter = MouseFilterEnum.Ignore };
         bg.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(bg);
@@ -128,16 +131,55 @@ public partial class Main : Control
 
     // ---- start ----------------------------------------------------------------------------------------
 
-    public void ShowStart()
+    /// <summary>The main menu.</summary>
+    public void ShowStart() { _startView = StartView.Menu; ShowStartView(); }
+
+    /// <summary>The new-game screen (scenario, party, seed).</summary>
+    public void ShowNewGame() { _startView = StartView.NewGame; ShowStartView(); }
+
+    private void ShowStartView(bool reopenSettings = false)
     {
         _inGame = false;
         Reset();
-        _startShown = true;
         Ui.Czech = _language == "cs";
-        StartScreen.Build(this, Packs!, _language, lang => { _language = lang; ShowStart(); });
+        if (_startView == StartView.NewGame) StartScreen.BuildNewGame(this, Packs!, _language);
+        else { _startView = StartView.Menu; StartScreen.BuildMenu(this, Packs!, _language); }
         _dialogs = new Control { MouseFilter = MouseFilterEnum.Ignore };
         _dialogs.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_dialogs);
+        if (reopenSettings) ShowSettings();
+    }
+
+    /// <summary>Switches the interface language (from the settings dialog in the main menu) and remembers it.</summary>
+    public void SetLanguage(string language, bool persist = true)
+    {
+        if (_language == language) return;
+        _language = language;
+        if (persist) DisplaySettings.SetLanguage(language);
+        ShowStartView(reopenSettings: _settings != null);
+    }
+
+    private Localizer MenuT() => Session?.T ?? new Localizer(Packs!, _language);
+
+    public void ShowSettings()
+    {
+        if (_settings != null && IsInstanceValid(_settings)) _settings.Close();
+        var d = SettingsDialog.Open(this, MenuT(), allowLanguage: !_inGame, lang => SetLanguage(lang));
+        _dialogs.AddChild(d);
+        _settings = d;
+        d.Closed += () => { if (_settings == d) _settings = null; };
+    }
+
+    public void ShowLoad(IReadOnlyList<string>? files = null)
+    {
+        var d = LoadDialog.Open(this, Packs!, MenuT(), files ?? Session.SavesNewestFirst());
+        _dialogs.AddChild(d);
+    }
+
+    public void QuitGame()
+    {
+        DisplaySettings.RememberWindow(GetWindow());
+        GetTree().Quit();
     }
 
     /// <param name="party">The player's party in a political scenario (null = the scenario's own).</param>
@@ -173,7 +215,7 @@ public partial class Main : Control
         var s = Session!;
         if (_inGame) s.Changed -= OnChanged;
         Reset();
-        _inGame = true; _startShown = false;
+        _inGame = true; _startView = StartView.None;
         _endShown = s.Finished;
 
         Screens.Add(new VotersScreen());
@@ -290,7 +332,7 @@ public partial class Main : Control
 
     public Dialog NewDialog(string title, IconKind? icon, float width)
     {
-        var d = new Dialog(title, icon, Session?.T.T("ui.client.close") ?? "Close") { PreferredWidth = width };
+        var d = new Dialog(title, icon, MenuT().T("ui.client.close")) { PreferredWidth = width };
         _dialogs.AddChild(d);
         return d;
     }
@@ -357,40 +399,29 @@ public partial class Main : Control
         var t = s.T;
         var menu = new PopupMenu();
         menu.AddItem(t.T("ui.client.save") + "   Ctrl+S", 0);
-        var saves = Session.SaveDirFiles().ToList();
-        var load = new PopupMenu { Name = "load" };
-        for (int i = 0; i < saves.Count; i++) load.AddItem(System.IO.Path.GetFileName(saves[i]).Replace(".save.yaml", ""), i);
-        load.IdPressed += i => LoadGame(saves[(int)i]);
-        menu.AddChild(load);
-        menu.AddSubmenuNodeItem(t.T("ui.client.load"), load, 1);
-        if (saves.Count == 0) menu.SetItemDisabled(1, true);
-        menu.AddItem(t.T("ui.start.display"), 2);
+        menu.AddItem(t.T("ui.start.load_game"), 1);
+        if (!Session.SaveDirFiles().Any()) menu.SetItemDisabled(1, true);
+        menu.AddItem(t.T("ui.menu.settings"), 2);
         menu.AddItem(t.T("ui.menu.fullscreen") + "   F11", 3);
         menu.AddSeparator();
         menu.AddItem(t.T("ui.menu.quit"), 4);
+        menu.AddItem(t.T("ui.menu.quit_game"), 5);
         menu.IdPressed += id =>
         {
             switch (id)
             {
                 case 0: s.Save("quicksave"); break;
-                case 2: ShowDisplaySettings(); break;
+                case 1: ShowLoad(); break;
+                case 2: ShowSettings(); break;
                 case 3: DisplaySettings.ToggleFullscreen(GetWindow()); break;
                 case 4: ShowStart(); break;
+                case 5: QuitGame(); break;
             }
         };
         AddChild(menu);
         var r = anchor.GetGlobalRect();
         menu.Popup(new Rect2I((int)(r.End.X - 260), (int)r.End.Y, 260, 10));
         menu.PopupHide += () => menu.QueueFree();
-    }
-
-    public void ShowDisplaySettings()
-    {
-        var t = Session?.T ?? new Localizer(Packs!, _language);
-        var d = new Dialog(t.T("ui.start.display"), IconKind.Gear, t.T("ui.client.close")) { PreferredWidth = 520 };
-        _dialogs.AddChild(d);
-        d.Body.AddChild(StartScreen.DisplayCard(this, t, false));
-        d.Refit();
     }
 
     // ---- turn ---------------------------------------------------------------------------------------------
@@ -474,6 +505,14 @@ public partial class Main : Control
     {
         if (@event is not InputEventKey { Pressed: true, Echo: false } k) return;
         if (k.Keycode == Key.F11) { DisplaySettings.ToggleFullscreen(GetWindow()); GetViewport().SetInputAsHandled(); return; }
+        if (!_inGame && k.Keycode == Key.Escape)
+        {
+            // the way back: close the top dialog, else leave the new-game screen
+            var open = _dialogs.GetChildren().OfType<Dialog>().LastOrDefault(d => !d.IsQueuedForDeletion());
+            if (open != null) { if (!open.Blocking) open.Close(); GetViewport().SetInputAsHandled(); }
+            else if (_startView == StartView.NewGame) { ShowStart(); GetViewport().SetInputAsHandled(); }
+            return;
+        }
         if (!_inGame || Session == null) return;
         if (GetViewport().GuiGetFocusOwner() is LineEdit) return;
         var top = _dialogs.GetChildren().OfType<Dialog>().LastOrDefault(d => !d.IsQueuedForDeletion());

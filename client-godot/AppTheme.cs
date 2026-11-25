@@ -281,6 +281,15 @@ public static class AppTheme
         ButtonStyle(t, "ButtonCard", Surface, new Color("ffffff"), ChromeTint, Ink, Border, 14, 12, Surface, 12);
         t.SetStylebox("pressed", "ButtonCard", Box(ChromeTint, 12, Chrome, 2, 14, 12));
         t.SetStylebox("hover_pressed", "ButtonCard", Box(ChromeTint, 12, Chrome, 2, 14, 12));
+        // Main-menu entries: big flat rows, a soft tint on hover.
+        Variation(t, "ButtonMenu", "Button");
+        ButtonStyle(t, "ButtonMenu", new Color(0, 0, 0, 0), ChromeTint, ChromeTint.Darkened(0.04f), Ink, null, 18, 12, new Color(0, 0, 0, 0), 10);
+        t.SetFontSize("font_size", "ButtonMenu", 18); t.SetConstant("h_separation", "ButtonMenu", 14);
+        // A table row you can choose (party list): flat, a hairline between rows, chrome tint when chosen.
+        Variation(t, "ButtonRow", "Button");
+        ButtonStyle(t, "ButtonRow", new Color(0, 0, 0, 0), Panel, ChromeTint, Ink, null, 12, 6, new Color(0, 0, 0, 0), 10);
+        t.SetStylebox("pressed", "ButtonRow", Box(ChromeTint, 10, Chrome, 2, 12, 6));
+        t.SetStylebox("hover_pressed", "ButtonRow", Box(ChromeTint, 10, Chrome, 2, 12, 6));
         // Tabs in a dialog: text with a chrome underline when pressed.
         Variation(t, "ButtonTab", "Button");
         ButtonStyle(t, "ButtonTab", new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), new Color(0, 0, 0, 0), Ink3, null, 2, 10, new Color(0, 0, 0, 0), 0);

@@ -4,11 +4,9 @@ using OpenPolitics.Core.Packs;
 using OpenPolitics.Core.Politics;
 using OpenPolitics.Core.Presentation;
 
-using static Godot.Control;
-
 namespace OpenPolitics.Client;
 
-/// <summary>A washed-out field of node discs behind the start screen, echoing the map.</summary>
+/// <summary>A washed-out field of node discs behind the start screens, echoing the map.</summary>
 public partial class StartBackdrop : Control
 {
     public StartBackdrop() { MouseFilter = MouseFilterEnum.Ignore; TextureRepeat = TextureRepeatEnum.Enabled; }
@@ -38,14 +36,14 @@ public partial class StartBackdrop : Control
     public override void _Notification(int what) { if (what == NotificationResized) QueueRedraw(); }
 }
 
-/// <summary>A small compass square with one party's dot (start screen party cards).</summary>
+/// <summary>A small compass square with one party's dot (party list and party card on the new-game screen).</summary>
 public partial class MiniCompass : Control
 {
     private readonly Vector2 _pos; private readonly Color _color;
-    public MiniCompass(double x, double y, Color color, float zoom)
+    public MiniCompass(double x, double y, Color color, float zoom, float size = 40)
     {
         _pos = new Vector2((float)Math.Clamp(x * zoom, -1, 1), (float)Math.Clamp(y * zoom, -1, 1)); _color = color;
-        CustomMinimumSize = new Vector2(40, 40); MouseFilter = MouseFilterEnum.Ignore; SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        CustomMinimumSize = new Vector2(size, size); MouseFilter = MouseFilterEnum.Ignore; SizeFlagsVertical = SizeFlags.ShrinkCenter;
     }
     public override void _Draw()
     {
@@ -54,259 +52,356 @@ public partial class MiniCompass : Control
         DrawLine(new Vector2(r.Size.X / 2, 3), new Vector2(r.Size.X / 2, r.Size.Y - 3), new Color("c9c4bb"), 1);
         DrawLine(new Vector2(3, r.Size.Y / 2), new Vector2(r.Size.X - 3, r.Size.Y / 2), new Color("c9c4bb"), 1);
         var p = new Vector2(r.Size.X * (_pos.X + 1) / 2, r.Size.Y * (1 - (_pos.Y + 1) / 2));
-        DrawCircle(p, 5.5f, new Color("ffffff"));
-        DrawCircle(p, 4.5f, _color);
+        float dot = Math.Max(4.5f, r.Size.X / 8);
+        DrawCircle(p, dot + 1, new Color("ffffff"));
+        DrawCircle(p, dot, _color);
     }
 }
 
-/// <summary>The start screen: title, new game (scenario cards, party choice, language, seed), the display card, load and start.</summary>
+/// <summary>
+/// The two screens before a game: the main menu (continue, new game, load, settings, quit) and the new-game screen (scenario, party,
+/// seed, start) laid out like a strategy game's setup: choices on the left and in the middle, what you are about to play on the right.
+/// </summary>
 public static class StartScreen
 {
-    public static void Build(Main main, PackSet packs, string language, Action<string> setLanguage)
+    private static void Backdrop(Main main)
     {
-        var t = new Localizer(packs, language);
         var backdrop = new StartBackdrop();
         backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         main.AddChild(backdrop);
-
-        bool compact = Layout.Compact || Layout.Short;
         var veil = new ColorRect { Color = new Color(0.93f, 0.92f, 0.89f, 0.45f), MouseFilter = Control.MouseFilterEnum.Ignore };
         veil.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         main.AddChild(veil);
+    }
 
-        var panel = new PanelContainer { ThemeTypeVariation = compact ? "Sheet" : "Dialog" };
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
-        var body = Ui.VBox(18);
-        body.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        scroll.AddChild(Ui.Margin(body, compact ? 20 : 34, compact ? 18 : 28));
-        ((Control)scroll.GetChild(0)).SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        panel.AddChild(scroll);
+    // ---- main menu ------------------------------------------------------------------------------------------
 
+    public static void BuildMenu(Main main, PackSet packs, string language)
+    {
+        var t = new Localizer(packs, language);
+        Backdrop(main);
+        bool compact = Layout.Compact;
+
+        var panel = new PanelContainer { ThemeTypeVariation = "Sheet" };
+        panel.SetAnchorsPreset(Control.LayoutPreset.LeftWide);
+        panel.AnchorRight = compact ? 0.55f : 0.36f; panel.OffsetRight = 0;
+        panel.CustomMinimumSize = new Vector2(compact ? 0 : 420, 0);
+        var column = Ui.VBox(0);
+        panel.AddChild(Ui.Margin(column, compact ? 28 : 48, compact ? 24 : 36));
+
+        column.AddChild(new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1f, MouseFilter = Control.MouseFilterEnum.Ignore });
         var title = Ui.L("OpenPolitics", Tx.Display);
-        title.HorizontalAlignment = HorizontalAlignment.Center;
-        title.AddThemeFontSizeOverride("font_size", compact ? 28 : 36);
-        body.AddChild(title);
-        var tag = Ui.L(t.T("ui.client.tagline"), Tx.Body, AppTheme.Ink2, true);
-        tag.HorizontalAlignment = HorizontalAlignment.Center;
-        body.AddChild(tag);
+        title.AddThemeFontSizeOverride("font_size", compact ? 34 : 46);
+        column.AddChild(title);
+        column.AddChild(Ui.Gap(6));
+        column.AddChild(Ui.L(t.T("ui.client.tagline"), Tx.Body, AppTheme.Ink2, true));
+        column.AddChild(Ui.Gap(compact ? 18 : 30));
 
-        // New game.
-        var game = Ui.VBox(12);
-        game.AddChild(Ui.Section(t.T("ui.client.new_game")));
-        game.AddChild(Ui.L(t.T("ui.client.scenario"), Tx.Small, AppTheme.Ink3));
+        var list = Ui.VBox(6);
+        var saves = Session.SavesNewestFirst();
+        bool primaryUsed = false;
+        void Item(string text, IconKind icon, Action act, bool disabled = false, string? tip = null, bool primary = false)
+        {
+            var b = Ui.Btn(text, act, primary ? "ButtonPlay" : "ButtonMenu", icon, tip, disabled, compact ? 46 : 52);
+            b.Alignment = HorizontalAlignment.Left;
+            b.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            if (primary) { b.AddThemeFontSizeOverride("font_size", 18); b.AddThemeConstantOverride("h_separation", 14); }
+            list.AddChild(b);
+        }
+        if (saves.Count > 0)
+        {
+            string name = System.IO.Path.GetFileName(saves[0]).Replace(".save.yaml", "");
+            Item(t.T("ui.menu.continue"), IconKind.Play, () => main.LoadGame(saves[0]), tip: name, primary: true);
+            primaryUsed = true;
+        }
+        Item(t.T("ui.client.new_game"), IconKind.Plus, main.ShowNewGame, primary: !primaryUsed);
+        Item(t.T("ui.start.load_game"), IconKind.Save, () => main.ShowLoad(), disabled: saves.Count == 0, tip: saves.Count == 0 ? t.T("ui.start.no_saves") : null);
+        Item(t.T("ui.menu.settings"), IconKind.Gear, main.ShowSettings);
+        Item(t.T("ui.menu.quit_game"), IconKind.Close, main.QuitGame);
+        column.AddChild(list);
+
+        column.AddChild(new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.4f, MouseFilter = Control.MouseFilterEnum.Ignore });
+        column.AddChild(Ui.L(t.T("ui.client.illustrative"), Tx.Small, AppTheme.Ink3, true));
+        main.AddChild(panel);
+    }
+
+    // ---- new game -------------------------------------------------------------------------------------------
+
+    public static void BuildNewGame(Main main, PackSet packs, string language)
+    {
+        var t = new Localizer(packs, language);
+        Backdrop(main);
+        bool compact = Layout.Compact || Layout.Short;
+
         var scenarios = packs.Scenarios.OrderByDescending(s => s.Politics != null).ThenBy(s => s.Id, StringComparer.Ordinal).ToList();
+        if (scenarios.Count == 0) { main.AddChild(Ui.Margin(Ui.L("No scenario", Tx.Body), 24)); return; }
         int chosen = 0;
-        string? party = scenarios.Count > 0 ? scenarios[0].Politics?.PlayerParty : null;
-        var partyBox = Ui.VBox(10);
-        void BuildParties() => PartyPicker(partyBox, packs, t, scenarios[chosen], party, id => { party = id; BuildParties(); });
-        var cards = Ui.VBox(8);
-        var group = new ButtonGroup();
-        for (int i = 0; i < scenarios.Count; i++)
-        {
-            int k = i;
-            var b = new Button { ToggleMode = true, ButtonGroup = group, ButtonPressed = i == 0, ThemeTypeVariation = "ButtonCard", FocusMode = Control.FocusModeEnum.None,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseDefaultCursorShape = Control.CursorShape.PointingHand };
-            var col = Ui.VBox(2);
-            col.AddChild(Ui.L(t.T("name." + scenarios[i].Id), Tx.Heading, null, true));
-            if (t.Description(scenarios[i].Id) is { } desc) col.AddChild(Ui.L(desc, Tx.Small, AppTheme.Ink2, true));
-            else col.AddChild(Ui.L(t.T(scenarios[i].Politics != null ? "ui.start.politics_desc" : "ui.start.sandbox_desc"), Tx.Small, AppTheme.Ink2, true));
-            var m = Ui.Margin(col, 14, 10);
-            m.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-            Detail.SetIgnore(m);
-            b.AddChild(m);
-            b.CustomMinimumSize = new Vector2(0, 64);
-            b.Pressed += () => { if (chosen == k) return; chosen = k; party = scenarios[k].Politics?.PlayerParty; BuildParties(); };
-            cards.AddChild(b);
-        }
-        game.AddChild(cards);
-        game.AddChild(partyBox);
-        if (scenarios.Count > 0) BuildParties();
-        var opts = compact ? (BoxContainer)Ui.VBox(12) : Ui.HBox(24);
-        var langCol = Ui.VBox(6);
-        langCol.AddChild(Ui.L(t.T("ui.client.language"), Tx.Small, AppTheme.Ink3));
-        langCol.AddChild(Ui.Segmented(new[] { "Čeština", "English" }, language == "cs" ? 0 : 1, i => setLanguage(i == 0 ? "cs" : "en"), 32));
-        opts.AddChild(langCol);
-        var seedCol = Ui.VBox(6);
-        seedCol.AddChild(Ui.L(t.T("ui.client.seed"), Tx.Small, AppTheme.Ink3));
-        var seedRow = Ui.HBox(4);
-        var seed = new LineEdit { Text = ((Time.GetTicksMsec() % 99999) + 1).ToString(), CustomMinimumSize = new Vector2(120, 32), MaxLength = 9 };
+        string? party = scenarios[0].Politics?.PlayerParty;
+
+        var partyBox = Ui.VBox(compact ? 6 : 4);
+        var detailBox = Ui.VBox(12);
+        var scenarioBox = Ui.VBox(8);
+
+        // The seed and the start button live outside the boxes that are rebuilt on every choice.
+        var seed = new LineEdit { Text = ((Time.GetTicksMsec() % 99999) + 1).ToString(), CustomMinimumSize = new Vector2(104, 34), MaxLength = 9, TooltipText = t.T("ui.start.seed_hint") };
+        var seedRow = Ui.HBox(8);
+        seedRow.AddChild(Ui.L(t.T("ui.client.seed"), Tx.Small, AppTheme.Ink3));
+        seedRow.AddChild(Ui.Spacer());
         seedRow.AddChild(seed);
-        seedRow.AddChild(Ui.Btn("", () => seed.Text = (Random.Shared.Next(1, 999999)).ToString(), "ButtonSecondary", IconKind.Arrows, t.T("ui.start.reroll"), false, 32));
-        seedCol.AddChild(seedRow);
-        opts.AddChild(seedCol);
-        game.AddChild(opts);
-
-        var display = DisplayCard(main, t, true);
-        Control columns;
-        if (compact) { var v = Ui.VBox(20); v.AddChild(game); v.AddChild(display); columns = v; }
-        else
-        {
-            var h = Ui.HBox(28);
-            game.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; game.SizeFlagsStretchRatio = 1.5f;
-            display.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            h.AddChild(game); h.AddChild(Detail.VLine()); h.AddChild(display);
-            columns = h;
-        }
-        body.AddChild(columns);
-
-        var buttons = Ui.HBox(16);
-        var saves = Session.SaveDirFiles().ToList();
-        var load = Ui.Btn(t.T("ui.start.load_game"), () => { }, "", IconKind.Save, saves.Count == 0 ? t.T("ui.start.no_saves") : null, saves.Count == 0, 44);
-        load.Pressed += () =>
-        {
-            var menu = new PopupMenu();
-            for (int i = 0; i < saves.Count; i++) menu.AddItem(System.IO.Path.GetFileName(saves[i]).Replace(".save.yaml", ""), i);
-            menu.IdPressed += i => main.LoadGame(saves[(int)i]);
-            main.AddChild(menu);
-            var r = load.GetGlobalRect();
-            menu.Popup(new Rect2I((int)r.Position.X, (int)r.End.Y, (int)r.Size.X, 10));
-            menu.PopupHide += () => menu.QueueFree();
-        };
+        seedRow.AddChild(Ui.Btn("", () => seed.Text = Random.Shared.Next(1, 999999).ToString(), "ButtonSecondary", IconKind.Arrows, t.T("ui.start.reroll"), false, 34));
         var start = Ui.Btn(t.T("ui.client.start"), () =>
         {
             ulong value = ulong.TryParse(seed.Text, out var v) && v > 0 ? v : 1;
             main.StartGame(scenarios[chosen].Id, value, language, scenarios[chosen].Politics != null ? party : null);
-        }, "ButtonPlay", IconKind.Play, null, false, 44);
-        start.AddThemeFontOverride("font", AppTheme.Bold); start.AddThemeFontSizeOverride("font_size", 15);
-        load.AddThemeFontOverride("font", AppTheme.Bold);
-        load.SizeFlagsHorizontal = start.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        buttons.AddChild(load); buttons.AddChild(start);
-        body.AddChild(buttons);
-        var foot = Ui.HBox(8);
-        foot.AddChild(Ui.L(t.T("ui.client.illustrative"), Tx.Small, AppTheme.Ink3, true));
-        foot.AddChild(Ui.Right(Ui.L("F11 · " + t.T("ui.menu.fullscreen"), Tx.Small, AppTheme.Ink3)));
-        body.AddChild(foot);
+        }, "ButtonPlay", IconKind.Play, null, false, 50);
+        start.AddThemeFontOverride("font", AppTheme.Bold); start.AddThemeFontSizeOverride("font_size", 16);
+        start.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 
-        main.AddChild(panel);
-        void Place()
+        void RefreshScenarios()
         {
-            if (!GodotObject.IsInstanceValid(panel)) return;
-            var size = main.Size;
-            if (compact) { panel.Position = Vector2.Zero; panel.Size = size; return; }
-            float w = Math.Min(1080, size.X - 80);
-            float h = Math.Min(size.Y - 60, body.GetCombinedMinimumSize().Y + 60);
-            panel.Size = new Vector2(w, h);
-            panel.Position = (size - panel.Size) / 2;
+            Ui.Clear(scenarioBox);
+            if (compact)
+            {
+                // a small window: a drop-down instead of a list of cards
+                var pick = new OptionButton { FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 40), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+                foreach (var sc0 in scenarios) pick.AddItem(t.T("name." + sc0.Id));
+                pick.Selected = chosen;
+                pick.ItemSelected += i =>
+                {
+                    int k = (int)i;
+                    if (chosen == k) return;
+                    chosen = k; party = scenarios[k].Politics?.PlayerParty; RefreshScenarios(); RefreshParties(); RefreshDetail();
+                };
+                scenarioBox.AddChild(pick);
+            }
+            var group = new ButtonGroup();
+            for (int i = 0; i < scenarios.Count && !compact; i++)
+            {
+                int k = i;
+                var b = new Button { ToggleMode = true, ButtonGroup = group, ButtonPressed = i == chosen, ThemeTypeVariation = "ButtonCard", FocusMode = Control.FocusModeEnum.None,
+                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseDefaultCursorShape = Control.CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 58) };
+                var name = Ui.L(t.T("name." + scenarios[i].Id), Tx.BodyStrong, null, true);
+                name.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+                var m = Ui.Margin(name, 12, 6);
+                m.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+                Detail.SetIgnore(m);
+                b.AddChild(m);
+                b.Pressed += () => { if (chosen == k) return; chosen = k; party = scenarios[k].Politics?.PlayerParty; RefreshScenarios(); RefreshParties(); RefreshDetail(); };
+                scenarioBox.AddChild(b);
+            }
+            var sc = scenarios[chosen];
+            scenarioBox.AddChild(Ui.Panel(Ui.L(t.Description(sc.Id) ?? t.T(sc.Politics != null ? "ui.start.politics_desc" : "ui.start.sandbox_desc"), Tx.Small, AppTheme.Ink2, true), "Inset"));
         }
-        main.Resized += Place;
-        panel.TreeExiting += () => main.Resized -= Place;
-        Callable.From(Place).CallDeferred();
-        main.GetTree().CreateTimer(0.05).Timeout += Place;
+
+        IReadOnlyList<PartyOption> Options() => PartyChoice.Options(packs, scenarios[chosen].Id);
+        float ZoomOf(IReadOnlyList<PartyOption> options)
+        {
+            float far = options.Count == 0 ? 0 : (float)options.Max(o => Math.Max(Math.Abs(o.X), Math.Abs(o.Y)));
+            return far > 0.02f ? Math.Min(4f, 0.85f / far) : 1f;
+        }
+
+        // One row per party, largest first: colour, name, starting role, poll, seats, place on the compass.
+        void RefreshParties()
+        {
+            Ui.Clear(partyBox);
+            var options = Options();
+            if (options.Count == 0)
+            {
+                partyBox.AddChild(Ui.Panel(Ui.L(t.T("ui.start.sandbox_desc"), Tx.Body, AppTheme.Ink2, true), "Inset"));
+                return;
+            }
+            float zoom = ZoomOf(options);
+            if (!compact)
+            {
+                var head = Ui.HBox(12);
+                var first = Ui.HBox(0);
+                first.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+                first.AddChild(Ui.Gap(23)); // the party's colour dot and its gap
+                first.AddChild(Ui.L(t.T("ui.start.col.party"), Tx.Overline, AppTheme.Ink3));
+                head.AddChild(first);
+                head.AddChild(Cell(Ui.L(t.T("ui.start.col.role"), Tx.Overline, AppTheme.Ink3), 112));
+                head.AddChild(Cell(Ui.Right(Ui.L(t.T("ui.start.col.poll"), Tx.Overline, AppTheme.Ink3)), 64));
+                head.AddChild(Cell(Ui.Right(Ui.L(t.T("ui.start.col.seats"), Tx.Overline, AppTheme.Ink3)), 56));
+                head.AddChild(Cell(Ui.Right(Ui.L(t.T("ui.start.col.position"), Tx.Overline, AppTheme.Ink3)), 34));
+                partyBox.AddChild(Ui.Margin(head, 14, 0));
+            }
+            var group = new ButtonGroup();
+            foreach (var o in options)
+            {
+                string id = o.PartyId;
+                var b = new Button { ToggleMode = true, ButtonGroup = group, ButtonPressed = id == party, ThemeTypeVariation = "ButtonRow", FocusMode = Control.FocusModeEnum.None,
+                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseDefaultCursorShape = Control.CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, compact ? 46 : 52),
+                    TooltipText = t.Name(id) + " · " + t.T("ui.start.role." + o.Role.ToString().ToLowerInvariant()) };
+                var row = Ui.HBox(12);
+                var name = Ui.HBox(10);
+                name.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+                name.AddChild(new ColorDot(Ui.PartyColor(packs, id), 6.5f));
+                var nl = Ui.L(t.Name(id), Tx.BodyStrong);
+                nl.ClipText = true; nl.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; nl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; nl.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+                name.AddChild(nl);
+                row.AddChild(name);
+                var pill = RolePill(t, o.Role, shortText: true);
+                row.AddChild(Cell(pill, compact ? 96 : 112));
+                var poll = Ui.Right(Ui.L(Ui.Num(o.Support * 100) + " %", Tx.Data));
+                poll.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+                row.AddChild(Cell(poll, 64));
+                if (!compact)
+                {
+                    var seats = Ui.Right(Ui.L(o.Seats.ToString(), Tx.Data));
+                    seats.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+                    row.AddChild(Cell(seats, 56));
+                    row.AddChild(new MiniCompass(o.X, o.Y, Ui.PartyColor(packs, id), zoom, 34));
+                }
+                var m = Ui.Margin(row, 12, 5);
+                m.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+                Detail.SetIgnore(m);
+                b.AddChild(m);
+                b.Pressed += () => { party = id; RefreshParties(); RefreshDetail(); };
+                partyBox.AddChild(b);
+            }
+        }
+
+        // What you are about to play: the party (or the scenario) in full, and what its role means.
+        void RefreshDetail()
+        {
+            Ui.Clear(detailBox);
+            var options = Options();
+            if (options.Count == 0)
+            {
+                var sc = scenarios[chosen];
+                detailBox.AddChild(Ui.L(t.T("name." + sc.Id), Tx.Title, null, true));
+                detailBox.AddChild(Ui.L(t.Description(sc.Id) ?? t.T("ui.start.sandbox_desc"), Tx.Body, AppTheme.Ink2, true));
+                return;
+            }
+            var o = options.FirstOrDefault(x => x.PartyId == party) ?? options[0];
+            var color = Ui.PartyColor(packs, o.PartyId);
+            var head = Ui.HBox(10);
+            head.AddChild(new ColorDot(color, 8f));
+            var nm = Ui.L(t.Name(o.PartyId), Tx.Title, null, true);
+            head.AddChild(nm);
+            detailBox.AddChild(head);
+            detailBox.AddChild(RolePill(t, o.Role, shortText: false));
+
+            var figures = Ui.HBox(22);
+            figures.AddChild(Figure(Ui.Num(o.Support * 100) + " %", t.T("ui.start.col.poll")));
+            figures.AddChild(Figure(o.Seats.ToString(), t.T("ui.start.col.seats")));
+            detailBox.AddChild(figures);
+
+            var pos = Ui.HBox(12);
+            pos.AddChild(new MiniCompass(o.X, o.Y, color, ZoomOf(options), compact ? 56 : 72));
+            var words = Ui.VBox(2);
+            words.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter; words.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            words.AddChild(Ui.L(t.T("ui.start.col.position"), Tx.Small, AppTheme.Ink3));
+            words.AddChild(Ui.L(CompassWords(t, o), Tx.Body, AppTheme.Ink, true));
+            pos.AddChild(words);
+            detailBox.AddChild(pos);
+
+            var hint = Ui.HBox(10);
+            hint.AddChild(new IconView(o.Role == Role.Opposition ? IconKind.Alert : IconKind.Ballot, 18, AppTheme.Chrome));
+            hint.AddChild(Ui.L(t.T("ui.start.role_hint." + o.Role.ToString().ToLowerInvariant(), t.Name(o.PartyId)), Tx.Small, AppTheme.Ink2, true));
+            detailBox.AddChild(Ui.Panel(hint, "Inset"));
+        }
+
+        RefreshScenarios(); RefreshParties(); RefreshDetail();
+
+        // ---- frame
+        var root = Ui.VBox(0);
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        var bar = Ui.HBox(16);
+        bar.AddChild(Ui.Btn(t.T("ui.menu.back"), main.ShowStart, "ButtonSecondary", IconKind.Back, null, false, 38));
+        bar.AddChild(Ui.L(t.T("ui.client.new_game"), Tx.Title));
+        root.AddChild(Ui.Panel(Ui.Margin(bar, compact ? 16 : 28, 12), "Sheet"));
+        root.AddChild(new ColorRect { Color = AppTheme.Border, CustomMinimumSize = new Vector2(0, 1), MouseFilter = Control.MouseFilterEnum.Ignore });
+
+        if (compact)
+        {
+            var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+            var body = Ui.VBox(14);
+            body.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            if (scenarios.Count > 1) { body.AddChild(Ui.Section(t.T("ui.client.scenario"))); body.AddChild(scenarioBox); }
+            body.AddChild(Ui.Section(t.T("ui.start.your_party")));
+            body.AddChild(partyBox);
+            body.AddChild(detailBox);
+            var pad = Ui.Margin(body, 16, 14);
+            pad.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            scroll.AddChild(pad);
+            root.AddChild(scroll);
+            root.AddChild(new ColorRect { Color = AppTheme.Border, CustomMinimumSize = new Vector2(0, 1), MouseFilter = Control.MouseFilterEnum.Ignore });
+            var foot = Ui.VBox(8);
+            foot.AddChild(seedRow);
+            foot.AddChild(start);
+            root.AddChild(Ui.Panel(Ui.Margin(foot, 16, 10), "Sheet"));
+        }
+        else
+        {
+            var cols = Ui.HBox(16);
+            cols.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+
+            var left = Ui.VBox(12);
+            left.AddChild(Ui.Section(t.T("ui.client.scenario")));
+            left.AddChild(scenarioBox);
+            left.AddChild(new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore });
+            left.AddChild(Ui.L(t.T("ui.client.illustrative"), Tx.Small, AppTheme.Ink3, true));
+            var leftCard = Ui.Panel(left, "Card", false);
+            leftCard.CustomMinimumSize = new Vector2(Layout.Wide ? 340 : 290, 0);
+            leftCard.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            cols.AddChild(leftCard);
+
+            var mid = Ui.VBox(10);
+            mid.AddChild(Ui.Section(t.T("ui.start.your_party")));
+            var partyScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            partyBox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            partyScroll.AddChild(partyBox);
+            mid.AddChild(partyScroll);
+            var midCard = Ui.Panel(mid, "Card");
+            midCard.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            cols.AddChild(midCard);
+
+            var right = Ui.VBox(12);
+            var detailScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = Control.SizeFlags.ExpandFill, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+            detailBox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            detailScroll.AddChild(detailBox);
+            right.AddChild(detailScroll);
+            right.AddChild(Ui.Rule());
+            right.AddChild(seedRow);
+            right.AddChild(start);
+            var rightCard = Ui.Panel(right, "Card", false);
+            rightCard.CustomMinimumSize = new Vector2(Layout.Wide ? 420 : 360, 0);
+            rightCard.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            cols.AddChild(rightCard);
+
+            var pad = Ui.Margin(cols, 28, 20);
+            pad.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+            root.AddChild(pad);
+        }
+        main.AddChild(root);
     }
 
-    /// <summary>
-    /// The party choice for a political scenario (decision 0013): one card per party with its colour, name, starting role, poll and seats and its
-    /// place on the compass, largest first; under the cards what the chosen role means. Empty for a scenario without politics.
-    /// </summary>
-    public static void PartyPicker(VBoxContainer box, PackSet packs, Localizer t, ScenarioDef scenario, string? chosen, Action<string> choose)
+    private static Control Cell(Control c, float width)
     {
-        Ui.Clear(box);
-        var options = PartyChoice.Options(packs, scenario.Id);
-        if (options.Count == 0) return;
-        box.AddChild(Ui.L(t.T("ui.start.your_party"), Tx.Small, AppTheme.Ink3));
-        float far = (float)options.Max(o => Math.Max(Math.Abs(o.X), Math.Abs(o.Y)));
-        float zoom = far > 0.02f ? Math.Min(4f, 0.85f / far) : 1f;
-        var grid = new FlowGrid { MinColumn = 250, MaxColumns = 3, Gap = 8 };
-        var group = new ButtonGroup();
-        foreach (var o in options)
-        {
-            string id = o.PartyId;
-            var b = new Button { ToggleMode = true, ButtonGroup = group, ButtonPressed = id == chosen, ThemeTypeVariation = "ButtonCard", FocusMode = Control.FocusModeEnum.None,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, MouseDefaultCursorShape = Control.CursorShape.PointingHand, CustomMinimumSize = new Vector2(0, 104),
-                TooltipText = t.Name(id) + " · " + t.T("ui.start.role." + o.Role.ToString().ToLowerInvariant()) };
-            var row = Ui.HBox(10);
-            var col = Ui.VBox(3);
-            col.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            var head = Ui.HBox(8);
-            head.AddChild(new ColorDot(Ui.PartyColor(packs, id), 6.5f));
-            var name = Ui.L(t.Name(id), Tx.BodyStrong);
-            name.ClipText = true; name.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; name.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-            head.AddChild(name);
-            col.AddChild(head);
-            var roleColor = o.Role == Role.Leader ? AppTheme.Chrome : o.Role == Role.Partner ? AppTheme.Good : AppTheme.Ink3;
-            col.AddChild(Ui.Pill(t.T("ui.start.role." + o.Role.ToString().ToLowerInvariant()), roleColor));
-            col.AddChild(Ui.L(Ui.Fix(t.T("ui.start.party_line", Ui.Num(o.Support * 100), o.Seats)), Tx.Small, AppTheme.Ink2));
-            col.AddChild(Ui.L(CompassWords(t, o), Tx.Small, AppTheme.Ink3));
-            row.AddChild(col);
-            row.AddChild(new MiniCompass(o.X, o.Y, Ui.PartyColor(packs, id), zoom));
-            var m = Ui.Margin(row, 12, 9);
-            m.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-            Detail.SetIgnore(m);
-            b.AddChild(m);
-            b.Pressed += () => choose(id);
-            grid.AddChild(b);
-        }
-        box.AddChild(grid);
-        var pick = options.FirstOrDefault(o => o.PartyId == chosen) ?? options[0];
-        var hint = Ui.HBox(10);
-        hint.AddChild(new IconView(pick.Role == Role.Opposition ? IconKind.Alert : IconKind.Ballot, 18, AppTheme.Chrome));
-        hint.AddChild(Ui.L(t.T("ui.start.role_hint." + pick.Role.ToString().ToLowerInvariant(), t.Name(pick.PartyId)), Tx.Body, AppTheme.Ink2, true));
-        box.AddChild(Ui.Panel(hint, "Inset"));
+        var box = Ui.HBox(0);
+        box.CustomMinimumSize = new Vector2(width, 0);
+        c.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        box.AddChild(c);
+        return box;
+    }
+
+    private static Control RolePill(Localizer t, Role role, bool shortText)
+    {
+        string key = role.ToString().ToLowerInvariant();
+        var color = role == Role.Leader ? AppTheme.Chrome : role == Role.Partner ? AppTheme.Good : AppTheme.Ink3;
+        return Ui.Pill(t.T(shortText ? "ui.start.role_short." + key : "ui.start.role." + key), color);
+    }
+
+    private static Control Figure(string value, string caption)
+    {
+        var col = Ui.VBox(0);
+        col.AddChild(Ui.L(value, Tx.FigureXl));
+        col.AddChild(Ui.L(caption, Tx.Small, AppTheme.Ink3));
+        return col;
     }
 
     private static string CompassWords(Localizer t, PartyOption o) =>
         t.T(o.X < -0.15 ? "ui.start.econ.left" : o.X > 0.15 ? "ui.start.econ.right" : "ui.start.econ.centre") + ", " +
         t.T(o.Y < -0.15 ? "ui.start.social.liberal" : o.Y > 0.15 ? "ui.start.social.authoritarian" : "ui.start.social.centre");
-
-    /// <summary>Window mode, UI scale, automatic scaling, reduced motion and the resulting logical size. Applies live.</summary>
-    public static Control DisplayCard(Main main, Localizer t, bool withHeading)
-    {
-        var box = Ui.VBox(12);
-        if (withHeading) box.AddChild(Ui.Section(t.T("ui.start.display")));
-        box.AddChild(Ui.L(t.T("ui.start.window_mode"), Tx.Small, AppTheme.Ink3));
-        var window = main.GetWindow();
-        box.AddChild(Ui.Segmented(new[] { t.T("ui.start.mode.windowed"), t.T("ui.start.mode.borderless"), t.T("ui.start.mode.fullscreen") }, (int)DisplaySettings.Mode,
-            i => DisplaySettings.SetMode(window, (WindowMode)i), 32));
-        box.AddChild(Ui.L(t.T("ui.start.resolution"), Tx.Small, AppTheme.Ink3));
-        var res = new OptionButton { FocusMode = Control.FocusModeEnum.None, CustomMinimumSize = new Vector2(0, 32), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            TooltipText = t.T("ui.start.resolution_hint") };
-        var choices = new List<string> { "fit" };
-        res.AddItem(t.T("ui.start.fit"));
-        foreach (var c in DisplaySettings.Choices(window)) { choices.Add($"{c.X}x{c.Y}"); res.AddItem($"{c.X} \u00d7 {c.Y}"); }
-        int sel = choices.IndexOf(DisplaySettings.Resolution);
-        res.Selected = sel >= 0 ? sel : 0;
-        res.ItemSelected += i => DisplaySettings.SetResolution(window, choices[(int)i]);
-        box.AddChild(res);
-        var screen = DisplayServer.ScreenGetSize(window.CurrentScreen);
-        box.AddChild(Ui.L(t.T("ui.start.screen_info", screen.X, screen.Y, window.Size.X, window.Size.Y), Tx.Small, AppTheme.Ink3, true));
-        var scaleHead = Ui.HBox(8);
-        scaleHead.AddChild(Ui.L(t.T("ui.start.ui_scale"), Tx.Small, AppTheme.Ink3));
-        scaleHead.AddChild(Ui.Spacer());
-        var value = Ui.L(Ui.Num(DisplaySettings.UiScale * 100, "0") + " %", Tx.Figure);
-        scaleHead.AddChild(value);
-        box.AddChild(scaleHead);
-        var slider = new HSlider { MinValue = 30, MaxValue = 150, Step = 5, Value = DisplaySettings.UiScale * 100, CustomMinimumSize = new Vector2(200, 26), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, FocusMode = Control.FocusModeEnum.None };
-        bool dragging = false;
-        slider.DragStarted += () => dragging = true;
-        slider.DragEnded += _ => { dragging = false; DisplaySettings.SetScale(window, (float)slider.Value / 100f); };
-        slider.ValueChanged += v => { value.Text = Ui.Num(v, "0") + " %"; if (!dragging) DisplaySettings.SetScale(window, (float)v / 100f); };
-        box.AddChild(slider);
-        var ends = Ui.HBox(); ends.AddChild(Ui.L("30 %", Tx.Small)); ends.AddChild(Ui.Spacer()); ends.AddChild(Ui.L("150 %", Tx.Small));
-        box.AddChild(ends);
-        var quick = Ui.HBox(8);
-        var reset = Ui.Btn(t.T("ui.start.scale_default"), () => { slider.Value = 100; DisplaySettings.SetScale(window, 1f); }, "ButtonSecondary", null, null, false, 30);
-        var native = Ui.Btn(t.T("ui.start.scale_native"), () => { float f = DisplaySettings.NativeScale(window); slider.Value = Math.Round(f * 100 / 5) * 5; DisplaySettings.SetScale(window, f); }, "ButtonSecondary", null, null, false, 30);
-        native.TooltipText = t.T("ui.start.scale_native_hint");
-        quick.AddChild(reset); quick.AddChild(native);
-        box.AddChild(quick);
-        var auto = new CheckBox { Text = t.T("ui.start.auto_scale"), ButtonPressed = DisplaySettings.AutoScale, FocusMode = Control.FocusModeEnum.None, TooltipText = t.T("ui.start.auto_hint") };
-        auto.Toggled += on => DisplaySettings.SetAuto(window, on);
-        box.AddChild(auto);
-        var motion = new CheckBox { Text = t.T("ui.start.reduce_motion"), ButtonPressed = DisplaySettings.ReduceMotion, FocusMode = Control.FocusModeEnum.None };
-        motion.Toggled += on => DisplaySettings.SetReduceMotion(on);
-        box.AddChild(motion);
-        var preview = Ui.L("", Tx.Small, AppTheme.Ink2, true);
-        void Update()
-        {
-            if (!GodotObject.IsInstanceValid(preview)) return;
-            var size = main.Size;
-            string cls = t.T("ui.start.class." + Layout.WidthOf(size.X).ToString().ToLowerInvariant());
-            preview.Text = t.T("ui.start.preview", (int)Math.Round(size.X), (int)Math.Round(size.Y), cls, AppTheme.FontSource);
-        }
-        Update();
-        main.Resized += Update;
-        preview.TreeExiting += () => main.Resized -= Update;
-        box.AddChild(Ui.Panel(preview, "Inset"));
-        return box;
-    }
 }

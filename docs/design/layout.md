@@ -417,39 +417,41 @@ All pages: `surface` background, pad 24 (16 compact), title row 48 (`title` + ri
   Ekonomika / Ultimáta), unread dot. Briefing archive.
 - **Chart modal** — XL modal: title, range segmented control, series toggles, chart full width (min height 320), crosshair readout.
 
-## 7. Start screen with display settings
+## 7. Main menu, new game, settings
 
-Full window, `canvas` background with the map's dot grid and a faint static web drawing (code-drawn, ink 6 %) on the right half.
+Redone after Democracy 4, Hearts of Iron IV and Crusader Kings III: the game opens on a plain menu, setting up a game is one screen
+where everything fits without scrolling, and the technical settings live in their own dialog.
 
-Regular 1280 x 720:
+**Main menu.** A white column on the left (36 % of the width, min 420; the full width in a compact window) over the map's dot grid and
+discs: title, tagline, then the entries as big flat rows with a pictogram: Continue (the newest save, only when one exists; the filled
+primary), New game, Load game (disabled without saves), Settings, Quit game. A footnote says the data is illustrative.
+
+**New game** (regular 1280 x 720, no scrolling for eight parties):
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│  OpenPolitics                                                                    │  display 32, top-left at (64, 64)
-│  Politická simulace. Veďte stranu, udržte většinu.                               │  body ink-2
-│                                                                                  │
-│  ┌ NOVÁ HRA ───────────────────────────────┐  ┌ NASTAVENÍ ZOBRAZENÍ ───────────┐ │
-│  │ Scénář                                  │  │ Režim okna                     │ │
-│  │ ┌──────────────────┐ ┌────────────────┐ │  │ [Okno|Bez rámečku|Celá obr.]   │ │
-│  │ │ Česko 2015       │ │ Ekonomický     │ │  │ Velikost rozhraní     110 %    │ │
-│  │ │ koaliční vláda ● │ │ sandbox        │ │  │ ──────◯────────  80–140 %      │ │
-│  │ └──────────────────┘ └────────────────┘ │  │ [✓] Automaticky podle okna     │ │
-│  │ Jazyk [Čeština|English]                 │  │ [ ] Omezit animace             │ │
-│  │ Volební práh  5 %  [−][ 5 ][+]          │  │ Náhled: 1280 × 720 logicky     │ │
-│  │ Seed  [ 650 ] [⟳]   (Pokročilé ▸)       │  └────────────────────────────────┘ │
-│  │                    [Načíst]  [▶ Začít ↵]│                                     │
-│  └─────────────────────────────────────────┘                                     │
-│  Všechna data jsou ilustrativní, strany jsou smyšlené.            v0.x · F11     │
-└──────────────────────────────────────────────────────────────────────────────────┘
+┌ [← Back]  New game ───────────────────────────────────────────────────────────────┐
+│ SCENARIO        │ YOUR PARTY                                │ ● Civic Right        │
+│ [Czechia 2015…] │ PARTY          ROLE      POLL SEATS POS   │ [Opposition]         │
+│ [districts   …] │ ● Citizens'…   Coalition 30.0 %  60  ▣    │ 13.0 %    26         │
+│ [runoff      …] │ ● Social…      Government 17.0 % 34  ▣    │ Poll      Seats      │
+│ [sandbox     …] │ ● Civic Right  Opposition 13.0 % 26  ▣ ◀  │ ▣ right, moderate    │
+│ (description)   │ …                                         │ (what the role means)│
+│                 │                                           │ Seed [ 986 ] [⟳]     │
+│ illustrative    │                                           │ [▶ Start game]       │
+└─────────────────┴───────────────────────────────────────────┴──────────────────────┘
 ```
 
-- New game card 7 columns (min 440), display card 4 columns (min 300), gap 24; both `surface`, radius 16, pad 24, hairline border.
-- Scenario choice = selectable cards (radio), not a dropdown. "Začít" is the yellow accent CTA here (the only one on this screen).
-- Display settings apply live (window mode via `DisplayServer.WindowSetMode`, UI scale via `ContentScaleFactor` with the formula in
-  1.2); the preview line shows the resulting logical size and class ("kompaktní / běžné / široké").
-- The same Display card is reused in the in-game Settings modal (M).
-- Compact: cards stack in one column (scroll), title block shrinks to `title`.
-- Wide: content max width 1200, centred.
+- Three cards: scenarios (names only, the chosen one's description under them), the party table (one 52 px row per party, largest first,
+  the chosen row tinted), what you are about to play with the seed and the one primary button. Esc = back.
+- Compact or short window: one scrolling column (scenario drop-down and description, the party rows without seats and compass, the detail),
+  and a bar pinned to the bottom with the seed and Start.
+- A scenario without politics shows its description instead of the party table.
+
+**Settings** is a dialog (760 wide, a sheet when compact) in two columns: General (language - main menu only, window mode, window size) and
+Interface (interface size with 100 % and 1:1, automatic scaling, reduce motion, the layout preview). It applies live and is saved in
+`user://display.cfg`; the in-game menu opens the same dialog (without the language: a running game keeps its language).
+
+**Load game** is a dialog listing the saves newest first: name, scenario and party, the date in the game, when it was saved.
 
 ## 8. Mapping from the current client
 
@@ -470,7 +472,7 @@ Regular 1280 x 720:
 | `WorldMap` + node detail card | **Stage map** + **Inspector** (indicator/policy) | Delete the internal `_card`; selection goes to the inspector. |
 | `Hemicycle`, `CompassView` | Restyled per 4.20 / 4.21 | |
 | `Icons` + `IconBadge` | Keep pictograms, new stroke rules; delete tinted badge circles | |
-| `StartBackdrop` + start form | **Start screen** (section 7) | Add display settings card. |
+| `StartBackdrop` + start form | **Main menu, new game, settings, load** (section 7) | |
 | `DisplaySettings` | Add window mode (3 options), auto factor, reduced motion | Formula 1.2. |
 | `AppTheme` | Rewrite with the Ledger tokens | Theme built once in code; see README build order. |
 

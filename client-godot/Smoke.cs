@@ -6,7 +6,7 @@ namespace OpenPolitics.Client;
 
 /// <summary>
 /// `godot --headless --path client-godot -- --smoke` plays scripted quarters through every screen and dialog of every scenario and exits
-/// with 0 or 1. With `--screenshots DIR` (windowed) it also writes PNGs of the start screen, the map (plain, hovered, group lens), the policy,
+/// with 0 or 1. With `--screenshots DIR` (windowed) it also writes PNGs of the main menu, settings, new-game and load screens, the map (plain, hovered, group lens), the policy,
 /// indicator and group dialogs, every screen, a chart and the briefing, at whatever window size it runs in.
 /// </summary>
 public static class Smoke
@@ -84,21 +84,66 @@ public static class Smoke
         return into;
     }
 
-    /// <summary>The start screen shows one card per party for the political scenario; choosing one rebuilds the cards with it selected.</summary>
+    /// <summary>
+    /// The main menu offers its entries; Settings opens as a dialog and switching the language rebuilds the menu and keeps the dialog; the
+    /// new-game screen shows one row per party for the political scenario and choosing one selects exactly that row; a saved game appears in
+    /// the load list and loads from it.
+    /// </summary>
     private static async Task StartScreenPartyPicker(Main main, string? shots)
     {
         main.ShowStart();
         await Frames(main, 4);
+        if (shots != null) Shot(main, shots, "menu");
+        var entries = FindAll<IconTextButton>(main).Where(b => b.ThemeTypeVariation == "ButtonMenu" || b.ThemeTypeVariation == "ButtonPlay").ToList();
+        if (entries.Count < 4) throw new Exception($"main menu shows {entries.Count} entries, expected at least 4");
+
+        main.ShowSettings();
+        await Frames(main, 4);
+        if (FindAll<Dialog>(main).Count != 1) throw new Exception("settings should open as one dialog");
+        if (shots != null) Shot(main, shots, "settings");
+        main.SetLanguage("cs", persist: false);
+        await Frames(main, 4);
+        if (main.Language != "cs" || FindAll<Dialog>(main).Count != 1) throw new Exception("switching the language should rebuild the menu and keep the settings dialog");
+        if (shots != null) Shot(main, shots, "settings-cs");
+        main.SetLanguage("en", persist: false);
+        await Frames(main, 2);
+        main.CloseDialogs();
+        await Frame(main);
+
+        main.ShowNewGame();
+        await Frames(main, 4);
         if (shots != null) Shot(main, shots, "start");
-        if (main.Packs!.Scenarios.All(sc => sc.Politics == null)) return;
-        var cards = FindAll<Button>(main).Where(b => b.ThemeTypeVariation == "ButtonCard" && b.TooltipText.Contains(" · ")).ToList();
-        if (cards.Count != main.Packs.Parties.Count) throw new Exception($"start screen shows {cards.Count} party cards, expected {main.Packs.Parties.Count}");
-        cards[2].EmitSignal(BaseButton.SignalName.Pressed);
-        await Frames(main, 3);
-        var after = FindAll<Button>(main).Where(b => b.ThemeTypeVariation == "ButtonCard" && b.TooltipText.Contains(" · ")).ToList();
-        if (after.Count(b => b.ButtonPressed) != 1) throw new Exception("exactly one party card should be selected");
-        if (shots != null) Shot(main, shots, "start-party");
-        GD.Print($"smoke: start screen party picker ok ({after.Count} parties)");
+        if (main.Packs!.Scenarios.Any(sc => sc.Politics != null))
+        {
+            var cards = FindAll<Button>(main).Where(b => b.TooltipText.Contains(" \u00b7 ")).ToList();
+            if (cards.Count != main.Packs.Parties.Count) throw new Exception($"new-game screen shows {cards.Count} party rows, expected {main.Packs.Parties.Count}");
+            cards[2].EmitSignal(BaseButton.SignalName.Pressed);
+            await Frames(main, 3);
+            var after = FindAll<Button>(main).Where(b => b.TooltipText.Contains(" \u00b7 ")).ToList();
+            if (after.Count(b => b.ButtonPressed) != 1) throw new Exception("exactly one party row should be selected");
+            if (shots != null) Shot(main, shots, "start-party");
+            GD.Print($"smoke: new-game screen party list ok ({after.Count} parties)");
+        }
+
+        // a saved game shows up in the load list (a temp file: the player's own saves are never touched) and loads from it
+        var scenarioId = main.Packs.Scenarios.OrderBy(sc => sc.Id, StringComparer.Ordinal).First().Id;
+        var probe = new Session(main.Packs, scenarioId, 7, "en");
+        string file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "openpolitics-smoke.save.yaml");
+        try
+        {
+            System.IO.File.WriteAllText(file, probe.Game.Save().ToYaml());
+            main.ShowStart();
+            main.ShowLoad(new[] { file });
+            await Frames(main, 4);
+            if (shots != null) Shot(main, shots, "load");
+            var row = FindAll<Button>(main).FirstOrDefault(b => b.TooltipText == file) ?? throw new Exception("the saved game is not in the load list");
+            if (row.Disabled) throw new Exception("a readable saved game is disabled in the load list");
+            row.EmitSignal(BaseButton.SignalName.Pressed);
+            await Frames(main, 3);
+            if (main.Session == null || main.Session.ScenarioId != scenarioId) throw new Exception("loading from the list did not open the saved game");
+            GD.Print("smoke: main menu, settings, new game and load ok");
+        }
+        finally { if (System.IO.File.Exists(file)) System.IO.File.Delete(file); }
     }
 
     /// <summary>The policy dialog refuses a change the capital cannot pay and charges an affordable one; then a reshuffle is shown and asked.</summary>

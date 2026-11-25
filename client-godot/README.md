@@ -18,8 +18,8 @@ godot --path client-godot
 ```
 
 Packs are read from `data/base` (override with the environment variable `OPENPOLITICS_PACKS`). Saves go to Godot's
-`user://saves` directory. The start screen offers the political scenario (Czechia 2015, coalition government) and the economy sandbox,
-in Czech or English; for the political scenario you pick your party (decision 0013).
+`user://saves` directory. The new-game screen offers the political scenario (Czechia 2015, coalition government) and the economy sandbox;
+for the political scenario you pick your party (decision 0013). The language (Czech or English) is chosen in the settings.
 
 ## The interface
 
@@ -79,9 +79,13 @@ drawn in code; the only bundled asset is the Inter font.
   court the partner; reshuffle; dismiss); the window for promises with a **Promise** button per goal. Then six key indicators as pills, the
   news, two buttons in the footer. The Politics badge counts exactly these decisions; only an offer blocks the quarter. **x4** stops at the
   first quarter that brings an urgent decision.
-- **Start screen**: scenario cards, the party cards of the political scenario (colour, name, starting role - leads the government, junior
-  partner or opposition -, poll share and seats, a mini compass and its words; the role is explained under the cards), language, seed,
-  the display card, load and start. The welcome briefing depends on the role.
+- **Main menu**: Continue (the newest save, only when there is one), New game, Load game, Settings, Quit; the map's discs fill the rest of the window.
+- **New game**: three columns (a drop-down and one scrolling column in a small window). Left: the scenarios and the description of the chosen
+  one. Middle: one row per party, largest first - colour, name, starting role (government, coalition, opposition), poll, seats and its place
+  on the compass. Right: the chosen party in full (poll, seats, compass and its words, what the role means), the random seed and Start.
+  Esc goes back to the menu. The welcome briefing depends on the role.
+- **Settings** (main menu and in-game menu): language (main menu only), window mode and size, interface size, automatic scaling, reduce motion.
+- **Load game**: the saved games, newest first, with scenario, party, the date in the game and when it was saved.
 - Keyboard: Space = End quarter, M = map, 1-6 = the screens, Esc = close / clear the lens, Ctrl+S = quick save, F11 = full screen.
 
 ## Display settings and responsiveness
@@ -90,8 +94,8 @@ The window is freely resizable (minimum 960 x 540). The interface is laid out in
 `canvas_items` + `expand`, so other shapes get more room rather than bars. `DisplaySettings` adds an automatic factor (small windows get a
 smaller logical viewport instead of smaller text, never below 960 x 540), the player's interface size (80-140 %), the window mode (window,
 borderless, full screen; F11 toggles), the window size in window mode (maximised "fit to the screen" by default, or 1280x720 up to
-3840x2160 where it fits; the last size is remembered; borderless and full screen use the native resolution) and "reduce motion" (no moving dashes). All of it is on the start screen's display card and in the
-in-game menu, applies live and is saved in `user://display.cfg`.
+3840x2160 where it fits; the last size is remembered; borderless and full screen use the native resolution) and "reduce motion" (no moving dashes). All of it is in the settings dialog (main menu and in-game menu), applies live and is saved in `user://display.cfg` together with the
+language.
 
 `Layout` turns the logical size into size classes - compact < 1100 <= regular < 1600 <= wide, short < 640, tall >= 860 - and raises
 `Changed` when a class flips; the frame is rebuilt then (sidebar strip, top-bar sizes, dialog sheets).
@@ -103,9 +107,9 @@ GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh    
 GODOT=/path/to/Godot_v4.7.2-stable_mono_linux.x86_64 scripts/client-smoke.sh /tmp/shots # windowed, writes PNGs
 ```
 
-Besides every screen of every scenario it presses a party card on the start screen, plays the political scenario as an opposition party
+Besides every screen of every scenario it opens the main menu, the settings (and switches the language) and the load list, presses a party row on the new-game screen, plays the political scenario as an opposition party
 (Civic Right), checks that the policy dialog refuses an unaffordable change and charges an affordable one, and asks a coalition reshuffle
-from the Politics screen (shots `start-party`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`). Decision 0014: as the
+from the Politics screen (shots `menu`, `settings`, `start-party`, `load`, `policy-cost`, `policy-cost-unaffordable`, `reshuffle`, `reshuffle-after`). Decision 0014: as the
 opposition it waits for a proposal, answers it with the Support button of the briefing, makes a promise and announces a proposal, and opens the
 overview, programme, promises and actions tabs (shots `proposal-briefing`, `proposal-answered`, `party0014-tab0..4`). Decision 0015: it
 checks the Mood / Support toggle; as Citizens' Movement it forms the government from the briefing (Adjust, then Form this coalition), leads until a
@@ -129,5 +133,5 @@ and OpenType features (tabular figures for numbers) are set per role with `FontV
 Noto Sans / Open Sans / Fira Sans / DejaVu Sans and still lays out.
 
 Check changes with `scripts/client-smoke.sh <dir>`: with `RES=WxH` (and `UISCALE=1.3`) it renders into an offscreen viewport of exactly that
-window size, so a tiling window manager cannot change the shape, and writes PNGs of the start screen, the map (plain, hovered, lens), every
+window size, so a tiling window manager cannot change the shape, and writes PNGs of the main menu, settings, new-game and load screens, the map (plain, hovered, lens), every
 dialog and screen, a chart and the briefing.

@@ -26,6 +26,8 @@ public static class DisplaySettings
     /// <summary>Windowed size: "fit" (maximised to the screen, the default), "last" (the size the window had when the game was closed) or "WxH".</summary>
     public static string Resolution { get; private set; } = "fit";
     public static Vector2I LastSize { get; private set; } = Vector2I.Zero;
+    /// <summary>The interface language the player chose ("cs" or "en"); empty = follow the system language.</summary>
+    public static string Language { get; private set; } = "";
     public static readonly Vector2I[] Presets = { new(1280, 720), new(1366, 768), new(1600, 900), new(1920, 1080), new(2560, 1440), new(3840, 2160) };
     public static bool Fullscreen => Mode == WindowMode.Fullscreen;
     public static event Action? Changed;
@@ -40,7 +42,14 @@ public static class DisplaySettings
         Mode = (WindowMode)(int)cfg.GetValue("display", "window_mode", (bool)cfg.GetValue("display", "fullscreen", false) ? 2 : 0);
         Resolution = (string)cfg.GetValue("display", "resolution", "fit");
         LastSize = (Vector2I)cfg.GetValue("display", "last_size", Vector2I.Zero);
+        Language = (string)cfg.GetValue("general", "language", "");
     }
+
+    /// <summary>The language to start in: the saved choice, else Czech on a Czech system and English elsewhere.</summary>
+    public static string StartLanguage() =>
+        Language is "cs" or "en" ? Language : OS.GetLocale().StartsWith("cs", StringComparison.OrdinalIgnoreCase) ? "cs" : "en";
+
+    public static void SetLanguage(string language) { Language = language; Save(); }
 
     private static void Save()
     {
@@ -51,6 +60,7 @@ public static class DisplaySettings
         cfg.SetValue("display", "window_mode", (int)Mode);
         cfg.SetValue("display", "resolution", Resolution);
         cfg.SetValue("display", "last_size", LastSize);
+        cfg.SetValue("general", "language", Language);
         cfg.Save(File);
     }
 
