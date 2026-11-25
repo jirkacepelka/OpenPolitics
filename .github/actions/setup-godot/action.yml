@@ -1,0 +1,45 @@
+name: Set up Godot (.NET)
+description: Installs the Godot .NET editor and, optionally, its export templates, cached between runs.
+inputs:
+  version:
+    description: Godot release, e.g. 4.7.2
+    required: true
+  templates:
+    description: Also install the export templates (about 1.2 GB download, cached)
+    default: "false"
+outputs:
+  godot:
+    description: Path of the Godot executable
+    value: ${{ steps.paths.outputs.godot }}
+runs:
+  using: composite
+  steps:
+    - id: paths
+      shell: bash
+      run: |
+        dir="$HOME/godot-${{ inputs.version }}"
+        echo "dir=$dir" >> "$GITHUB_OUTPUT"
+        echo "godot=$dir/Godot_v${{ inputs.version }}-stable_mono_linux_x86_64/Godot_v${{ inputs.version }}-stable_mono_linux.x86_64" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      id: cache
+      with:
+        path: |
+          ${{ steps.paths.outputs.dir }}
+          ~/.local/share/godot/export_templates
+        key: godot-${{ inputs.version }}-templates-${{ inputs.templates }}-v1
+    - if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        v="${{ inputs.version }}"
+        base="https://github.com/godotengine/godot/releases/download/${v}-stable"
+        mkdir -p "${{ steps.paths.outputs.dir }}"
+        curl -fsSL -o godot.zip "$base/Godot_v${v}-stable_mono_linux_x86_64.zip"
+        unzip -q godot.zip -d "${{ steps.paths.outputs.dir }}"
+        rm godot.zip
+        if [ "${{ inputs.templates }}" = "true" ]; then
+          curl -fsSL -o templates.tpz "$base/Godot_v${v}-stable_mono_export_templates.tpz"
+          unzip -q templates.tpz -d tpl
+          mkdir -p "$HOME/.local/share/godot/export_templates/${v}.stable.mono"
+          mv tpl/templates/* "$HOME/.local/share/godot/export_templates/${v}.stable.mono/"
+          rm -rf tpl templates.tpz
+        fi

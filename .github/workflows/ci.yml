@@ -31,3 +31,20 @@ jobs:
         run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- batch --packs data/base --games 100 --strategy random --turns 80
       - name: Passive batch (includes the no-ceiling check)
         run: dotnet run --project tools/OpenPolitics.Cli -c Release --no-build -- batch --packs data/base --games 50 --strategy passive --turns 80
+
+  client:
+    # Plays the Godot client headless through every screen (scripts/client-smoke.sh).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - id: godot
+        uses: ./.github/actions/setup-godot
+        with:
+          version: "4.7.2"
+      - name: Client smoke test
+        env:
+          GODOT: ${{ steps.godot.outputs.godot }}
+        run: bash scripts/client-smoke.sh

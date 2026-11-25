@@ -6,7 +6,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../client-godot"
 : "${GODOT:?set GODOT to the Godot 4.7 .NET executable}"
-export DOTNET_ROOT="${DOTNET_ROOT:-$HOME/.dotnet}" DOTNET_CLI_TELEMETRY_OPTOUT=1
+# Godot finds the .NET SDK through DOTNET_ROOT: use the one on PATH (CI), else the per-user install.
+if [ -z "${DOTNET_ROOT:-}" ]; then
+  if command -v dotnet >/dev/null 2>&1; then DOTNET_ROOT="$(dirname "$(readlink -f "$(command -v dotnet)")")"; else DOTNET_ROOT="$HOME/.dotnet"; fi
+fi
+export DOTNET_ROOT DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
 "$GODOT" --headless --path . --build-solutions --quit
 if [ $# -ge 1 ]; then
   "$GODOT" --path . --resolution "${RES:-1600x900}" -- --smoke --screenshots "$1" --res "${RES:-1600x900}" ${UISCALE:+--ui-scale $UISCALE}

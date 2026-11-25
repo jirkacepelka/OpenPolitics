@@ -15,6 +15,12 @@ narrow API. Clients (a Godot 4 .NET UI later, a headless CLI now) only ask the c
 send it player actions. There is no universal GDP ceiling: values use real units, influences change
 rates, and limits come from the model (capital, labour, productivity, budget, inflation, debt).
 
+## Download
+
+Ready-to-play builds for Linux, Windows and macOS are attached to every [release](../../releases) (unzip and run, no install; the
+builds are not code-signed, see the release notes). To make one yourself: `GODOT=/path/to/godot scripts/export.sh linux|windows|macos [version]`
+(needs the Godot 4.7.2 .NET editor with its export templates). Pushing a tag `vX.Y.Z` builds and publishes all three (`.github/workflows/release.yml`).
+
 ## Build and run
 
 Requires the .NET SDK 10 (see `global.json`).

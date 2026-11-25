@@ -43,3 +43,9 @@ Nejsou to statistiky ani předpovědi.
 
 Kód: MIT ([LICENSE](LICENSE)). Datové balíčky: CC BY-SA 4.0 ([data/LICENSE](data/LICENSE)).
 Nepoužíváme texty, data, grafiku ani názvy z Democracy 4, Hearts of Iron IV ani Millennium Dawn.
+
+## Stažení
+
+Hotové sestavení pro Linux, Windows a macOS je u každého [vydání](../../releases) (rozbalit a spustit, nic se neinstaluje; sestavení
+nejsou podepsaná, viz poznámky k vydání). Vlastní sestavení: `GODOT=/cesta/ke/godot scripts/export.sh linux|windows|macos [verze]`
+(potřebuje Godot 4.7.2 .NET s exportními šablonami). Tag `vX.Y.Z` sestaví a zveřejní všechny tři (`.github/workflows/release.yml`).

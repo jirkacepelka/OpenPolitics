@@ -11,3 +11,7 @@ TestResults/
 client-godot/.godot/
 client-godot/.mono/
 client-godot/*.screenshot.png
+
+# Release builds and the data staged into the client for export
+build/
+client-godot/data/

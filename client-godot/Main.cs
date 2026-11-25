@@ -44,10 +44,10 @@ public partial class Main : Control
         GetTree().Root.Theme = AppTheme.Instance;
         _language = OS.GetLocale().StartsWith("cs", StringComparison.OrdinalIgnoreCase) ? "cs" : "en";
         Ui.Czech = _language == "cs";
-        var loaded = Session.LoadPacks(Session.DefaultPacksDir());
+        var loaded = Session.LoadDefaultPacks(out var packsWhere);
         if (!loaded.Ok)
         {
-            ShowFatal("Packs could not be loaded from " + Session.DefaultPacksDir() + ":\n" + string.Join("\n", loaded.Diagnostics));
+            ShowFatal("Packs could not be loaded from " + packsWhere + ":\n" + string.Join("\n", loaded.Diagnostics));
             return;
         }
         Packs = loaded.Packs;

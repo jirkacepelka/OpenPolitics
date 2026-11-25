@@ -60,6 +60,25 @@ public sealed class Session
     public static LoadResult LoadPacks(string dir) =>
         PackLoader.Load(new IPackSource[] { new DirectoryPackSource(dir) });
 
+    /// <summary>Where the game's data is bundled in an exported build (staged by scripts/export.sh).</summary>
+    public const string BundledPacks = "res://data/base";
+
+    /// <summary>
+    /// The packs to play: OPENPOLITICS_PACKS if set, else the ones bundled into the exported game, else <c>data/base</c>
+    /// of the repository (running from the editor or <c>scripts/play.sh</c>). <paramref name="where"/> says which.
+    /// </summary>
+    public static LoadResult LoadDefaultPacks(out string where)
+    {
+        var env = System.Environment.GetEnvironmentVariable("OPENPOLITICS_PACKS");
+        if (string.IsNullOrWhiteSpace(env) && GodotPackSource.Exists(BundledPacks))
+        {
+            where = BundledPacks;
+            return PackLoader.Load(new IPackSource[] { new GodotPackSource(BundledPacks) });
+        }
+        where = DefaultPacksDir();
+        return LoadPacks(where);
+    }
+
     public CountryState Country => Game.State.Countries.Values.Single();
     public CountryPolitics? Politics => Country.Politics;
     public bool HasPolitics => Politics != null;
