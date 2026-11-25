@@ -1,6 +1,10 @@
 # ILLUSTRATIVE and FICTIONAL parties. Any resemblance to real parties is unintended; positions are invented for play.
 - id: base:citizens_movement
   platform:
+    base:competition_policy: {target: 7, weight: 0.4}
+    base:anti_corruption: {target: 9, weight: 0.6}
+    base:startup_support: {target: 0.9, weight: 0.3}
+    base:digital_services_tax: {target: 0, weight: 0.2}
     base:income_tax: {target: 21, weight: 0.6}
     base:vat: {target: 12, weight: 0.3}
     base:corporate_tax: {target: 3, weight: 0.6}
@@ -41,6 +45,11 @@
     - {id: populists, weight: 0.4, platform: {base:pensions: 11, base:social_benefits: 9}}
 - id: base:social_alliance
   platform:
+    base:union_rights: {target: 7, weight: 0.5}
+    base:paid_leave: {target: 6, weight: 0.3}
+    base:public_housing: {target: 1.2, weight: 0.3}
+    base:inheritance_tax: {target: 0.3, weight: 0.2}
+    base:elderly_care: {target: 0.8, weight: 0.3}
     base:income_tax: {target: 27, weight: 0.5}
     base:social_benefits: {target: 10, weight: 0.8}
     base:pensions: {target: 11, weight: 0.7}
@@ -83,6 +92,11 @@
     - {id: reformers, weight: 0.5, platform: {base:education_spending: 6, base:research: 2}}
 - id: base:civic_right
   platform:
+    base:strike_rules: {target: 7, weight: 0.4}
+    base:working_week_hours: {target: 42, weight: 0.3}
+    base:gun_laws: {target: 3, weight: 0.3}
+    base:bank_levy: {target: 0, weight: 0.3}
+    base:competition_policy: {target: 6, weight: 0.3}
     base:income_tax: {target: 19, weight: 0.8}
     base:corporate_tax: {target: 2, weight: 0.5}
     base:vat: {target: 11, weight: 0.3}
@@ -124,6 +138,11 @@
     - {id: conservatives, weight: 0.5, platform: {base:police: 2.5, base:migration: 2}}
 - id: base:peoples_union
   platform:
+    base:agriculture_subsidies: {target: 1, weight: 0.5}
+    base:religious_education: {target: 5, weight: 0.4}
+    base:abortion_access: {target: 3, weight: 0.4}
+    base:same_sex_unions: {target: 2, weight: 0.3}
+    base:regional_funds: {target: 0.8, weight: 0.3}
     base:electoral_system: {target: 0, weight: 0.3}
     base:pensions: {target: 11, weight: 0.8}
     base:health_spending: {target: 8, weight: 0.5}
@@ -165,6 +184,11 @@
     - {id: traditionalists, weight: 0.5, platform: {base:migration: 1}}
 - id: base:workers_left
   platform:
+    base:union_rights: {target: 8, weight: 0.6}
+    base:windfall_tax: {target: 0.3, weight: 0.4}
+    base:public_housing: {target: 1.5, weight: 0.4}
+    base:paid_leave: {target: 7, weight: 0.3}
+    base:bank_levy: {target: 0.3, weight: 0.3}
     base:electoral_system: {target: 0, weight: 0.3}
     base:income_tax: {target: 30, weight: 0.6}
     base:corporate_tax: {target: 8, weight: 0.7}
@@ -210,6 +234,12 @@
     - {id: pragmatists, weight: 0.6, platform: {base:corporate_tax: 6}}
 - id: base:homeland_first
   platform:
+    base:border_guard: {target: 1, weight: 0.5}
+    base:asylum_policy: {target: 1, weight: 0.6}
+    base:citizenship_rules: {target: 1, weight: 0.5}
+    base:gun_laws: {target: 2, weight: 0.3}
+    base:foreign_investment_screening: {target: 6, weight: 0.3}
+    base:justice_system: {target: 1, weight: 0.3}
     base:electoral_system: {target: 0, weight: 0.3}
     base:migration: {target: 0.5, weight: 1.0}
     base:police: {target: 2.5, weight: 0.8}
@@ -249,6 +279,12 @@
     - {id: moderates, weight: 0.5, platform: {base:migration: 1.5}}
 - id: base:green_wave
   platform:
+    base:nuclear_programme: {target: 0, weight: 0.5}
+    base:vehicle_tax: {target: 0.3, weight: 0.3}
+    base:rail_network: {target: 1.5, weight: 0.4}
+    base:smoking_ban: {target: 7, weight: 0.3}
+    base:gmo_policy: {target: 1, weight: 0.4}
+    base:windfall_tax: {target: 0.3, weight: 0.2}
     base:electoral_system: {target: 0, weight: 0.3}
     base:environment_regulation: {target: 8, weight: 1.0}
     base:education_spending: {target: 6, weight: 0.5}
@@ -295,6 +331,11 @@
 - id: base:open_net
   swing: true
   platform:
+    base:data_protection: {target: 8, weight: 0.6}
+    base:press_freedom: {target: 9, weight: 0.5}
+    base:same_sex_unions: {target: 8, weight: 0.4}
+    base:startup_support: {target: 1, weight: 0.3}
+    base:cybersecurity: {target: 0.5, weight: 0.3}
     base:electoral_system: {target: 0, weight: 0.3}
     base:education_spending: {target: 6, weight: 0.6}
     base:research: {target: 2.5, weight: 0.7}

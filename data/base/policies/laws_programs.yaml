@@ -1,0 +1,148 @@
+# ILLUSTRATIVE data: wave-5 programmes. They start at 0: nothing extra is spent until you choose to.
+- id: base:elderly_care
+  unit: nominal_spending
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.5
+- id: base:disability_support
+  unit: nominal_spending
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.6
+- id: base:mental_health
+  unit: nominal_spending
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.2
+  axis_y: -0.2
+- id: base:vocational_training
+  unit: nominal_spending
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.1
+- id: base:school_meals
+  unit: nominal_spending
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.5
+- id: base:scholarships
+  unit: nominal_spending
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.3
+- id: base:rail_network
+  unit: nominal_spending
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 4
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.2
+- id: base:flood_protection
+  unit: nominal_spending
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 4
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+- id: base:nuclear_programme
+  unit: nominal_spending
+  min: 0
+  max: 3
+  default: 0
+  delay_turns: 4
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: 0.1
+  axis_y: 0.2
+- id: base:cybersecurity
+  unit: nominal_spending
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_y: 0.4
+- id: base:justice_system
+  unit: nominal_spending
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_y: 0.3
+- id: base:prisons_and_rehabilitation
+  unit: nominal_spending
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.2
+  axis_y: -0.3
+- id: base:border_guard
+  unit: nominal_spending
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_y: 0.8
+- id: base:startup_support
+  unit: nominal_spending
+  min: 0
+  max: 1.5
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: 0.5
+- id: base:agriculture_subsidies
+  unit: nominal_spending
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.3
+  axis_y: 0.3
+- id: base:regional_funds
+  unit: nominal_spending
+  min: 0
+  max: 2
+  default: 0
+  delay_turns: 3
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.3
+- id: base:foreign_aid
+  unit: nominal_spending
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 2
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_y: -0.5
+- id: base:public_housing
+  unit: nominal_spending
+  min: 0
+  max: 2.5
+  default: 0
+  delay_turns: 4
+  cost_per_unit: 1      # parameter = spending as percent of GDP, shown as a yearly amount of money
+  axis_x: -0.7

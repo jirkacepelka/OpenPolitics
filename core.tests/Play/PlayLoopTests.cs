@@ -109,7 +109,7 @@ public class PlayLoopTests
     [Fact]
     public void SetAcceptsAPolicyNumber()
     {
-        var o = Play("set 1 30\nquit\n");
+        var o = Play("set 7 30\nquit\n"); // number 7 in the list is the income tax
         Assert.Contains("Scheduled:", o);
         Assert.Contains("-> 30.0", o);
     }

@@ -18,6 +18,7 @@ public sealed class PartyScreen : Screen
 
     private int _tab, _groupIndex, _effort = 1, _valueIndex, _proposeIndex, _ultKind, _ultIndex, _ultDeadline = 4;
     private double _proposeTarget = double.NaN;
+    private bool _adding;
     private readonly Dictionary<string, double> _platformTargets = new(StringComparer.Ordinal);
 
     public override void Build(Session s, Dialog d, Main main)
@@ -45,7 +46,7 @@ public sealed class PartyScreen : Screen
         switch (_tab)
         {
             case 0: Overview(s, pol, ps, d.Body); break;
-            case 1: Platform(s, ps, d.Body); break;
+            case 1: Platform(s, ps, d.Body, main); break;
             case 2: Promises(s, pol, ps, d.Body); break;
             case 3: Relations(s, pol, ps, d.Body, main); break;
             default: Actions(s, pol, ps, d.Body); Measures(s, pol, ps, d.Body); break;
@@ -112,12 +113,21 @@ public sealed class PartyScreen : Screen
         body.AddChild(how);
     }
 
-    private void Platform(Session s, PartyStatus ps, VBoxContainer body)
+    private void Platform(Session s, PartyStatus ps, VBoxContainer body, Main main)
     {
         var t = s.T;
         Goals(s, body);
         body.AddChild(Ui.L(t.T("ui.client.platform_hint2") + " " + t.T("ui.client.platform_hint"), Tx.Body, AppTheme.Ink2, true));
         body.AddChild(Ui.L(s.Texts.Explain("shift") + " " + s.Texts.Explain("priority"), Tx.Small, AppTheme.Ink3, true));
+        // the programme is a choice of laws, not all of them: add one, or take one out with the minus
+        var head = Ui.HBox(10);
+        head.AddChild(Ui.L(t.T("ui.program.count", ps.Platform.Count, PartyRules.PlatformMax), Tx.BodyStrong));
+        head.AddChild(Ui.Spacer());
+        bool full = ps.Platform.Count >= PartyRules.PlatformMax;
+        head.AddChild(Ui.Btn(t.T(_adding ? "ui.program.done" : "ui.program.add"), () => { _adding = !_adding; main.Show(this); }, _adding ? "ButtonSecondary" : "", _adding ? IconKind.Check : IconKind.Plus,
+            full ? t.T("ui.err.platform_full", PartyRules.PlatformMax) : t.T("ui.program.add_hint", PartyRules.AddCost), full && !_adding, 34));
+        body.AddChild(head);
+        if (_adding && !full) AddProgram(s, ps, body);
         foreach (var grp in ps.Platform.Keys.Select(k => s.Packs.Policies.FirstOrDefault(p => p.Id == k)).Where(p => p != null).Select(p => p!)
                      .GroupBy(WorldMap.GroupOf).OrderBy(g => g.Key))
         {
@@ -151,9 +161,42 @@ public sealed class PartyScreen : Screen
                 prio.AddChild(pv);
                 prio.AddChild(Ui.Btn("", () => s.Do(new SetPriority(id, Math.Min(1, weight + 0.2)), t.T("ui.party.priority_ok", t.Name(id))), "ButtonSecondary", IconKind.Plus, t.T("ui.party.priority") + " +", weight >= 1, 30));
                 row.AddChild(prio);
+                bool atMin = ps.Platform.Count <= PartyRules.PlatformMin;
+                row.AddChild(Ui.Btn("", () => { if (s.Do(new RemoveFromPlatform(id), t.T("ui.program.removed", t.Name(id)))) _platformTargets.Remove(id); }, "ButtonDanger", IconKind.Minus,
+                    atMin ? t.T("ui.err.platform_min", PartyRules.PlatformMin) : t.T("ui.program.remove_hint", PartyRules.RemoveCost), atMin, 30));
                 body.AddChild(row);
             }
         }
+    }
+
+    /// <summary>The laws that are not in the programme yet, by sector: choosing one puts it in at the setting now in force.</summary>
+    private void AddProgram(Session s, PartyStatus ps, VBoxContainer body)
+    {
+        var t = s.T;
+        var panel = Ui.VBox(6);
+        var free = s.Packs.Policies.Where(p => !ps.Platform.ContainsKey(p.Id)).GroupBy(WorldMap.GroupOf).OrderBy(g => g.Key).ToList();
+        foreach (var grp in free)
+        {
+            panel.AddChild(Ui.Section(t.T("ui.client.group." + grp.Key)));
+            var grid = new FlowGrid { MinColumn = 330, MaxColumns = 3, Gap = 6 };
+            foreach (var def in grp.OrderBy(p => Localizer.Fold(t.Name(p.Id)), StringComparer.Ordinal))
+            {
+                string id = def.Id;
+                var row = Ui.HBox(8);
+                row.AddChild(new PictoDisc(Icons.For(id), 24));
+                var text = Ui.VBox(0);
+                text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                var nm = Ui.L(t.Name(id), Tx.BodyStrong);
+                nm.ClipText = true; nm.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+                text.AddChild(nm);
+                text.AddChild(Ui.L(Ui.Fix(t.T("ui.program.now", Fmt.Policy(def, s.Country.Policies.GetValueOrDefault(id, def.Default), t))), Tx.Small, AppTheme.Ink3));
+                row.AddChild(text);
+                row.AddChild(Ui.Btn("", () => s.Do(new AddToPlatform(id), t.T("ui.program.added", t.Name(id))), "ButtonSecondary", IconKind.Plus, t.T("ui.program.add_hint", PartyRules.AddCost), false, 30));
+                grid.AddChild(Ui.Panel(Ui.Margin(row, 8, 6), "Inset"));
+            }
+            panel.AddChild(grid);
+        }
+        body.AddChild(Ui.Panel(Ui.Margin(panel, 12, 10), "Card"));
     }
 
     /// <summary>The programme's goals and demands (decision 0014 a): value goals and policy demands with their weight and whether they are met now.</summary>

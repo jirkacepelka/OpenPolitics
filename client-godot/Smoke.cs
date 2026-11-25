@@ -40,6 +40,9 @@ public static class Smoke
                 await CostAndReshuffle(main, screenshots);
                 main.StartGame("base:cz_2015", 7, "en", "base:civic_right");
                 await ProposalPromiseProgram(main, screenshots);
+                // the programme is a choice of laws: a minus per law, "add program" lists the rest, both change the programme
+                main.StartGame("base:cz_2015", 7, "en", "base:civic_right");
+                await ProgrammeEditing(main, screenshots);
                 // decision 0015: every decision answered in the briefing - forming the government as formateur, an ultimatum, promises
                 main.StartGame("base:cz_2015", 7, "en", "base:citizens_movement");
                 await DecisionsInBriefing(main, screenshots);
@@ -144,6 +147,39 @@ public static class Smoke
             GD.Print("smoke: main menu, settings, new game and load ok");
         }
         finally { if (System.IO.File.Exists(file)) System.IO.File.Delete(file); }
+    }
+
+    private static async Task ProgrammeEditing(Main main, string? shots)
+    {
+        var s = main.Session!;
+        var t = s.T;
+        var party = main.Screens.OfType<PartyScreen>().First();
+        typeof(PartyScreen).GetField("_tab", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(party, 1);
+        main.Open(party);
+        await Frames(main, 4);
+        int Count() => s.Politics!.Party!.Platform.Count;
+        int before = Count();
+        if (before >= s.Packs.Policies.Count) throw new Exception("the programme should not hold every law");
+        var minus = FindAll<IconTextButton>(main).Where(b => b.ThemeTypeVariation == "ButtonDanger").ToList();
+        if (minus.Count != before) throw new Exception($"{minus.Count} minus buttons for {before} laws in the programme");
+        var add = FindAll<IconTextButton>(main).First(b => b.Text == t.T("ui.program.add"));
+        add.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (shots != null) Shot(main, shots, "programme-add");
+        string hint = t.T("ui.program.add_hint", PartyRules.AddCost);
+        var plus = FindAll<IconTextButton>(main).Where(b => b.TooltipText == hint && b.Text.Length == 0).ToList();
+        if (plus.Count != s.Packs.Policies.Count - before) throw new Exception($"{plus.Count} laws offered, expected {s.Packs.Policies.Count - before}");
+        plus[0].EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (Count() != before + 1) throw new Exception("adding a law did not put it into the programme");
+        FindAll<IconTextButton>(main).First(b => b.Text == t.T("ui.program.done")).EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        FindAll<IconTextButton>(main).First(b => b.ThemeTypeVariation == "ButtonDanger" && !b.Disabled).EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 3);
+        if (Count() != before) throw new Exception("taking a law out did not shrink the programme");
+        if (shots != null) Shot(main, shots, "programme");
+        main.CloseDialogs();
+        GD.Print($"smoke: programme editing ok ({before} of {s.Packs.Policies.Count} laws)");
     }
 
     /// <summary>The policy dialog refuses a change the capital cannot pay and charges an affordable one; then a reshuffle is shown and asked.</summary>

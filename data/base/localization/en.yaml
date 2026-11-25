@@ -798,6 +798,16 @@ ui.program.goals_hint: "What your party wants the country to achieve. Each goal 
 ui.program.demands: "Policy demands"
 ui.program.weight: "weight {0}"
 ui.program.now: "now {0}"
+ui.program.count: "Programme: {0} of {1} laws"
+ui.program.add: "Add program"
+ui.program.done: "Done"
+ui.program.add_hint: "Put a law into the programme. It starts at the setting now in force; costs {0} capital."
+ui.program.remove_hint: "Take this law out of the programme. Costs {0} capital and some credibility."
+ui.program.added: "{0} is now in the programme."
+ui.program.removed: "{0} left the programme."
+ui.err.platform_full: "Your programme can hold at most {0} laws."
+ui.err.platform_min: "A programme needs at least {0} laws."
+ui.err.already_in_platform: "That law is already in the programme."
 ui.explain.capital: "Political capital pays for your party's actions and, for the leader of the government, for policy changes. Income per quarter: {0} + {1} × organisation × poll share, +{2} for the leader of a sitting government, and up to ±{3} from the coalition (leader: the partners' mean loyalty; partner: your relation with the leader). It cannot exceed {4}."
 ui.explain.organisation: "How well your party is organised (0–100 %). It raises your capital income ({0} × organisation × poll share each quarter) and the turnout of your voters (up to +{1} % at full organisation). Organise: +{2} points for {3} capital. It falls by {4} point every quarter."
 ui.explain.credibility: "How much voters trust your programme (0–100 %). With cohesion it scales how strongly your positions attract voters (half of that appeal depends on it). It recovers by {0} points a year. It falls when you shift a position (up to {1} points for a shift over the whole range), change a priority, break a promise while governing (−{2}), leave a coalition (−{3}), lose a no-confidence vote, answer or announce against your programme, or gain fiscal blame. A promise kept while governing gives +{4}."
@@ -1028,3 +1038,101 @@ ui.chart.tab_mood: "Mood"
 ui.chart.tab_support: "Your party's support"
 ui.chart.tab_poll: "Poll"
 ui.chart.tab_loyalty: "Loyalty"
+
+# --- Wave 5 laws ---
+name.base:inheritance_tax: Inheritance tax
+name.base:sugar_tax: Sugar tax
+name.base:digital_services_tax: Digital services tax
+name.base:bank_levy: Bank levy
+name.base:windfall_tax: Windfall tax
+name.base:vehicle_tax: Vehicle tax
+name.base:elderly_care: Elderly care
+name.base:disability_support: Disability support
+name.base:mental_health: Mental health care
+name.base:vocational_training: Vocational training
+name.base:school_meals: School meals
+name.base:scholarships: Scholarships
+name.base:rail_network: Railways
+name.base:flood_protection: Flood protection
+name.base:nuclear_programme: Nuclear programme
+name.base:cybersecurity: Cyber security
+name.base:justice_system: Courts and justice
+name.base:prisons_and_rehabilitation: Prisons and rehabilitation
+name.base:border_guard: Border guard
+name.base:startup_support: Start-up support
+name.base:agriculture_subsidies: Farm subsidies
+name.base:regional_funds: Regional funds
+name.base:foreign_aid: Development aid
+name.base:public_housing: Public housing
+name.base:gun_laws: Gun laws
+name.base:data_protection: Data protection
+name.base:press_freedom: Press freedom
+name.base:abortion_access: Abortion access
+name.base:same_sex_unions: Same-sex unions
+name.base:euthanasia: Assisted dying
+name.base:smoking_ban: Smoking ban
+name.base:alcohol_policy: Alcohol rules
+name.base:vaccination_policy: Vaccination policy
+name.base:curriculum_reform: School curriculum
+name.base:religious_education: Religion in schools
+name.base:working_week_hours: Working week
+name.base:paid_leave: Paid leave
+name.base:union_rights: Trade union rights
+name.base:strike_rules: Strike rules
+name.base:foreign_investment_screening: Investment screening
+name.base:competition_policy: Competition policy
+name.base:procurement_transparency: Open public contracts
+name.base:anti_corruption: Anti-corruption drive
+name.base:judicial_independence: Judicial independence
+name.base:citizenship_rules: Citizenship rules
+name.base:asylum_policy: Asylum policy
+name.base:zoning_planning: Planning and permits
+name.base:gmo_policy: GM crops
+desc.base:inheritance_tax: "Tax on large inheritances, as a tax rate. Narrows inequality; the wealthy move assets abroad."
+desc.base:sugar_tax: "Extra tax on sugary drinks and snacks, as a tax rate. Healthier diets, slightly higher prices."
+desc.base:digital_services_tax: "Tax on the turnover of big online platforms, as a tax rate. Raises money; platforms pass part of it on."
+desc.base:bank_levy: "Yearly levy on banks' balance sheets, as a tax rate. Cheap to collect; credit gets dearer."
+desc.base:windfall_tax: "Extra tax on firms with exceptional profits, as a tax rate. Funds relief in hard times; investors take fright."
+desc.base:vehicle_tax: "Yearly tax on cars by size and emissions, as a tax rate. Cleaner air; drivers in the countryside pay most."
+desc.base:elderly_care: "Home care and care homes, yearly amount. Healthier, more secure old age."
+desc.base:disability_support: "Allowances and assistance, yearly amount. Fewer people fall into poverty."
+desc.base:mental_health: "Clinics and prevention, yearly amount. Better health, a little less crime."
+desc.base:vocational_training: "Apprenticeships and retraining, yearly amount. Fewer jobless, a more skilled workforce."
+desc.base:school_meals: "Free lunches for pupils, yearly amount. Healthier, better-fed children learn more."
+desc.base:scholarships: "Grants for talented and poorer students, yearly amount. More educated people from every background."
+desc.base:rail_network: "New lines and modern trains, yearly amount. Cleaner travel and a more productive economy, slowly."
+desc.base:flood_protection: "Dams, retention areas and warning systems, yearly amount. Protects land and the countryside."
+desc.base:nuclear_programme: "New reactors, yearly amount. Clean, cheap power in the long run."
+desc.base:cybersecurity: "Defence of networks and public services, yearly amount. Fewer outages and frauds."
+desc.base:justice_system: "More judges and faster trials, yearly amount. Less crime, firmer contracts."
+desc.base:prisons_and_rehabilitation: "Prison places and programmes for leaving offenders, yearly amount. Fewer repeat offences."
+desc.base:border_guard: "Border police and checks, yearly amount. Fewer smugglers and illegal crossings."
+desc.base:startup_support: "Seed grants and cheap loans, yearly amount. New firms, new jobs, a more productive economy."
+desc.base:agriculture_subsidies: "Payments to farmers, yearly amount. Keeps farms alive and food cheap; strains nature."
+desc.base:regional_funds: "Money for poorer regions, yearly amount. Jobs and services where they are scarce."
+desc.base:foreign_aid: "Help for poorer countries, yearly amount. A more stable neighbourhood."
+desc.base:public_housing: "Municipal flats built and let cheaply, yearly amount. Lower housing costs for the poor."
+desc.base:gun_laws: "How strictly weapons are controlled (0 to 10). Fewer shootings; hunters and sport shooters object."
+desc.base:data_protection: "How tightly personal data is protected (0 to 10). More privacy; police and firms get less to work with."
+desc.base:press_freedom: "How free and independent the media are (0 to 10). Scrutiny of power; more heat in public debate."
+desc.base:abortion_access: "How easy legal abortion is (0 to 10). A deeply divisive question."
+desc.base:same_sex_unions: "How far the law recognises same-sex couples (0 to 10). Equal rights; conservatives object."
+desc.base:euthanasia: "How freely a person may choose to die with help (0 to 10). Dignity against the duty to protect life."
+desc.base:smoking_ban: "How far smoking is banned in public places (0 to 10). Healthier lungs; smokers and publicans grumble."
+desc.base:alcohol_policy: "How tightly alcohol is sold and advertised (0 to 10). Less drinking, less violence."
+desc.base:vaccination_policy: "How strongly vaccination is pushed (0 to 10). Protects health; some resent being told."
+desc.base:curriculum_reform: "How modern and skills-based lessons are (0 to 10). Better prepared pupils, teachers must retrain."
+desc.base:religious_education: "How much religion is taught in state schools (0 to 10). Tradition for some, an imposition for others."
+desc.base:working_week_hours: "Standard hours per week (35 to 48). Longer weeks lift output but tire people and cost jobs."
+desc.base:paid_leave: "How generous holidays and sick pay are (0 to 10). Rested, healthier workers; employers pay for it."
+desc.base:union_rights: "How strong unions are in bargaining (0 to 10). Better pay and less inequality; less flexibility."
+desc.base:strike_rules: "How tightly strikes are limited (0 to 10). Fewer stoppages; workers lose a weapon."
+desc.base:foreign_investment_screening: "How hard it is for foreigners to buy strategic firms (0 to 10). Security; less capital."
+desc.base:competition_policy: "How hard the state pushes against cartels and monopolies (0 to 10). Lower prices, sharper firms."
+desc.base:procurement_transparency: "How openly the state buys (0 to 10). Fewer rigged tenders; slower buying."
+desc.base:anti_corruption: "How hard graft is hunted (0 to 10). Honest government, cheaper investment; powerful people push back."
+desc.base:judicial_independence: "How free judges are from politicians (0 to 10). Predictable law; less political control."
+desc.base:citizenship_rules: "How easy it is to become a citizen (0 to 10). Integration and workers; a charged debate."
+desc.base:asylum_policy: "How generously asylum is granted (0 to 10). Humane; tests public patience."
+desc.base:zoning_planning: "How easy it is to get permission to build (0 to 10). More homes and investment; less green space."
+desc.base:gmo_policy: "How freely genetically modified crops may be grown (0 to 10). Higher yields; public suspicion."

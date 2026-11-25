@@ -410,6 +410,8 @@ internal sealed class PoliticsEngine
         BuildOrganization => DoBuild(),
         Court c => CourtParty(c.PartyId),
         ShiftPlatform s => Shift(s.PolicyId, s.Target),
+        AddToPlatform a => DoAddToPlatform(a.PolicyId),
+        RemoveFromPlatform r => DoRemoveFromPlatform(r.PolicyId),
         SetPriority s => DoSetPriority(s.PolicyId, s.Weight),
         MakePromise m => DoPromise(m.DemandId, reportTurn),
         Campaign c => CampaignGroup(c.GroupId, c.Effort),
@@ -462,6 +464,42 @@ internal sealed class PoliticsEngine
             _talkCache.Clear();
             _credibility = Math.Max(0.0, _credibility - PartyRules.ShiftCredibility * Math.Abs(delta) / range);
         }
+        return ActionResult.Ok;
+    }
+
+    private void SetPlatform(IReadOnlyDictionary<string, PlatformPosition> platform)
+    {
+        var updated = _parties[Player] with { Platform = platform };
+        _parties[Player] = updated;
+        _support.UpdateParty(updated);
+        _talkCache.Clear();
+    }
+
+    /// <summary>A law joins the programme at the setting now in force and a middling priority; the party then moves it with Shift.</summary>
+    private ActionResult DoAddToPlatform(string policyId)
+    {
+        if (!_policyDefs.TryGetValue(policyId, out var def)) return Fail("error.unknown_policy", policyId);
+        var party = _parties[Player];
+        if (party.Platform.ContainsKey(policyId)) return Fail("error.already_in_platform", policyId);
+        if (party.Platform.Count >= PartyRules.PlatformMax) return Fail("error.platform_full", PartyRules.PlatformMax.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (!TrySpend(PartyRules.AddCost)) return Fail("error.not_enough_capital");
+        var platform = party.Platform.ToDictionary(k => k.Key, k => k.Value, Ord);
+        platform[policyId] = new PlatformPosition(Math.Clamp(Latest(policyId), def.Min, def.Max), PartyRules.AddWeight);
+        SetPlatform(platform);
+        return ActionResult.Ok;
+    }
+
+    /// <summary>A law leaves the programme: the party no longer stands for it (or against it), at a price in capital and credibility.</summary>
+    private ActionResult DoRemoveFromPlatform(string policyId)
+    {
+        var party = _parties[Player];
+        if (!party.Platform.ContainsKey(policyId)) return Fail("error.not_in_platform", policyId);
+        if (party.Platform.Count <= PartyRules.PlatformMin) return Fail("error.platform_min", PartyRules.PlatformMin.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (!TrySpend(PartyRules.RemoveCost)) return Fail("error.not_enough_capital");
+        var platform = party.Platform.ToDictionary(k => k.Key, k => k.Value, Ord);
+        platform.Remove(policyId);
+        SetPlatform(platform);
+        _credibility = Math.Max(0.0, _credibility - PartyRules.RemoveCredibility);
         return ActionResult.Ok;
     }
 
@@ -1823,7 +1861,8 @@ internal sealed class PoliticsEngine
         var talks = Talks;
         double required = CoalitionRules.RequiredWeight(own, Relation(offer.Formateur, Player), Resent(Player, offer.Formateur), talks.Factor(offer.Formateur, Player));
         double worth = proposal.Agreements.Where(a => a.PartyId == Player).Sum(a => CoalitionRules.AgreementWorth(a, own, formateur, AlreadyMet)?.Worth ?? 0.0)
-            + proposal.PortfolioList.Where(g => g.PartyId == Player).Sum(g => talks.Portfolio(g.PortfolioId) is { } pf ? Negotiation.PortfolioWorth(own, pf) : 0.0);
+            // the ministries already in the offer are the formateur's own gift, on top of the price; only what the player asks for counts against the ceiling
+            + portfolios.Distinct().Where(g => g.PartyId == Player).Sum(g => talks.Portfolio(g.PortfolioId) is { } pf ? Negotiation.PortfolioWorth(own, pf) : 0.0);
         var excluded = new HashSet<string>(_excluded, Ord) { Player };
         bool pivotal = CoalitionBuilder.Build(offer.Formateur, _parties, _seats, _ranges, _rules.MajorityFraction, _rules.ProgramSlots, Relation, excluded, Resent, AlreadyMet, talks) == null;
         double ceiling = required * (1 + PoliticsLimits.CounterSlack) + (pivotal ? PoliticsLimits.CounterPivotalBonus : 0.0);

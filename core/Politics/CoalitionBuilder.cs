@@ -37,7 +37,7 @@ public static class CoalitionBuilder
         foreach (var c in candidates.OrderBy(c => c.Score).ThenBy(c => c.Size).ThenBy(c => c.Key, StringComparer.Ordinal))
         {
             if (talks != null && c.Partners.Any(p => talks.Veto(formateur, p))) continue;
-            var deal = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge, alreadyMet: alreadyMet, talks: talks);
+            var deal = Allocate(formateur, c.Partners, parties, programSlots, relation, grudge, alreadyMet: alreadyMet, talks: talks, seats: seats);
             if (deal == null) continue;
             var proposal = new CoalitionProposal(formateur, c.Partners, deal.Value.Agreements, deal.Value.Portfolios.Count > 0 ? deal.Value.Portfolios : null);
             if (CoalitionRules.Evaluate(proposal, parties, seats, fraction, programSlots, relation, grudge, alreadyMet: alreadyMet, talks: talks).Count == 0) return proposal;
@@ -124,6 +124,29 @@ public static class CoalitionBuilder
         return null;
     }
 
+    /// <summary>
+    /// What a party gets for joining a government: ministries in proportion to its seats in the coalition (at least one, at most
+    /// <see cref="Negotiation.MaxPortfoliosPerPartner"/>), picked in rounds from the biggest partner down, each taking the portfolio it values most
+    /// that is still free. The leader keeps the rest. Ministries come on top of the price in policy demands, which still has to be paid.
+    /// </summary>
+    private static void OfferMinistries(string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, Talks talks,
+        IReadOnlyDictionary<string, int> seats, int maxGrants, List<PortfolioGrant> grants)
+    {
+        double total = seats.GetValueOrDefault(formateur) + partners.Sum(p => seats.GetValueOrDefault(p));
+        var order = partners.OrderByDescending(p => seats.GetValueOrDefault(p)).ThenBy(p => p, StringComparer.Ordinal).ToList();
+        var quota = order.ToDictionary(p => p, p => total > 0
+            ? Math.Clamp((int)Math.Round(talks.Portfolios.Count * seats.GetValueOrDefault(p) / total, MidpointRounding.AwayFromZero), 1, Negotiation.MaxPortfoliosPerPartner) : 1,
+            StringComparer.Ordinal);
+        for (int round = 0; round < Negotiation.MaxPortfoliosPerPartner; round++)
+            foreach (var partner in order)
+            {
+                if (grants.Count >= maxGrants || grants.Count(g => g.PartyId == partner) >= quota[partner]) continue;
+                var pf = talks.Portfolios.Where(x => grants.All(g => g.PortfolioId != x.Id))
+                    .OrderByDescending(x => Negotiation.PortfolioWorth(parties[partner], x)).ThenBy(x => x.Id, StringComparer.Ordinal).FirstOrDefault();
+                if (pf != null) grants.Add(new PortfolioGrant(partner, pf.Id));
+            }
+    }
+
     /// <summary>How much the party stresses what a demand is about: its platform weight for that policy, 0.5 when it has none.</summary>
     public static double Priority(PartyDef party, DemandDef demand) =>
         demand.Kind == "policy" && party.Platform.TryGetValue(demand.Subject, out var pos) ? pos.Weight : 0.5;
@@ -136,7 +159,8 @@ public static class CoalitionBuilder
     private static (List<AgreedDemand> Agreements, List<PortfolioGrant> Portfolios)? Allocate(
         string formateur, List<string> partners, IReadOnlyDictionary<string, PartyDef> parties, int slots,
         Func<string, string, double> relation, Func<string, string, double> grudge,
-        IReadOnlyList<string>? kept = null, IReadOnlyList<DemandDef>? existing = null, Func<DemandDef, bool>? alreadyMet = null, Talks? talks = null)
+        IReadOnlyList<string>? kept = null, IReadOnlyList<DemandDef>? existing = null, Func<DemandDef, bool>? alreadyMet = null, Talks? talks = null,
+        IReadOnlyDictionary<string, int>? seats = null)
     {
         var members = new List<string> { formateur }; members.AddRange(partners);
         if (kept != null) members.AddRange(kept);
@@ -146,8 +170,10 @@ public static class CoalitionBuilder
         var already = existing ?? Array.Empty<DemandDef>();
         bool portfolios = talks is { AllowPortfolios: true } && talks.Portfolios.Count > 0;
         int maxGrants = portfolios ? Negotiation.MaxPartnerPortfolios(talks!.Portfolios.Count) : 0;
+        if (portfolios && seats != null) OfferMinistries(formateur, partners, parties, talks!, seats, maxGrants, grants);
         foreach (var partner in partners) // ordinal order
         {
+            // the ministries given above are a share of power, not the price: the policy demands still have to be met
             double need = CoalitionRules.RequiredWeight(parties[partner], relation(formateur, partner), grudge(partner, formateur), talks?.Factor(formateur, partner) ?? 1.0), got = 0;
             foreach (var d in parties[partner].Demands.OrderByDescending(d => d.Weight * (0.5 + Priority(parties[partner], d))).ThenBy(d => d.Id, StringComparer.Ordinal))
             {
@@ -160,6 +186,9 @@ public static class CoalitionBuilder
                 got += d.Weight;
             }
             if (portfolios && got + 1e-12 < need)
+            {
+                // when the demands run out, the ministries it already got (and more) pay the rest
+                got += grants.Where(g => g.PartyId == partner).Sum(g => talks!.Portfolio(g.PortfolioId) is { } own ? Negotiation.PortfolioWorth(parties[partner], own) : 0.0);
                 foreach (var pf in talks!.Portfolios.Where(pf => grants.All(g => g.PortfolioId != pf.Id))
                              .OrderByDescending(pf => Negotiation.PortfolioWorth(parties[partner], pf)).ThenBy(pf => pf.Id, StringComparer.Ordinal))
                 {
@@ -167,6 +196,7 @@ public static class CoalitionBuilder
                     grants.Add(new PortfolioGrant(partner, pf.Id));
                     got += Negotiation.PortfolioWorth(parties[partner], pf);
                 }
+            }
             if (got + 1e-12 < need) return null;
         }
         return (chosen.Select(c => new AgreedDemand(c.Party, c.Demand.Id)).ToList(), grants);

@@ -107,6 +107,8 @@ public sealed record SaveData(
             else if (action is Court court) dto.Actions.Add(new ActionDto { Turn = turn, Type = "court", Party = court.PartyId });
             else if (action is ShiftPlatform sh)
                 dto.Actions.Add(new ActionDto { Turn = turn, Type = "shift_platform", Policy = sh.PolicyId, Value = sh.Target.ToString("R", CultureInfo.InvariantCulture) });
+            else if (action is AddToPlatform add) dto.Actions.Add(new ActionDto { Turn = turn, Type = "add_platform", Policy = add.PolicyId });
+            else if (action is RemoveFromPlatform rem) dto.Actions.Add(new ActionDto { Turn = turn, Type = "remove_platform", Policy = rem.PolicyId });
             else if (action is Campaign camp) dto.Actions.Add(new ActionDto { Turn = turn, Type = "campaign", Group = camp.GroupId, Effort = camp.Effort });
             else if (action is AcceptOffer) dto.Actions.Add(new ActionDto { Turn = turn, Type = "accept_offer" });
             else if (action is RejectOffer) dto.Actions.Add(new ActionDto { Turn = turn, Type = "reject_offer" });
@@ -176,6 +178,8 @@ public sealed record SaveData(
                 "build_organization" => new BuildOrganization(),
                 "court" => new Court(a.Party),
                 "shift_platform" => new ShiftPlatform(a.Policy, double.Parse(a.Value, NumberStyles.Float, CultureInfo.InvariantCulture)),
+                "add_platform" => new AddToPlatform(a.Policy),
+                "remove_platform" => new RemoveFromPlatform(a.Policy),
                 "campaign" => new Campaign(a.Group, a.Effort),
                 "accept_offer" => new AcceptOffer(),
                 "reject_offer" => new RejectOffer(),

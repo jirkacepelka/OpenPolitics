@@ -16,12 +16,12 @@
     program_slots: 6
     # Cabinet portfolios (decision 0016): coalition partners can be given them in formation talks; value counts toward a partner's price.
     portfolios:
-      - {id: base:ministry_finance, value: 3, policies: [base:income_tax, base:vat, base:corporate_tax, base:property_tax, base:wealth_tax, base:transaction_tax, base:excise_taxes, base:carbon_tax]}
-      - {id: base:ministry_labour, value: 2.5, policies: [base:pensions, base:social_benefits, base:minimum_wage, base:retirement_age, base:labour_flexibility, base:active_labour_policy, base:family_allowances, base:childcare]}
-      - {id: base:ministry_health, value: 2, policies: [base:health_spending, base:drug_policy]}
-      - {id: base:ministry_education, value: 2, policies: [base:education_spending, base:research, base:university_fees, base:culture_sport]}
-      - {id: base:ministry_interior, value: 2, policies: [base:police, base:migration, base:surveillance, base:electoral_threshold, base:electoral_method, base:electoral_system]}
-      - {id: base:ministry_industry, value: 1.5, policies: [base:business_regulation, base:energy_mix, base:digital_infrastructure, base:administration]}
-      - {id: base:ministry_environment, value: 1.5, policies: [base:environment_regulation, base:green_subsidies]}
-      - {id: base:ministry_regional, value: 1.5, policies: [base:infrastructure, base:public_transport, base:housing_support, base:rent_control, base:rural_development]}
-      - {id: base:ministry_defence, value: 1, policies: [base:defence]}
+      - {id: base:ministry_finance, value: 3, policies: [base:income_tax, base:vat, base:corporate_tax, base:property_tax, base:wealth_tax, base:transaction_tax, base:excise_taxes, base:carbon_tax, base:inheritance_tax, base:sugar_tax, base:digital_services_tax, base:bank_levy, base:windfall_tax, base:vehicle_tax]}
+      - {id: base:ministry_labour, value: 2.5, policies: [base:pensions, base:social_benefits, base:minimum_wage, base:retirement_age, base:labour_flexibility, base:active_labour_policy, base:family_allowances, base:childcare, base:working_week_hours, base:paid_leave, base:union_rights, base:strike_rules, base:vocational_training, base:disability_support, base:elderly_care]}
+      - {id: base:ministry_health, value: 2, policies: [base:health_spending, base:drug_policy, base:mental_health, base:smoking_ban, base:alcohol_policy, base:vaccination_policy, base:abortion_access, base:euthanasia]}
+      - {id: base:ministry_education, value: 2, policies: [base:education_spending, base:research, base:university_fees, base:culture_sport, base:school_meals, base:scholarships, base:curriculum_reform, base:religious_education]}
+      - {id: base:ministry_interior, value: 2, policies: [base:police, base:migration, base:surveillance, base:electoral_threshold, base:electoral_method, base:electoral_system, base:gun_laws, base:data_protection, base:justice_system, base:prisons_and_rehabilitation, base:border_guard, base:cybersecurity, base:citizenship_rules, base:asylum_policy, base:judicial_independence, base:press_freedom, base:same_sex_unions, base:anti_corruption, base:procurement_transparency]}
+      - {id: base:ministry_industry, value: 1.5, policies: [base:business_regulation, base:energy_mix, base:digital_infrastructure, base:administration, base:competition_policy, base:startup_support, base:foreign_investment_screening]}
+      - {id: base:ministry_environment, value: 1.5, policies: [base:environment_regulation, base:green_subsidies, base:nuclear_programme, base:flood_protection]}
+      - {id: base:ministry_regional, value: 1.5, policies: [base:infrastructure, base:public_transport, base:housing_support, base:rent_control, base:rural_development, base:rail_network, base:regional_funds, base:public_housing, base:zoning_planning, base:agriculture_subsidies, base:gmo_policy]}
+      - {id: base:ministry_defence, value: 1, policies: [base:defence, base:foreign_aid]}

@@ -798,6 +798,16 @@ ui.program.goals_hint: "Čeho chce vaše strana v zemi dosáhnout. Každý cíl 
 ui.program.demands: "Programové požadavky"
 ui.program.weight: "váha {0}"
 ui.program.now: "nyní {0}"
+ui.program.count: "Program: {0} z {1} zákonů"
+ui.program.add: "Přidat do programu"
+ui.program.done: "Hotovo"
+ui.program.add_hint: "Zařadit zákon do programu. Začne na hodnotě, která platí teď; stojí {0} kapitálu."
+ui.program.remove_hint: "Vyřadit zákon z programu. Stojí {0} kapitálu a trochu důvěryhodnosti."
+ui.program.added: "{0} je teď v programu."
+ui.program.removed: "{0} už v programu není."
+ui.err.platform_full: "Program může mít nejvýš {0} zákonů."
+ui.err.platform_min: "Program potřebuje aspoň {0} zákony."
+ui.err.already_in_platform: "Tenhle zákon už v programu je."
 ui.explain.capital: "Politický kapitál platí akce strany a vedoucí straně vlády i změny politik. Příjem za čtvrtletí: {0} + {1} × organizace × podíl v průzkumu, +{2} pro vedoucí stranu sedící vlády a až ±{3} z koalice (vedoucí strana: průměrná loajalita partnerů; partner: váš vztah s vedoucí stranou). Nemůže přesáhnout {4}."
 ui.explain.organisation: "Jak dobře je strana zorganizovaná (0–100 %). Zvyšuje příjem kapitálu ({0} × organizace × podíl v průzkumu za čtvrtletí) a účast vašich voličů (až +{1} % při plné organizaci). Organizovat: +{2} bodů za {3} kapitálu. Každé čtvrtletí klesne o {4} bod."
 ui.explain.credibility: "Jak moc voliči věří vašemu programu (0–100 %). Spolu se soudržností určuje, jak silně vaše postoje přitahují voliče (závisí na ní polovina té přitažlivosti). Obnovuje se o {0} bodů ročně. Klesá, když posunete postoj (až o {1} bodů při posunu přes celý rozsah), změníte prioritu, porušíte slib ve vládě (−{2}), odejdete z koalice (−{3}), prohrajete hlasování o nedůvěře, odpovíte nebo ohlásíte něco proti programu, nebo získáte vinu za schodek. Splněný slib ve vládě přinese +{4}."
@@ -1028,3 +1038,101 @@ ui.chart.tab_mood: "Nálada"
 ui.chart.tab_support: "Podpora vaší strany"
 ui.chart.tab_poll: "Preference"
 ui.chart.tab_loyalty: "Loajalita"
+
+# --- Wave 5 laws ---
+name.base:inheritance_tax: Daň z dědictví
+name.base:sugar_tax: Cukrová daň
+name.base:digital_services_tax: Daň z digitálních služeb
+name.base:bank_levy: Odvod bank
+name.base:windfall_tax: Daň z mimořádných zisků
+name.base:vehicle_tax: Silniční daň
+name.base:elderly_care: Péče o seniory
+name.base:disability_support: Podpora lidí se zdravotním postižením
+name.base:mental_health: Péče o duševní zdraví
+name.base:vocational_training: Odborné vzdělávání
+name.base:school_meals: Školní obědy
+name.base:scholarships: Stipendia
+name.base:rail_network: Železnice
+name.base:flood_protection: Protipovodňová ochrana
+name.base:nuclear_programme: Jaderný program
+name.base:cybersecurity: Kybernetická bezpečnost
+name.base:justice_system: Soudnictví
+name.base:prisons_and_rehabilitation: Věznice a resocializace
+name.base:border_guard: Ochrana hranic
+name.base:startup_support: Podpora začínajících firem
+name.base:agriculture_subsidies: Zemědělské dotace
+name.base:regional_funds: Regionální fondy
+name.base:foreign_aid: Rozvojová pomoc
+name.base:public_housing: Obecní bydlení
+name.base:gun_laws: Zbrojní zákon
+name.base:data_protection: Ochrana osobních údajů
+name.base:press_freedom: Svoboda tisku
+name.base:abortion_access: Přístup k potratům
+name.base:same_sex_unions: Svazky párů stejného pohlaví
+name.base:euthanasia: Eutanazie
+name.base:smoking_ban: Zákaz kouření
+name.base:alcohol_policy: Pravidla pro alkohol
+name.base:vaccination_policy: Očkování
+name.base:curriculum_reform: Školní osnovy
+name.base:religious_education: Náboženství ve školách
+name.base:working_week_hours: Pracovní týden
+name.base:paid_leave: Placená dovolená
+name.base:union_rights: Práva odborů
+name.base:strike_rules: Pravidla stávek
+name.base:foreign_investment_screening: Prověřování zahraničních investic
+name.base:competition_policy: Hospodářská soutěž
+name.base:procurement_transparency: Transparentní veřejné zakázky
+name.base:anti_corruption: Boj proti korupci
+name.base:judicial_independence: Nezávislost soudů
+name.base:citizenship_rules: Pravidla občanství
+name.base:asylum_policy: Azylová politika
+name.base:zoning_planning: Územní plánování a stavební řízení
+name.base:gmo_policy: Geneticky upravené plodiny
+desc.base:inheritance_tax: "Daň z velkých dědictví, sazba. Zmenšuje nerovnost; bohatí vyvádějí majetek do zahraničí."
+desc.base:sugar_tax: "Příplatek na slazené nápoje a pamlsky, sazba. Zdravější strava, mírně vyšší ceny."
+desc.base:digital_services_tax: "Daň z obratu velkých online platforem, sazba. Přináší peníze; platformy část přenesou na zákazníky."
+desc.base:bank_levy: "Roční odvod z bilance bank, sazba. Snadno se vybírá; úvěry jsou dražší."
+desc.base:windfall_tax: "Příplatek pro firmy s mimořádnými zisky, sazba. Financuje pomoc v těžkých časech; investoři se lekají."
+desc.base:vehicle_tax: "Roční daň z aut podle velikosti a emisí, sazba. Čistší vzduch; nejvíc platí řidiči na venkově."
+desc.base:elderly_care: "Domácí a pobytová péče, roční částka. Zdravější a jistější stáří."
+desc.base:disability_support: "Příspěvky a asistence, roční částka. Méně lidí padá do chudoby."
+desc.base:mental_health: "Ambulance a prevence, roční částka. Lepší zdraví, o něco méně zločinu."
+desc.base:vocational_training: "Učňovství a rekvalifikace, roční částka. Méně nezaměstnaných, zručnější pracovní síla."
+desc.base:school_meals: "Obědy zdarma pro žáky, roční částka. Zdravější a najedení žáci se učí lépe."
+desc.base:scholarships: "Granty pro nadané a chudší studenty, roční částka. Více vzdělaných lidí z každého prostředí."
+desc.base:rail_network: "Nové tratě a moderní vlaky, roční částka. Čistší doprava a produktivnější ekonomika, pomalu."
+desc.base:flood_protection: "Hráze, retenční plochy a varovné systémy, roční částka. Chrání krajinu i majetek."
+desc.base:nuclear_programme: "Nové reaktory, roční částka. Dlouhodobě čistá a levná energie."
+desc.base:cybersecurity: "Ochrana sítí a veřejných služeb, roční částka. Méně výpadků a podvodů."
+desc.base:justice_system: "Více soudců a rychlejší řízení, roční částka. Méně zločinu, pevnější smlouvy."
+desc.base:prisons_and_rehabilitation: "Vězeňská místa a programy pro propouštěné, roční částka. Méně recidivy."
+desc.base:border_guard: "Pohraniční policie a kontroly, roční částka. Méně pašeráků a nelegálních přechodů."
+desc.base:startup_support: "Startovací granty a levné úvěry, roční částka. Nové firmy, nová místa, produktivnější ekonomika."
+desc.base:agriculture_subsidies: "Platby zemědělcům, roční částka. Udrží farmy a levné potraviny; zatěžuje přírodu."
+desc.base:regional_funds: "Peníze pro chudší regiony, roční částka. Práce a služby tam, kde chybí."
+desc.base:foreign_aid: "Pomoc chudším zemím, roční částka. Stabilnější okolní svět."
+desc.base:public_housing: "Obecní byty stavěné a pronajímané levně, roční částka. Nižší náklady na bydlení pro chudé."
+desc.base:gun_laws: "Jak přísně se kontrolují zbraně (0 až 10). Méně střelby; myslivci a sportovní střelci odmítají."
+desc.base:data_protection: "Jak přísně se chrání osobní údaje (0 až 10). Víc soukromí; policie a firmy mají méně podkladů."
+desc.base:press_freedom: "Jak svobodná a nezávislá jsou média (0 až 10). Kontrola moci; vyhrocenější veřejná debata."
+desc.base:abortion_access: "Jak snadný je legální potrat (0 až 10). Hluboce rozdělující téma."
+desc.base:same_sex_unions: "Jak daleko zákon uznává páry stejného pohlaví (0 až 10). Rovná práva; konzervativci odmítají."
+desc.base:euthanasia: "Jak volně se člověk smí rozhodnout pro asistované umírání (0 až 10). Důstojnost proti povinnosti chránit život."
+desc.base:smoking_ban: "Jak široce je zakázáno kouření na veřejnosti (0 až 10). Zdravější plíce; kuřáci a hospodští reptají."
+desc.base:alcohol_policy: "Jak přísně se alkohol prodává a propaguje (0 až 10). Méně pití, méně násilí."
+desc.base:vaccination_policy: "Jak silně se očkování prosazuje (0 až 10). Chrání zdraví; někteří nesou nelibě, že jim to někdo nařizuje."
+desc.base:curriculum_reform: "Jak moderní a zaměřené na dovednosti jsou osnovy (0 až 10). Lépe připravení žáci, učitelé se musejí přeškolit."
+desc.base:religious_education: "Kolik náboženství se učí ve státních školách (0 až 10). Pro někoho tradice, pro jiné nátlak."
+desc.base:working_week_hours: "Standardní hodiny za týden (35 až 48). Delší týden zvedá výkon, ale unavuje lidi a stojí pracovní místa."
+desc.base:paid_leave: "Jak štědrá je dovolená a nemocenská (0 až 10). Odpočatí a zdravější zaměstnanci; platí zaměstnavatelé."
+desc.base:union_rights: "Jak silné jsou odbory při vyjednávání (0 až 10). Lepší mzdy a menší nerovnost; méně pružnosti."
+desc.base:strike_rules: "Jak přísně jsou omezeny stávky (0 až 10). Méně přerušení práce; zaměstnanci ztrácejí zbraň."
+desc.base:foreign_investment_screening: "Jak těžké je pro cizince koupit strategické firmy (0 až 10). Bezpečnost; méně kapitálu."
+desc.base:competition_policy: "Jak tvrdě stát jedná proti kartelům a monopolům (0 až 10). Nižší ceny, schopnější firmy."
+desc.base:procurement_transparency: "Jak otevřeně stát nakupuje (0 až 10). Méně zmanipulovaných zakázek; pomalejší nákupy."
+desc.base:anti_corruption: "Jak tvrdě se stíhá korupce (0 až 10). Poctivá správa, levnější investice; mocní se brání."
+desc.base:judicial_independence: "Jak nezávislí na politicích jsou soudci (0 až 10). Předvídatelné právo; menší politická kontrola."
+desc.base:citizenship_rules: "Jak snadné je získat občanství (0 až 10). Integrace a pracovníci; vypjatá debata."
+desc.base:asylum_policy: "Jak štědře se uděluje azyl (0 až 10). Lidské; zkouší trpělivost veřejnosti."
+desc.base:zoning_planning: "Jak snadné je získat povolení ke stavbě (0 až 10). Více domů a investic; méně zeleně."
+desc.base:gmo_policy: "Jak volně se smějí pěstovat geneticky upravené plodiny (0 až 10). Vyšší výnosy; nedůvěra veřejnosti."

@@ -1,0 +1,59 @@
+# ILLUSTRATIVE data: wave-5 taxes. They start at 0: nothing extra is levied until you choose to.
+- id: base:inheritance_tax
+  capital_cost: 1   # political capital weight of a change (decision 0013)
+  unit: tax_rate
+  min: 0
+  max: 1
+  default: 0
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.8   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  axis_x: -0.7
+- id: base:sugar_tax
+  unit: tax_rate
+  min: 0
+  max: 0.4
+  default: 0
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.3   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  axis_x: -0.1
+  axis_y: 0.2
+- id: base:digital_services_tax
+  unit: tax_rate
+  min: 0
+  max: 0.4
+  default: 0
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.1   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  axis_x: -0.5
+- id: base:bank_levy
+  unit: tax_rate
+  min: 0
+  max: 0.5
+  default: 0
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.1   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  axis_x: -0.7
+- id: base:windfall_tax
+  capital_cost: 1   # political capital weight of a change (decision 0013)
+  unit: tax_rate
+  min: 0
+  max: 0.6
+  default: 0
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.1   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  axis_x: -0.8
+- id: base:vehicle_tax
+  unit: tax_rate
+  min: 0
+  max: 0.5
+  default: 0
+  delay_turns: 1
+  revenue_base: base:gdp   # parameter = revenue as percent of GDP
+  base_share: 0.4   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  axis_x: -0.1
+  axis_y: -0.2

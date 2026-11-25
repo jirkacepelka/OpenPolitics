@@ -325,7 +325,7 @@ public sealed class Texts
     {
         string key = "ui." + (r.ErrorKey ?? "error.unknown_action").Replace("error.", "err.");
         // a policy change the party cannot pay for: "cost|capital" in the detail (decision 0013)
-        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" or "error.ultimatum_cooldown" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
+        if (r.ErrorKey is "error.policy_cost" or "error.reshuffle_cooldown" or "error.announce_cooldown" or "error.ultimatum_cooldown" or "error.platform_full" or "error.platform_min" && r.Detail != null) return _t.T(key, r.Detail.Split('|').Cast<object>().ToArray());
         string text = _t.T(key);
         if (r.ErrorKey?.StartsWith("error.refused.", StringComparison.Ordinal) == true && r.Detail is { Length: > 1 } detail)
         {

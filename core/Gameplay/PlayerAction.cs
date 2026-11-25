@@ -76,6 +76,12 @@ public sealed record Court(string PartyId) : PoliticsAction;
 /// <summary>Move the party's position on a policy toward Target by at most 10 % of the policy's range.</summary>
 public sealed record ShiftPlatform(string PolicyId, double Target) : PoliticsAction;
 
+/// <summary>Put a law into the party's programme (it starts at the setting now in force, with a middling priority; costs 1 capital).</summary>
+public sealed record AddToPlatform(string PolicyId) : PoliticsAction;
+
+/// <summary>Take a law out of the party's programme (costs 2 capital and some credibility: voters notice a party dropping a position).</summary>
+public sealed record RemoveFromPlatform(string PolicyId) : PoliticsAction;
+
 /// <summary>Win over a voter group; Effort is 1 to 3 and costs 3 per level.</summary>
 public sealed record Campaign(string GroupId, int Effort) : PoliticsAction;
 

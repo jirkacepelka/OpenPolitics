@@ -133,3 +133,47 @@ public class CoalitionBuilderTests
         Assert.Equal(a?.Agreements, b?.Agreements);
     }
 }
+
+/// <summary>What a party gets for joining a government: ministries in proportion to its seats, on top of the price in policy demands.</summary>
+public class MinistryOfferTests
+{
+    private static readonly Dictionary<string, double> Range = new() { ["t:tax"] = 40 };
+
+    private static Talks MakeTalks(int count = 6) => new((_, _) => 1.0, (_, _) => false,
+        Enumerable.Range(0, count).Select(i => new PortfolioDef("t:m" + i, 1 + i % 3, new[] { "t:tax" + i })).ToList());
+
+    private static CoalitionProposal? Offer(Dictionary<string, PartyDef> parties, Dictionary<string, int> seats, params string[] excluded) =>
+        CoalitionBuilder.Build("a", parties, seats, Range, 0.5, 6, CoalitionRulesTests.Rel, new HashSet<string>(excluded), talks: MakeTalks());
+
+    [Fact]
+    public void EveryPartnerGetsAtLeastOneMinistryAndTheLeaderKeepsMost()
+    {
+        var parties = CoalitionRulesTests.Parties(CoalitionRulesTests.P("a"), CoalitionRulesTests.P("b"));
+        var r = Offer(parties, CoalitionRulesTests.Seats(("a", 60), ("b", 60)))!;
+        var mine = r.PortfolioList.Where(g => g.PartyId == "b").ToList();
+        Assert.NotEmpty(mine);
+        Assert.True(mine.Count <= Negotiation.MaxPortfoliosPerPartner);
+        Assert.True(r.PortfolioList.Count <= Negotiation.MaxPartnerPortfolios(6));
+        Assert.Equal(mine.Count, mine.Select(g => g.PortfolioId).Distinct().Count());
+    }
+
+    [Fact]
+    public void ABiggerPartnerGetsMoreMinistries()
+    {
+        var parties = CoalitionRulesTests.Parties(CoalitionRulesTests.P("a"), CoalitionRulesTests.P("b"), CoalitionRulesTests.P("c"), CoalitionRulesTests.P("d"));
+        var r = Offer(parties, CoalitionRulesTests.Seats(("a", 25), ("b", 20), ("c", 15), ("d", 40)), "d")!;
+        Assert.Equal(2, r.Partners.Count);
+        Assert.True(r.PortfolioList.Count(g => g.PartyId == "b") >= r.PortfolioList.Count(g => g.PartyId == "c"));
+        Assert.All(r.Partners, p => Assert.Contains(r.PortfolioList, g => g.PartyId == p));
+    }
+
+    [Fact]
+    public void MinistriesDoNotReplaceThePriceInPolicyDemands()
+    {
+        var parties = CoalitionRulesTests.Parties(CoalitionRulesTests.P("a"), CoalitionRulesTests.P("b", price: 4,
+            demands: new[] { CoalitionRulesTests.D("x", "t:tax", "<=", 22, 3), CoalitionRulesTests.D("y", "t:tax", "<=", 25, 2) }));
+        var r = Offer(parties, CoalitionRulesTests.Seats(("a", 60), ("b", 60)))!;
+        Assert.NotEmpty(r.PortfolioList);
+        Assert.NotEmpty(r.Agreements);
+    }
+}

@@ -11,9 +11,9 @@ public class ProgramTests
     private static readonly Core.Packs.PackSet Packs = BasePackTests.LoadBase().Packs!;
 
     [Fact]
-    public void EveryPartyTakesAPositionOnFifteenToTwentyFivePolicies()
+    public void EveryPartyTakesAPositionOnFifteenToThirtyPolicies()
     {
-        foreach (var p in Packs.Parties) Assert.InRange(p.Platform.Count, 15, 25);
+        foreach (var p in Packs.Parties) Assert.InRange(p.Platform.Count, 15, 30); // a programme is a choice among ~90 laws, never all of them
     }
 
     [Fact]
