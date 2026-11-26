@@ -141,6 +141,11 @@ public static class PolicyDialog
                 info.AddChild(Detail.Stat(t.T("ui.pd.time"), t.T("ui.pd.quarters", p.DelayTurns)));
                 d.Body.AddChild(info);
                 d.Body.AddChild(Ui.L(t.T("ui.law.not_in_force_hint"), Tx.Small, AppTheme.Ink3, true));
+                if (id is "base:pension_subsidy" or "base:pension_tax_relief" or "base:mandatory_pension_pillar")
+                {
+                    d.Body.AddChild(Ui.L(t.T("ui.pop.fund_open"), Tx.Overline, AppTheme.Ink2));
+                    d.Body.AddChild(ValueDialog.ModelCard(t, s.Game.ExplainPensions()));
+                }
                 double introCost = s.Game.IntroductionCost(id);
                 var intro = d.AddAction(t.T("ui.law.introduce") + (introCost > 0 ? " · " + Ui.Num(introCost, "0") : ""), IconKind.Plus,
                     () => { if (s.Do(new IntroducePolicy(id), t.T("ui.law.introduced", t.Name(id)))) { target = double.NaN; d.Close(); } },
@@ -203,6 +208,14 @@ public static class PolicyDialog
             var effects = Ui.VBox(2);
             d.Body.AddChild(effects);
             d.Body.AddChild(Ui.Rule());
+            // The private pillar: what the funds do and where the chosen setting leads (the figures follow the slider).
+            VBoxContainer? pensionCard = null;
+            if (id is "base:pension_subsidy" or "base:pension_tax_relief" or "base:mandatory_pension_pillar" or "base:pensions" or "base:retirement_age")
+            {
+                pensionCard = Ui.VBox(6);
+                d.Body.AddChild(pensionCard);
+                d.Body.AddChild(Ui.Rule());
+            }
 
             // Slider | capital box.
             var sliderCol = Ui.VBox(6);
@@ -298,6 +311,12 @@ public static class PolicyDialog
                 budValue.Text = Math.Abs(bud) < 1e-6 ? "–" : Ui.Signed(-bud, "0.00") + " " + t.T("ui.unit.gdp_short");
                 budValue.AddThemeColorOverride("font_color", Math.Abs(bud) < 1e-6 ? AppTheme.Ink : bud > 0 ? AppTheme.BadText : AppTheme.GoodText);
                 FillEffects(main, s, p, effects, preview, changed);
+                if (pensionCard != null)
+                {
+                    Ui.Clear(pensionCard);
+                    pensionCard.AddChild(Ui.L(t.T("ui.pop.fund_open"), Tx.Overline, AppTheme.Ink2));
+                    pensionCard.AddChild(ValueDialog.ModelCard(t, changed ? s.Game.ExplainPensions(id, v) : s.Game.ExplainPensions()));
+                }
             }
             slider.TargetChanged += Update;
             slider.Submitted += () => { if (!apply.Disabled) apply.EmitSignal(BaseButton.SignalName.Pressed); };
@@ -378,6 +397,7 @@ public static class ValueDialog
         switch (l.Unit)
         {
             case LineUnit.MoneyPerYear: { var (f, u) = Ui.Money(t, Math.Abs(l.Amount)); return (l.Amount < 0 ? "−" : sign) + f + " " + u + " " + t.T("ui.unit.per_year"); }
+            case LineUnit.Money: { var (f, u) = Ui.Money(t, Math.Abs(l.Amount)); return (l.Amount < 0 ? "−" : "") + f + " " + u; }
             case LineUnit.PointsPerYear: return Ui.Signed(l.Amount, "0.00") + " " + t.T("ui.unit.pp_year");
             case LineUnit.PointsOfOutput: return Ui.Signed(l.Amount, "0.0") + " " + t.T("ui.unit.pp_output");
             default: return Ui.Signed(l.Amount, "0.0").Replace("+", "") + " %";
@@ -385,7 +405,7 @@ public static class ValueDialog
     }
 
     /// <summary>What the economic model does with this value: its drivers per year and what it moves in turn, as plain figures.</summary>
-    private static Control ModelCard(Localizer t, ModelExplanation m)
+    public static Control ModelCard(Localizer t, ModelExplanation m)
     {
         var box = Ui.VBox(6);
         void Section(string key, IReadOnlyList<ModelLine> lines)
@@ -393,7 +413,7 @@ public static class ValueDialog
             box.AddChild(Ui.L(t.T(key), Tx.Overline, AppTheme.Ink2));
             foreach (var l in lines)
             {
-                bool signed = l.Unit != LineUnit.Percent;
+                bool signed = l.Unit != LineUnit.Percent && l.Unit != LineUnit.Money;
                 var color = !signed ? (Color?)null : l.Amount > 1e-9 ? AppTheme.GoodText : l.Amount < -1e-9 ? AppTheme.BadText : AppTheme.Ink3;
                 box.AddChild(Detail.Stat(t.T(l.Key), Ui.Fix(Amount(t, l)), color));
             }

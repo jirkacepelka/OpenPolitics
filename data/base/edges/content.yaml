@@ -109,13 +109,13 @@
 - id: base:property_tax_to_inequality
   from: base:property_tax
   to: base:inequality
-  strength: -0.5
+  strength: -1.5
   delay: {type: lag, turns: 4}
 - id: base:property_tax_to_capital
   from: base:property_tax
   to: base:capital
   kind: relative
-  strength: -0.2
+  strength: -0.6
   delay: {type: lag, turns: 8}
 - id: base:carbon_tax_to_environment
   from: base:carbon_tax
@@ -131,13 +131,13 @@
 - id: base:wealth_tax_to_inequality
   from: base:wealth_tax
   to: base:inequality
-  strength: -0.8
+  strength: -2.4
   delay: {type: lag, turns: 4}
 - id: base:wealth_tax_to_capital
   from: base:wealth_tax
   to: base:capital
   kind: relative
-  strength: -0.5
+  strength: -1.5
   delay: {type: lag, turns: 8}
 - id: base:transaction_tax_to_capital
   from: base:transaction_tax

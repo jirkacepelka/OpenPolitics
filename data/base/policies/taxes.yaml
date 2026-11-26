@@ -36,11 +36,11 @@
   start_active: false
   unit: tax_rate
   min: 0
-  max: 3
+  max: 1
   default: 0
   delay_turns: 1
-  revenue_base: base:gdp   # parameter = revenue as percent of GDP
-  base_share: 2.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  revenue_base: base:capital   # parameter = revenue as percent of the capital stock (houses, land, firms, pension funds)
+  base_share: 0.667   # share of the capital that is real estate; rate shown = revenue% / base_share
   axis_x: -0.6
 - id: base:carbon_tax
   start_active: false
@@ -58,11 +58,11 @@
   capital_cost: 1.5   # political capital weight of a change (decision 0013)
   unit: tax_rate
   min: 0
-  max: 2
+  max: 0.667
   default: 0
   delay_turns: 1
-  revenue_base: base:gdp   # parameter = revenue as percent of GDP
-  base_share: 3.0   # share of GDP the tax is levied on; rate shown = revenue% / base_share
+  revenue_base: base:capital   # parameter = revenue as percent of the capital stock (houses, land, firms, pension funds)
+  base_share: 1.0   # share of the capital the tax is levied on; rate shown = revenue% / base_share
   axis_x: -1
 - id: base:transaction_tax
   start_active: false

@@ -6,8 +6,8 @@ public sealed record CapitalExplanation(
     double SavingRate, double BaseSaving, double TaxEffect, double InterestEffect, double DebtCrowding,
     double Investment, double Depreciation, double NetChange, double DepreciationRate);
 
-/// <summary>How a line of an explanation is measured: money per year, percentage points per year, a plain percent, or percentage points of output.</summary>
-public enum LineUnit { MoneyPerYear, PointsPerYear, Percent, PointsOfOutput }
+/// <summary>How a line of an explanation is measured: money per year, an amount of money, percentage points per year, a plain percent, or percentage points of output.</summary>
+public enum LineUnit { MoneyPerYear, PointsPerYear, Percent, PointsOfOutput, Money }
 
 /// <summary>One line: a localization key (<c>model.&lt;value&gt;.&lt;line&gt;</c>) and a signed amount in <paramref name="Unit"/>.</summary>
 public sealed record ModelLine(string Key, double Amount, LineUnit Unit);
@@ -99,5 +99,39 @@ public static class ModelExplainer
             default: return null;
         }
         return new ModelExplanation(valueId, D, E);
+    }
+
+    /// <summary>The private pension funds: what flows in and out of them, what that does to the capital and the state pension bill, and where they will be in ten years (decision 0021).</summary>
+    public static ModelExplanation ExplainPensions(IReadOnlyDictionary<string, double> values, IReadOnlyDictionary<string, double> policies, IReadOnlyDictionary<string, double> parameters)
+    {
+        double V(string id) => values.TryGetValue(id, out var v) && double.IsFinite(v) ? v : 0.0;
+        double share = parameters.TryGetValue("pension_saving_share", out var sh) ? sh : MacroModelV1.Defaults["pension_saving_share"];
+        var f = PensionModelV1.Explain(values, policies);
+        var o = PensionModelV1.Project(values, policies, 10);
+        double capital = Math.Max(V(MacroModelV1.Ids.Capital), 1.0), gdp = Math.Max(V(MacroModelV1.Ids.Gdp), 1.0);
+        double Pol(string id) => policies.TryGetValue(id, out var v) && double.IsFinite(v) ? v : 0.0;
+        double statePays = (Pol(PensionModelV1.Ids.Subsidy) + Pol(PensionModelV1.Ids.Mandatory) + Pol(PensionModelV1.Ids.Relief)) * gdp / 100.0;
+        var D = new List<ModelLine>
+        {
+            new("model.pension_fund.participation", f.Participation * 100, LineUnit.Percent),
+            new("model.pension_fund.people", f.PrivateContribution, LineUnit.MoneyPerYear),
+            new("model.pension_fund.state", f.StateContribution, LineUnit.MoneyPerYear),
+            new("model.pension_fund.returns", f.Returns, LineUnit.MoneyPerYear),
+            new("model.pension_fund.payout", -f.Payout, LineUnit.MoneyPerYear),
+            new("model.pension_fund.net", f.NetSaving, LineUnit.MoneyPerYear),
+        };
+        var E = new List<ModelLine>
+        {
+            new("model.pension_fund.capital", f.NetSaving * share, LineUnit.MoneyPerYear),
+            new("model.pension_fund.capital_share", V(PensionModelV1.Ids.Fund) / capital * 100, LineUnit.Percent),
+            new("model.pension_fund.covers", f.Cover * 100, LineUnit.Percent),
+            new("model.pension_fund.saves", f.StateSaving, LineUnit.MoneyPerYear),
+            new("model.pension_fund.state_pays", -statePays, LineUnit.MoneyPerYear),
+            new("model.pension_fund.fund10", o.WithState.Fund, LineUnit.Money),
+            new("model.pension_fund.fund10_alone", o.Alone.Fund, LineUnit.Money),
+            new("model.pension_fund.covers10", o.WithState.Cover * 100, LineUnit.Percent),
+            new("model.pension_fund.saves10", o.WithState.StateSaving, LineUnit.MoneyPerYear),
+        };
+        return new ModelExplanation(PensionModelV1.Ids.Fund, D, E);
     }
 }

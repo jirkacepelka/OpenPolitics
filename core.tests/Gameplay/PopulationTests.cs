@@ -225,4 +225,41 @@ public class PopulationTests
         Assert.True(Values(funded)["base:pension_funded_share"] > Values(control)["base:pension_funded_share"]);
         Assert.True(Values(funded)["base:pension_burden"] < Values(control)["base:pension_burden"]);
     }
+
+    [Fact]
+    public void ThePillarIsPensionersWealthAndAddsToTheCapitalTheWealthTaxIsLeviedOn()
+    {
+        var control = Sandbox(); var funded = Sandbox();
+        Assert.True(funded.Apply(new IntroducePolicy("base:mandatory_pension_pillar")).Accepted);
+        Assert.True(funded.Apply(new SetPolicy("base:mandatory_pension_pillar", 1.0)).Accepted);
+        Run(control, 120); Run(funded, 120);
+        Assert.True(Values(funded)["base:pension_fund"] > Values(control)["base:pension_fund"] * 2, "the funds are the retirees' wealth");
+        Assert.True(Values(funded)["base:capital"] > Values(control)["base:capital"], "and what they save is invested at home");
+        var packs = Packs.Policies.ToDictionary(p => p.Id);
+        Assert.Equal("base:capital", packs["base:wealth_tax"].RevenueBaseValueId);
+        Assert.Equal("base:capital", packs["base:property_tax"].RevenueBaseValueId);
+    }
+
+    [Fact]
+    public void ThePensionExplanationShowsWhatTheSettingsLeadTo()
+    {
+        var g = Sandbox();
+        Assert.True(g.Apply(new IntroducePolicy("base:pension_subsidy")).Accepted);
+        var now = g.ExplainPensions();
+        var with = g.ExplainPensions("base:pension_subsidy", 1.0);
+        double Line(OpenPolitics.Core.Economy.ModelExplanation m, string key) => m.Drivers.Concat(m.Effects).Single(l => l.Key == key).Amount;
+        Assert.Equal(0.0, Line(now, "model.pension_fund.state"));
+        Assert.True(Line(with, "model.pension_fund.state") > 1e10, "a state contribution flows into the funds");
+        Assert.True(Line(with, "model.pension_fund.fund10") > Line(with, "model.pension_fund.fund10_alone"), "the forecast beats the funds left alone");
+        Assert.True(Line(with, "model.pension_fund.fund10") > Line(now, "model.pension_fund.fund10"));
+        Assert.True(Line(with, "model.pension_fund.covers10") > Line(now, "model.pension_fund.covers"), "the funds cover more of the pensions later on");
+        Assert.True(Line(with, "model.pension_fund.capital_share") > 1.0, "funds are a visible part of the capital the wealth tax is levied on");
+    }
+
+    [Fact]
+    public void RetireesFeelTheFundsGrow()
+    {
+        var def = Packs.VoterGroups.Single(gr => gr.Id == "base:pensioners");
+        Assert.True(def.LevelWeights!.GetValueOrDefault("base:pension_fund") > 0.0);
+    }
 }

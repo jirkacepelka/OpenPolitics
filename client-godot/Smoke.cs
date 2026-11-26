@@ -211,6 +211,27 @@ public static class Smoke
         if (s.Game.IsActive(inForce)) throw new Exception("repealing a law left it in force");
         main.CloseDialogs();
         GD.Print($"smoke: laws in force {before}, brought in and repealed {inForce}");
+
+        // The private pillar: its dialog and the population screen both say what the funds do and where they lead.
+        main.OpenDetail("policy", "base:pension_subsidy");
+        await Frames(main, 4);
+        if (!FindAll<Label>(main).Any(l => string.Equals(l.Text, t.T("ui.pop.fund_open"), StringComparison.OrdinalIgnoreCase))) throw new Exception("the idle pillar law shows no pension card");
+        main.CloseDialogs();
+        if (!s.Do(new IntroducePolicy("base:pension_subsidy"), t.T("ui.law.introduced", t.Name("base:pension_subsidy")))) throw new Exception("the state contribution cannot be brought in");
+        main.OpenDetail("policy", "base:pension_subsidy");
+        await Frames(main, 4);
+        if (!FindAll<Label>(main).Any(l => string.Equals(l.Text, t.T("ui.pop.fund_open"), StringComparison.OrdinalIgnoreCase))) throw new Exception("the pillar law shows no pension card");
+        foreach (var sc in FindAll<ScrollContainer>(main)) sc.ScrollVertical = 420;
+        await Frames(main, 3);
+        if (shots != null) Shot(main, shots, "pension-policy");
+        main.CloseDialogs();
+        main.Open(main.Screens.OfType<PopulationScreen>().First());
+        await Frames(main, 4);
+        foreach (var sc in FindAll<ScrollContainer>(main)) sc.ScrollVertical = 100000;
+        await Frames(main, 3);
+        if (!FindAll<Label>(main).Any(l => string.Equals(l.Text, t.T("ui.pop.fund_open"), StringComparison.OrdinalIgnoreCase))) throw new Exception("the population screen shows no pension card");
+        if (shots != null) Shot(main, shots, "pension-population");
+        main.CloseDialogs();
     }
 
     private static async Task AllianceFlow(Main main, string? shots)

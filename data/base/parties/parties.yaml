@@ -61,7 +61,7 @@
     base:minimum_wage: {target: 6, weight: 0.6}
     base:housing_support: {target: 1, weight: 0.4}
     base:family_allowances: {target: 1, weight: 0.4}
-    base:wealth_tax: {target: 0.5, weight: 0.3}
+    base:wealth_tax: {target: 0.1667, weight: 0.3}
     base:active_labour_policy: {target: 0.8, weight: 0.3}
     base:corporate_tax: {target: 5, weight: 0.4}
     base:childcare: {target: 0.8, weight: 0.3}
@@ -134,7 +134,7 @@
   red_lines:
     - {policy: base:income_tax, op: ">=", threshold: 30}
     - {policy: base:corporate_tax, op: ">=", threshold: 7}
-    - {policy: base:wealth_tax, op: ">=", threshold: 1}
+    - {policy: base:wealth_tax, op: ">=", threshold: 0.333}
   factions:
     - {id: liberals, weight: 0.5, platform: {base:income_tax: 17, base:migration: 5}}
     - {id: conservatives, weight: 0.5, platform: {base:police: 2.5, base:migration: 2}}
@@ -200,7 +200,7 @@
     base:migration: {target: 4, weight: 0.2}
     base:minimum_wage: {target: 8, weight: 0.6}
     base:rent_control: {target: 6, weight: 0.5}
-    base:wealth_tax: {target: 1.5, weight: 0.5}
+    base:wealth_tax: {target: 0.5, weight: 0.5}
     base:housing_support: {target: 2, weight: 0.4}
     base:labour_flexibility: {target: 3, weight: 0.4}
     base:electoral_threshold: {target: 3, weight: 0.3}
@@ -211,7 +211,7 @@
     base:active_labour_policy: {target: 1.2, weight: 0.3}
     base:retirement_age: {target: 61, weight: 0.4}
     base:transaction_tax: {target: 0.5, weight: 0.4}
-    base:property_tax: {target: 1, weight: 0.3}
+    base:property_tax: {target: 0.3333, weight: 0.3}
     base:business_regulation: {target: 7, weight: 0.3}
     base:defence: {target: 0, weight: 0.2}
   affinity: {base:low_income: 0.35, base:middle_class: -0.10, base:high_income: -0.40, base:pensioners: 0.10, base:young_urban: 0.10, base:rural_conservatives: -0.20, base:working_class: 0.35, base:upper_middle: -0.25, base:families: 0.0, base:urban: -0.05, base:unemployed: 0.35, base:entrepreneurs: -0.35, base:public_sector: 0.15}
@@ -221,7 +221,7 @@
     - {id: social_benefits, kind: policy, policy: base:social_benefits, op: ">=", target: 10, weight: 3, due_turns: 8}
     - {id: health, kind: policy, policy: base:health_spending, op: ">=", target: 8.5, weight: 2, due_turns: 12}
     - {id: low_unemployment, kind: value, value: base:unemployment, op: "<=", target: 5, weight: 2, due_turns: 16}
-    - {id: wealth_tax, kind: policy, policy: base:wealth_tax, op: ">=", target: 1, weight: 2, due_turns: 12}
+    - {id: wealth_tax, kind: policy, policy: base:wealth_tax, op: ">=", target: 0.333, weight: 2, due_turns: 12}
     - {id: minimum_wage_up, kind: policy, policy: base:minimum_wage, op: ">=", target: 6, weight: 3, due_turns: 8}
     - {id: rent_control, kind: policy, policy: base:rent_control, op: ">=", target: 5, weight: 1, due_turns: 12}
     - {id: fair_seats, kind: policy, policy: base:electoral_method, op: ">=", target: 1, weight: 1, due_turns: 12}

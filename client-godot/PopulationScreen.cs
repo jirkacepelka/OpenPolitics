@@ -70,11 +70,15 @@ public sealed class PopulationScreen : Screen
             pensions.AddChild(Ui.Panel(Ui.Margin(box, 10, 8), "Inset"));
         }
         var (ff, fu) = Ui.Money(t, V("base:pension_fund"));
+        double funded = V("base:pension_funded_share"), capital = Math.Max(V("base:capital"), 1.0);
         PTile(t.T("ui.pop.saving_share"), Ui.Num(V("base:pension_participation") * 100, "0"), "%");
         PTile(t.T("ui.pop.fund"), ff, fu);
-        PTile(t.T("ui.pop.funded"), Ui.Num(V("base:pension_funded_share") * 100, "0.0"), "%");
-        PTile(t.T("ui.pop.burden"), Ui.Num(V("base:pension_burden") / Math.Max(V("base:share_pensioners"), 1e-9) * 100, "0"), t.T("ui.pop.of_pensioners"));
+        PTile(t.T("ui.pop.fund_share"), Ui.Num(V("base:pension_fund") / capital * 100, "0.0"), "%");
+        PTile(t.T("ui.pop.funded"), Ui.Num(funded * 100, "0.0"), "%");
+        PTile(t.T("ui.pop.burden"), Ui.Num((1.0 - Math.Min(0.6, 0.8 * funded)) * 100, "0"), "%");
         d.Body.AddChild(pensions);
+        d.Body.AddChild(Ui.L(t.T("ui.pop.fund_open"), Tx.Overline, AppTheme.Ink2));
+        d.Body.AddChild(ValueDialog.ModelCard(t, s.Game.ExplainPensions()));
         var levers = new FlowGrid { MinColumn = 260, MaxColumns = 3, Gap = 8 };
         foreach (var id in new[] { "base:pension_subsidy", "base:pension_tax_relief", "base:mandatory_pension_pillar", "base:pensions", "base:retirement_age" })
         {

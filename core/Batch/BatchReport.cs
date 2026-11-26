@@ -17,7 +17,7 @@ public sealed record StabilityThresholds(
     public IReadOnlySet<string> NominalIndices { get; init; } = new HashSet<string>(StringComparer.Ordinal)
         { "base:price_level", "base:gdp_nominal" };
 
-    public IReadOnlySet<string> NetPositions { get; init; } = new HashSet<string>(StringComparer.Ordinal) { "base:debt" };
+    public IReadOnlySet<string> NetPositions { get; init; } = new HashSet<string>(StringComparer.Ordinal) { "base:debt", "base:reserve" };
 }
 
 /// <summary>

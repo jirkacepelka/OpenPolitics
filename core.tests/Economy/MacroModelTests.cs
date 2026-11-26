@@ -45,11 +45,11 @@ public class MacroModelTests
         new(new[] { Tax(tax), Spend(spend) });
 
     [Fact]
-    public void OwnsExactlyTheSixteenMacroValues()
+    public void OwnsExactlyTheSeventeenMacroValues()
     {
         var m = Model();
         Assert.Equal("macro_v1", m.Id);
-        Assert.Equal(16, m.OwnedValueIds.Count); // decision 0014 added base:debt_pct, decision 0021 base:core_inflation
+        Assert.Equal(17, m.OwnedValueIds.Count); // decision 0014 added base:debt_pct, decision 0021 base:core_inflation and base:reserve
         Assert.Contains(MacroModelV1.Ids.DebtPct, m.OwnedValueIds);
         Assert.Contains(MacroModelV1.Ids.Gdp, m.OwnedValueIds);
     }
@@ -177,5 +177,39 @@ public class MacroModelTests
         s[MacroModelV1.Ids.Gdp] = 0;
         var next = Step(Model(), s);
         foreach (var (k, v) in next) Assert.True(double.IsFinite(v), k);
+    }
+
+    [Fact]
+    public void DebtNeverGoesBelowZeroAndASurplusBuildsAReserve()
+    {
+        var m = Model(tax: 40, spend: 30);   // a primary surplus of 10 % of GDP
+        var v = Initial();
+        v[MacroModelV1.Ids.Debt] = 0.05 * v[MacroModelV1.Ids.Gdp];
+        double reserveBefore = 0;
+        for (int i = 0; i < 40; i++)
+        {
+            v = Step(m, v);
+            Assert.True(v[MacroModelV1.Ids.Debt] >= 0.0, $"turn {i}: debt {v[MacroModelV1.Ids.Debt]}");
+            Assert.True(v[MacroModelV1.Ids.Reserve] >= reserveBefore - 1e-6, "once there is a reserve it only grows while the state runs a surplus");
+            reserveBefore = v[MacroModelV1.Ids.Reserve];
+        }
+        Assert.Equal(0.0, v[MacroModelV1.Ids.Debt]);
+        Assert.True(v[MacroModelV1.Ids.Reserve] > 0.1 * v[MacroModelV1.Ids.Gdp], "the surplus is saved once the debt is repaid");
+        Assert.Equal(0.0, v[MacroModelV1.Ids.DebtPct]);
+    }
+
+    [Fact]
+    public void ADeficitDrawsTheReserveDownBeforeTheStateBorrowsAgain()
+    {
+        var m = Model(tax: 40, spend: 45);   // a primary deficit of 5 % of GDP
+        var v = Initial();
+        v[MacroModelV1.Ids.Debt] = 0.0;
+        v[MacroModelV1.Ids.Reserve] = 0.2 * v[MacroModelV1.Ids.Gdp];
+        v = Step(m, v);
+        Assert.Equal(0.0, v[MacroModelV1.Ids.Debt]);
+        Assert.True(v[MacroModelV1.Ids.Reserve] < 0.2 * v[MacroModelV1.Ids.Gdp]);
+        for (int i = 0; i < 20; i++) v = Step(m, v);
+        Assert.True(v[MacroModelV1.Ids.Debt] > 0.0, "the reserve runs out and the state borrows again");
+        Assert.Equal(0.0, v[MacroModelV1.Ids.Reserve]);
     }
 }

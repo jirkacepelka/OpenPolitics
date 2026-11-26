@@ -48,6 +48,13 @@
   reference: 1840000000000.0
   scale: 460000000000.0
   owner: macro_v1
+- id: base:reserve
+  unit: CZK
+  initial: 0.0
+  reference: 0.0
+  scale: 460000000000.0
+  owner: macro_v1
+  hidden: true
 - id: base:interest_rate
   unit: percent
   initial: 5.0649

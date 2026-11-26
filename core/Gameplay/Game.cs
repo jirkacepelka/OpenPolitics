@@ -323,7 +323,18 @@ public sealed class Game
     }
 
     /// <summary>Why a value the economic model owns moves and what it moves in turn, from the model's own terms; null for other values.</summary>
-    public ModelExplanation? ExplainValue(string valueId) => ModelExplainer.Explain(valueId, _values, _country.Parameters);
+    public ModelExplanation? ExplainValue(string valueId) =>
+        valueId is PensionModelV1.Ids.Fund or PensionModelV1.Ids.Participation or PensionModelV1.Ids.Funded or PensionModelV1.Ids.Burden or PensionModelV1.Ids.Saving
+            ? ExplainPensions()
+            : ModelExplainer.Explain(valueId, _values, _country.Parameters);
+
+    /// <summary>What the private pension funds do and where they lead, optionally as if <paramref name="policyId"/> stood at <paramref name="value"/> (a preview of a slider).</summary>
+    public ModelExplanation ExplainPensions(string? policyId = null, double? value = null)
+    {
+        IReadOnlyDictionary<string, double> pol = _policies;
+        if (policyId != null && value is { } v) pol = new SortedDictionary<string, double>(_policies, Ord) { [policyId] = v };
+        return ModelExplainer.ExplainPensions(_values, pol, _country.Parameters);
+    }
 
     /// <summary>Accepted policy changes that are still waiting for their delay to pass, in the order they were made.</summary>
     public IReadOnlyList<PendingPolicy> PendingPolicies => _pending.ToList();

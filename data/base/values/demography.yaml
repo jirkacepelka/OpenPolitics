@@ -177,8 +177,8 @@
   hidden: true
 - id: base:pension_burden
   unit: fraction
-  initial: 0.2096
-  reference: 0.2096
+  initial: 0.2037
+  reference: 0.2037
   scale: 0.01
   owner: pensions_v1
   hidden: true

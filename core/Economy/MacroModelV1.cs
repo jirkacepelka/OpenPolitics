@@ -29,6 +29,8 @@ public sealed class MacroModelV1 : IEconomyModel
         /// <summary>Net saving of the private pension funds in CZK a year, published by the pension model.</summary>
         public const string PensionSaving = "base:pension_saving";
         public const string Debt = "base:debt";
+        /// <summary>What the state has saved once the debt is repaid: a surplus first pays the debt off, then it piles up here and earns the base rate. The debt itself never goes below zero.</summary>
+        public const string Reserve = "base:reserve";
         public const string InterestRate = "base:interest_rate";
         public const string Revenue = "base:revenue";
         public const string Spending = "base:spending";
@@ -62,7 +64,7 @@ public sealed class MacroModelV1 : IEconomyModel
         ["premium_max"] = 15.0,                 // max debt risk premium, percentage points
         ["premium_ratio_half"] = 1.5,           // debt/GDP at which the premium is about 76% of max
         ["debt_crowding"] = 0.05,               // saving rate lost per unit of debt/GDP above 0.6 (crowding out)
-        ["pension_saving_share"] = 0.6,         // share of the pension funds' net saving that becomes capital
+        ["pension_saving_share"] = 0.85,        // share of the pension funds' net saving that is invested at home and becomes capital
     };
 
     /// <summary>Valid inclusive range of every parameter; the validator checks country parameters against it.</summary>
@@ -78,7 +80,9 @@ public sealed class MacroModelV1 : IEconomyModel
             ["premium_max"] = (0, 100), ["premium_ratio_half"] = (0.01, 100), ["debt_crowding"] = (0, 5), ["pension_saving_share"] = (0, 1),
         };
 
-    private const double MinA = 1e-9, LoadElasticity = 0.45;
+    private const double MinA = 1e-9;
+    /// <summary>How fast a spending bill follows the head count it serves (benefits per head follow prices more than wages, so the bill grows slower than the count).</summary>
+    public const double LoadElasticity = 0.45;
     private readonly IReadOnlyList<PolicyDef> _policies;
     private readonly IReadOnlyDictionary<string, double> _driverRef;
 
@@ -94,7 +98,7 @@ public sealed class MacroModelV1 : IEconomyModel
     public IReadOnlyList<string> OwnedValueIds { get; } = new[]
     {
         Ids.Gdp, Ids.Capital, Ids.Productivity, Ids.LabourForce, Ids.Unemployment,
-        Ids.Inflation, Ids.CoreInflation, Ids.Debt, Ids.InterestRate, Ids.Revenue, Ids.Spending,
+        Ids.Inflation, Ids.CoreInflation, Ids.Debt, Ids.Reserve, Ids.InterestRate, Ids.Revenue, Ids.Spending,
         Ids.PriceLevel, Ids.GdpNominal, Ids.RealGrowth, Ids.DeficitPct, Ids.DebtPct,
     };
 
@@ -119,7 +123,7 @@ public sealed class MacroModelV1 : IEconomyModel
         double uNat = P("natural_unemployment"), r0 = P("base_interest"), piTarget = P("inflation_target");
 
         double a = Math.Max(V(Ids.Productivity), MinA), k = Math.Max(V(Ids.Capital), 1.0), lf = Math.Max(V(Ids.LabourForce), 1.0);
-        double u = Math.Clamp(V(Ids.Unemployment), 0, 99), pi = V(Ids.Inflation), debt = V(Ids.Debt), rate = V(Ids.InterestRate);
+        double u = Math.Clamp(V(Ids.Unemployment), 0, 99), pi = V(Ids.Inflation), debt = Math.Max(V(Ids.Debt), 0.0), reserve = Math.Max(V(Ids.Reserve), 0.0), rate = V(Ids.InterestRate);
         double piCore = input.Values.TryGetValue(Ids.CoreInflation, out var pc) && double.IsFinite(pc) ? pc : pi; // the underlying rate the model steers
 
         double yOld = Production(a, k, lf * (1 - u / 100), alpha);
@@ -184,7 +188,8 @@ public sealed class MacroModelV1 : IEconomyModel
         double ratio = y2 > 0 ? debt / y2 : 0.0;
         double premium = InterestPremium(ratio, P("premium_max"), P("premium_ratio_half"));
         double rReal = r0 + premium;
-        double totalDeficit = primaryDeficit + rReal / 100.0 * debt;           // includes interest
+        double reserveIncome = r0 / 100.0 * reserve;                           // the reserve earns the base real rate
+        double totalDeficit = primaryDeficit + rReal / 100.0 * debt - reserveIncome; // includes interest on the debt, less what the reserve earns
         double deficitPct = y2 > 0 ? totalDeficit / y2 * 100 : 0.0;
 
         // Inflation: mean reversion, output gap, fiscal impulse (total deficit, so debt service counts).
@@ -201,7 +206,9 @@ public sealed class MacroModelV1 : IEconomyModel
 
         // Debt and interest rate.
         var rd = R(Ids.Debt);
-        double debt2 = debt + dt * (totalDeficit + rd.Additive + debt * rd.Relative);
+        // The net position (debt less reserve) moves by the deficit; a surplus repays the debt first and only then builds the reserve, so the debt never goes below zero.
+        double net = debt - reserve + dt * (totalDeficit + rd.Additive + debt * rd.Relative);
+        double debt2 = Math.Max(net, 0.0), reserve2 = Math.Max(-net, 0.0);
         var rrate = R(Ids.InterestRate);
         double rate2 = (rReal + pi2) * (1 + dt * rrate.Relative) + dt * rrate.Additive;
 
@@ -215,6 +222,7 @@ public sealed class MacroModelV1 : IEconomyModel
             [Ids.Inflation] = Safe(pi2, pi),
             [Ids.CoreInflation] = Safe(piCore2, piCore),
             [Ids.Debt] = Safe(debt2, debt),
+            [Ids.Reserve] = Safe(reserve2, reserve),
             [Ids.InterestRate] = Safe(rate2, rate),
             [Ids.Revenue] = Safe(revenue, V(Ids.Revenue)),
             [Ids.Spending] = Safe(spending, V(Ids.Spending)),
