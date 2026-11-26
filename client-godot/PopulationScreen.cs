@@ -77,8 +77,9 @@ public sealed class PopulationScreen : Screen
         PTile(t.T("ui.pop.funded"), Ui.Num(funded * 100, "0.0"), "%");
         PTile(t.T("ui.pop.burden"), Ui.Num((1.0 - Math.Min(0.6, 0.8 * funded)) * 100, "0"), "%");
         d.Body.AddChild(pensions);
-        d.Body.AddChild(Ui.L(t.T("ui.pop.fund_open"), Tx.Overline, AppTheme.Ink2));
-        d.Body.AddChild(ValueDialog.ModelCard(t, s.Game.ExplainPensions()));
+        var openFund = new Button { Text = t.T("ui.pop.fund_open"), ThemeTypeVariation = "ButtonGhost", FocusMode = Control.FocusModeEnum.None, SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin, MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        openFund.Pressed += () => main.OpenDetail("value", "base:pension_fund");
+        d.Body.AddChild(openFund);
         var levers = new FlowGrid { MinColumn = 260, MaxColumns = 3, Gap = 8 };
         foreach (var id in new[] { "base:pension_subsidy", "base:pension_tax_relief", "base:mandatory_pension_pillar", "base:pensions", "base:retirement_age" })
         {

@@ -30,3 +30,13 @@ Status: accepted. Follows 0021.
 At 1 % of GDP a year (about 46 bn CZK) the funds hold about 1.3 tn CZK after ten years instead of 0.57 tn, replace 8 % of the state pensions instead of
 3.5 % and save the state about 33 bn CZK a year, while the payment is 46 bn: the pillar pays back in wealth, investment and voters' comfort, and only
 partly in the budget, which is the real trade-off of a funded pillar.
+
+## Addendum: the funds' own bubble, a history that survives a load, the slider first
+- `base:pension_fund` is no longer hidden: it is a bubble on the map (spending sector, its own pictogram) with its own dialog, which holds the whole
+  explanation card. A law dialog shows only the few lines that follow the slider (what the state pays, the funds in ten years with and without help,
+  how much of the pensions they replace, the saving) and a button to the funds' dialog; the Population screen has the same button. The fund acts on the
+  income classes through `pension_fund_to_mobility_up` (bounded: tanh). An edge from the fund to inequality was tried and dropped: it made growth show
+  up as inequality through the fund, hid the direct effects of laws and the audit caught it.
+- A loaded game gets its history (charts, "why did it change") back: `Simulation.Load` calls an optional callback after the start and after every
+  replayed turn, and the session records history from it. Before, only the present was recorded.
+- In a law dialog the slider is the first thing (it used to follow the effects, so it could be below the fold); explanations and effects come after.

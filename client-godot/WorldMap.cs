@@ -86,7 +86,7 @@ public partial class WorldMap : Control
             // An indicator sits in the sector whose policies act on it most.
             var counts = new int[3];
             foreach (var e in s.Packs.Edges.Where(e => e.To == v.Id && groupOfPolicy.ContainsKey(e.From))) counts[groupOfPolicy[e.From]]++;
-            int g = counts.Max() == 0 ? (Math.Abs(v.Id.GetHashCode() % 3)) : Array.IndexOf(counts, counts.Max());
+            int g = v.Id == "base:pension_fund" ? 1 : counts.Max() == 0 ? Math.Min(2, (int)(Hash(v.Id, 0) * 3)) : Array.IndexOf(counts, counts.Max()); // the funds belong to the spending sector; no edges: a stable pick
             float imp = (float)Math.Sqrt(degree.GetValueOrDefault(v.Id) / (double)maxDeg);
             bool headline = v.Id is "base:gdp" or "base:unemployment" or "base:inflation" or "base:debt" or "base:deficit_pct";
             Add(new Node { Id = v.Id, Policy = false, Group = g, Weight = 0.9f + 0.55f * imp + (headline ? 0.35f : 0), Icon = Icons.For(v.Id) });

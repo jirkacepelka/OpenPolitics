@@ -262,4 +262,16 @@ public class PopulationTests
         var def = Packs.VoterGroups.Single(gr => gr.Id == "base:pensioners");
         Assert.True(def.LevelWeights!.GetValueOrDefault("base:pension_fund") > 0.0);
     }
+
+    [Fact]
+    public void LoadingReplaysEveryTurnToTheCallerSoHistoryCanBeRebuilt()
+    {
+        var g = Sandbox(5);
+        Run(g, 9);
+        var turns = new List<int>(); int reports = 0;
+        var loaded = Simulation.Load(Packs, SaveData.FromYaml(g.Save().ToYaml()), (game, report) => { turns.Add(game.State.Turn); if (report != null) reports++; });
+        Assert.Equal(Enumerable.Range(0, 10).ToList(), turns);   // the start and one call after each of the 9 turns
+        Assert.Equal(9, reports);
+        Assert.Equal(Values(g)["base:gdp"], Values(loaded)["base:gdp"]);
+    }
 }

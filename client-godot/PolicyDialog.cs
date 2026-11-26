@@ -144,7 +144,8 @@ public static class PolicyDialog
                 if (id is "base:pension_subsidy" or "base:pension_tax_relief" or "base:mandatory_pension_pillar")
                 {
                     d.Body.AddChild(Ui.L(t.T("ui.pop.fund_open"), Tx.Overline, AppTheme.Ink2));
-                    d.Body.AddChild(ValueDialog.ModelCard(t, s.Game.ExplainPensions()));
+                    d.Body.AddChild(ValueDialog.ModelCard(t, s.Game.ExplainPensions(), PensionSummary));
+                    d.Body.AddChild(FundButton(main, t));
                 }
                 double introCost = s.Game.IntroductionCost(id);
                 var intro = d.AddAction(t.T("ui.law.introduce") + (introCost > 0 ? " · " + Ui.Num(introCost, "0") : ""), IconKind.Plus,
@@ -195,12 +196,14 @@ public static class PolicyDialog
                 right.AddChild(row);
             }
             d.Body.AddChild(Detail.Columns(left, right, 2.2f));
+            Control? warnPanel = null;
             if (blocked != null)
             {
                 var warn = Ui.HBox(10);
                 warn.AddChild(new IconView(IconKind.Alert, 18, AppTheme.WarnText));
                 warn.AddChild(Ui.L(t.T(blocked), Tx.BodyStrong, AppTheme.WarnText, true));
-                d.Body.AddChild(Ui.Panel(warn, "Warn"));
+                warnPanel = Ui.Panel(warn, "Warn");
+                d.Body.AddChild(warnPanel);
             }
             d.Body.AddChild(Ui.Rule());
 
@@ -259,8 +262,11 @@ public static class PolicyDialog
             if (blocked == null) slider.Affordable = s.Game.AffordableRange(id);
             Control sliderBlock = s.Politics?.Party != null ? Detail.Columns(sliderCol, capBox, 2.6f) : sliderCol;
             d.Body.AddChild(sliderBlock);
-            // In small windows the slider comes before the effect list so it is never below the fold.
-            if (Layout.Compact || Layout.Short) d.Body.MoveChild(sliderBlock, effects.GetIndex());
+            // The slider is the first thing in the dialog, so it is never below the fold; the explanations and effects follow it.
+            d.Body.MoveChild(sliderBlock, 0);
+            d.Body.AddChild(Ui.Rule());
+            d.Body.MoveChild(d.Body.GetChild(d.Body.GetChildCount() - 1), 1);
+            if (warnPanel != null) d.Body.MoveChild(warnPanel, 0);
 
             var revert = d.AddAction(t.T("ui.pd.revert"), IconKind.Undo, () => { });
             var apply = d.AddAction(t.T("ui.pd.apply"), IconKind.Check, () =>
@@ -315,7 +321,8 @@ public static class PolicyDialog
                 {
                     Ui.Clear(pensionCard);
                     pensionCard.AddChild(Ui.L(t.T("ui.pop.fund_open"), Tx.Overline, AppTheme.Ink2));
-                    pensionCard.AddChild(ValueDialog.ModelCard(t, changed ? s.Game.ExplainPensions(id, v) : s.Game.ExplainPensions()));
+                    pensionCard.AddChild(ValueDialog.ModelCard(t, changed ? s.Game.ExplainPensions(id, v) : s.Game.ExplainPensions(), PensionSummary));
+                    pensionCard.AddChild(FundButton(main, t));
                 }
             }
             slider.TargetChanged += Update;
@@ -326,6 +333,19 @@ public static class PolicyDialog
         Build();
         Detail.Live(d, s, Build);
         return d;
+    }
+
+    /// <summary>The few lines of the fund explanation a law dialog shows: where the setting leads (the whole card is in the fund's own dialog).</summary>
+    private static readonly HashSet<string> PensionSummary = new(StringComparer.Ordinal)
+    {
+        "model.pension_fund.state_pays", "model.pension_fund.fund10", "model.pension_fund.fund10_alone", "model.pension_fund.covers10", "model.pension_fund.saves10",
+    };
+
+    private static Control FundButton(Main main, Localizer t)
+    {
+        var b = new Button { Text = t.T("ui.pd.open_fund"), ThemeTypeVariation = "ButtonGhost", FocusMode = Control.FocusModeEnum.None, SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin, MouseDefaultCursorShape = Control.CursorShape.PointingHand };
+        b.Pressed += () => main.OpenDetail("value", "base:pension_fund");
+        return b;
     }
 
     private static void FillEffects(Main main, Session s, PolicyDef p, VBoxContainer box, PolicyPreview? preview, bool changed)
@@ -405,9 +425,20 @@ public static class ValueDialog
     }
 
     /// <summary>What the economic model does with this value: its drivers per year and what it moves in turn, as plain figures.</summary>
-    public static Control ModelCard(Localizer t, ModelExplanation m)
+    public static Control ModelCard(Localizer t, ModelExplanation m, IReadOnlySet<string>? only = null)
     {
         var box = Ui.VBox(6);
+        if (only != null)
+        {
+            // a short list: just these lines, in the order the model gives them, without section headings
+            foreach (var l in m.Drivers.Concat(m.Effects).Where(l => only.Contains(l.Key)))
+            {
+                bool signed = l.Unit != LineUnit.Percent && l.Unit != LineUnit.Money;
+                var color = !signed ? (Color?)null : l.Amount > 1e-9 ? AppTheme.GoodText : l.Amount < -1e-9 ? AppTheme.BadText : AppTheme.Ink3;
+                box.AddChild(Detail.Stat(t.T(l.Key), Ui.Fix(Amount(t, l)), color));
+            }
+            return Ui.Panel(box, "Inset");
+        }
         void Section(string key, IReadOnlyList<ModelLine> lines)
         {
             box.AddChild(Ui.L(t.T(key), Tx.Overline, AppTheme.Ink2));

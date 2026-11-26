@@ -152,6 +152,7 @@ public static class Smoke
         string file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "openpolitics-smoke.save.yaml");
         try
         {
+            for (int i = 0; i < 6; i++) probe.Game.EndTurn();
             System.IO.File.WriteAllText(file, probe.Game.Save().ToYaml());
             main.ShowStart();
             main.ShowLoad(new[] { file });
@@ -162,6 +163,7 @@ public static class Smoke
             row.EmitSignal(BaseButton.SignalName.Pressed);
             await Frames(main, 3);
             if (main.Session == null || main.Session.ScenarioId != scenarioId) throw new Exception("loading from the list did not open the saved game");
+            if (main.Session.History.Turns.Count != 7 || main.Session.Last == null) throw new Exception($"a loaded game must get its history back, not only the present ({main.Session.History.Turns.Count} points)");
             GD.Print("smoke: main menu, settings, new game and load ok");
         }
         finally { if (System.IO.File.Exists(file)) System.IO.File.Delete(file); }
@@ -229,8 +231,13 @@ public static class Smoke
         await Frames(main, 4);
         foreach (var sc in FindAll<ScrollContainer>(main)) sc.ScrollVertical = 100000;
         await Frames(main, 3);
-        if (!FindAll<Label>(main).Any(l => string.Equals(l.Text, t.T("ui.pop.fund_open"), StringComparison.OrdinalIgnoreCase))) throw new Exception("the population screen shows no pension card");
+        var openFund = FindAll<Button>(main).FirstOrDefault(b => b.Text == t.T("ui.pop.fund_open")) ?? throw new Exception("the population screen has no way to the private funds");
         if (shots != null) Shot(main, shots, "pension-population");
+        openFund.EmitSignal(BaseButton.SignalName.Pressed);
+        await Frames(main, 4);
+        if (!FindAll<Label>(main).Any(l => l.Text == t.T("model.pension_fund.fund10"))) throw new Exception("the funds' own dialog shows no outlook");
+        if (!main.Map!.PositionOf("base:pension_fund").HasValue) throw new Exception("the private funds have no bubble on the map");
+        if (shots != null) Shot(main, shots, "pension-bubble");
         main.CloseDialogs();
     }
 

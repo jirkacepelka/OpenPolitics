@@ -177,9 +177,14 @@ public sealed class Session
     {
         try
         {
-            Game = Simulation.Load(Packs, SaveData.FromYaml(System.IO.File.ReadAllText(file)));
-            Last = null;
-            History.Reset(Game);
+            // The replay plays every saved turn again, so the charts get their whole course back, not just the present.
+            TurnReport? last = null; bool first = true;
+            Game = Simulation.Load(Packs, SaveData.FromYaml(System.IO.File.ReadAllText(file)), (g, report) =>
+            {
+                if (first) { History.Reset(g); first = false; } else History.Record();
+                last = report;
+            });
+            Last = last;
             Digest.Clear();
             Message = T.T("ui.loaded", file);
             Changed?.Invoke();

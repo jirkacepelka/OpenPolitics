@@ -167,7 +167,6 @@
   reference: 400000000000.0
   scale: 100000000000.0
   owner: pensions_v1
-  hidden: true
 - id: base:pension_saving
   unit: CZK
   initial: 0.0

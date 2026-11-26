@@ -13,8 +13,12 @@ public static class Simulation
     public static Game NewGame(PackSet packs, string scenarioId, ulong seed, string? playerParty = null, bool randomStart = false) =>
         new(packs, scenarioId, seed, playerParty, randomStart);
 
-    /// <summary>Replays the saved actions on a fresh game. Throws <see cref="SaveMismatchException"/> if the packs differ.</summary>
-    public static Game Load(PackSet packs, SaveData save)
+    /// <summary>
+    /// Replays the saved actions on a fresh game. Throws <see cref="SaveMismatchException"/> if the packs differ.
+    /// <paramref name="afterTurn"/> is called with the game and the report of the turn just played (null for the very first call, at the start), once for
+    /// the start and once after every replayed turn, so a client can rebuild its history (charts) instead of showing only the present.
+    /// </summary>
+    public static Game Load(PackSet packs, SaveData save, Action<Game, TurnReport?>? afterTurn = null)
     {
         foreach (var (id, hash) in save.PackHashes.OrderBy(k => k.Key, StringComparer.Ordinal))
         {
@@ -41,7 +45,8 @@ public static class Simulation
                 i++;
             }
         }
-        for (int t = 0; t < save.Turn; t++) { ApplyTurnActions(t); game.EndTurn(); }
+        afterTurn?.Invoke(game, null);
+        for (int t = 0; t < save.Turn; t++) { ApplyTurnActions(t); var report = game.EndTurn(); afterTurn?.Invoke(game, report); }
         ApplyTurnActions(save.Turn);
         if (i != save.Actions.Count) throw new SaveMismatchException("Save contains actions for turns after its last turn.");
         return game;

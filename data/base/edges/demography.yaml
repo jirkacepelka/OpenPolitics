@@ -209,3 +209,9 @@
   to: base:inequality
   strength: -0.8
   delay: {type: smooth, turns: 8}
+- id: base:pension_fund_to_mobility_up
+  from: base:pension_fund
+  to: base:mobility_up
+  strength: 0.15
+  fn: {type: tanh, scale: 6}   # people with savings of their own move up the income ladder; +600 bn CZK of funds is about three quarters of the effect
+  delay: {type: smooth, turns: 8}
