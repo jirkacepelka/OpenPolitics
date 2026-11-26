@@ -26,8 +26,20 @@ rm -rf "build/$platform" client-godot/data
 mkdir -p "build/$platform" client-godot/data
 cp -r data/base client-godot/data/base
 
+# Godot's .NET export needs a solution file next to the project; without one it only warns, skips the game's assemblies
+# and writes a game that starts, shows the logo and quits. The solution is not kept in the repository, so make one here.
+rm -f client-godot/OpenPolitics.Client.sln client-godot/OpenPolitics.Client.slnx
+(cd client-godot && dotnet new sln -n OpenPolitics.Client --format sln >/dev/null && dotnet sln OpenPolitics.Client.sln add OpenPolitics.Client.csproj >/dev/null)
+trap 'rm -f client-godot/OpenPolitics.Client.sln' EXIT
+
 "$GODOT" --headless --path client-godot --import
 "$GODOT" --headless --path client-godot --export-release "$preset" "$(pwd)/$out"
+
+# The game's C# assemblies travel in a data_* folder next to the executable; a build without it cannot run.
+if ! ls -d "build/$platform"/data_*/OpenPolitics.Client.dll >/dev/null 2>&1 && [ "$platform" != "macos" ]; then
+  echo "export failed: no .NET assemblies (data_*/OpenPolitics.Client.dll) in build/$platform" >&2
+  exit 1
+fi
 
 name="OpenPolitics-$version-$platform"
 # Licences travel with the game: code (MIT), data (CC BY-SA 4.0), the Inter font (SIL OFL).
