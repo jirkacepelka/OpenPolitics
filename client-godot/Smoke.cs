@@ -236,6 +236,7 @@ public static class Smoke
         openFund.EmitSignal(BaseButton.SignalName.Pressed);
         await Frames(main, 4);
         if (!FindAll<Label>(main).Any(l => l.Text == t.T("model.pension_fund.fund10"))) throw new Exception("the funds' own dialog shows no outlook");
+        if (FindAll<ChartPanel>(main).Count == 0) throw new Exception("the funds' dialog shows no chart of what is saved");
         if (!main.Map!.PositionOf("base:pension_fund").HasValue) throw new Exception("the private funds have no bubble on the map");
         if (shots != null) Shot(main, shots, "pension-bubble");
         main.CloseDialogs();

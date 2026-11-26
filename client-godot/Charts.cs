@@ -54,6 +54,11 @@ public static class Charts
             .Select((id, i) => (History.ValueKey(id), s.T.Name(id), PaletteColor(i))).ToList()),
         new("classes", t => t.T("ui.chart.classes"), "0.0", 100, s => new[] { "base:class_poor", "base:class_low", "base:class_middle", "base:class_upper", "base:class_high" }
             .Select((id, i) => (History.ValueKey(id), s.T.Name(id), PaletteColor(4 + i))).ToList()),
+        new("pension_fund", t => t.T("ui.chart.pension_fund"), "0", 1e-9, s => One(History.ValueKey("base:pension_fund"), s.T.Name("base:pension_fund"), Palette[0])),
+        new("pension_saving", t => t.T("ui.chart.pension_saving"), "0", 1e-9, s => One(History.ValueKey("base:pension_saving"), s.T.Name("base:pension_saving"), Palette[2])),
+        new("pension_people", t => t.T("ui.chart.pension_people"), "0.0", 100, s => new[] { "base:pension_participation", "base:pension_funded_share" }
+            .Select((id, i) => (History.ValueKey(id), s.T.Name(id), PaletteColor(i == 0 ? 1 : 3))).ToList()),
+        new("reserve", t => t.T("ui.chart.reserve"), "0", 1e-9, s => One(History.ValueKey("base:reserve"), s.T.Name("base:reserve"), Palette[2])),
         Value("health", "base:health", "0.0", InkLine),
         Value("education", "base:education_level", "0.0", InkLine),
         Value("crime", "base:crime", "0", InkLine),
@@ -69,7 +74,7 @@ public static class Charts
         ["unemployment"] = "economy", ["inflation"] = "economy", ["price_level"] = "economy", ["interest_rate"] = "economy",
         ["revenue"] = "budget", ["deficit"] = "budget", ["debt"] = "budget", ["interest_paid"] = "budget",
         ["mood"] = "society", ["groups"] = "society", ["health"] = "society", ["education"] = "society", ["crime"] = "society",
-        ["environment"] = "society", ["inequality"] = "society", ["population"] = "society", ["ages"] = "society", ["classes"] = "society", ["polls"] = "politics", ["loyalty"] = "politics", ["group_support"] = "politics",
+        ["environment"] = "society", ["inequality"] = "society", ["pension_fund"] = "society", ["pension_saving"] = "society", ["pension_people"] = "society", ["reserve"] = "budget", ["population"] = "society", ["ages"] = "society", ["classes"] = "society", ["polls"] = "politics", ["loyalty"] = "politics", ["group_support"] = "politics",
     };
 
     /// <summary>Which of the four groups a chart belongs to (the chart dialog's first row).</summary>
@@ -94,7 +99,8 @@ public static class Charts
             "base:inflation" => new[] { "inflation", "price_level", "interest_rate" },
             "base:price_level" => new[] { "price_level", "inflation" },
             "base:interest_rate" => new[] { "interest_rate", "inflation", "interest_paid" },
-            "base:debt" or "base:debt_pct" => new[] { "debt", "interest_paid", "deficit" },
+            "base:debt" or "base:debt_pct" => new[] { "debt", "interest_paid", "deficit", "reserve" },
+            "base:pension_fund" or "base:pension_participation" or "base:pension_funded_share" or "base:pension_saving" or "base:pension_burden" => new[] { "pension_fund", "pension_saving", "pension_people" },
             "base:deficit_pct" => new[] { "deficit", "debt", "revenue" },
             "base:revenue" or "base:spending" => new[] { "revenue", "deficit" },
             _ => Array.Empty<string>(),
